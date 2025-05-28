@@ -15,7 +15,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   // This boolean will eventually be controlled by a theme switch
-  bool _isDarkMode = false; 
+  bool _isDarkMode = ThemeMode.system == ThemeMode.dark; 
 
   void _toggleTheme() {
     setState(() {
