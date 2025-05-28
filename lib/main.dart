@@ -36,6 +36,7 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.blueGrey, // Dark theme color
         // Define other dark theme properties
       ),
+      debugShowCheckedModeBanner: false,
       home: const ExpenseHomePage(),
     );
   }
