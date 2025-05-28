@@ -1,16 +1,16 @@
-# myapp
+# Expense Tracker App
 
-A new Flutter project.
+This is a simple expense tracker application built with Flutter. It allows users to record their daily expenses.
+
+## Features
+
+- Add expenses with details including Category, Amount, and Remarks.
+- Supports a dark mode theme based on your system preferences.
+- Responsive design with layout issues addressed.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Clone this repository.
+2. Make sure you have Flutter installed.
+3. Navigate to the project directory in your terminal.
+4. Run `flutter run` to launch the application.
