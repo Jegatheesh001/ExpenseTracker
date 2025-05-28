@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'persistence_context.dart';
 
 void main() {
   runApp(const MyApp());
@@ -68,11 +69,22 @@ class Expense {
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   String? _selectedCategory;
   final List<String> _categories = [
-    'Food',
-    'Transport',
-    'Shopping',
-    'Utilities',
+
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final loadedCategories = await PersistenceContext().getCategories();
+    setState(() {
+      _categories.addAll(loadedCategories);
+    });
+  }
+
   final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
@@ -102,7 +114,6 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           category: _selectedCategory!,
           amount: amount,
           remarks: remarks,
-
           entryDate: entryDate,
         ));
       });
