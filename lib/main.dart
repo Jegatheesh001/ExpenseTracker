@@ -5,15 +5,36 @@ void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // This boolean will eventually be controlled by a theme switch
+  bool _isDarkMode = false; 
+
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Expense Tracker',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        brightness: Brightness.light,
+        primarySwatch: Colors.teal, // Light theme color
+        // Define other light theme properties
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.blueGrey, // Dark theme color
+        // Define other dark theme properties
       ),
       home: const ExpenseHomePage(),
     );
@@ -108,6 +129,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 });
               },
               decoration: const InputDecoration(labelText: 'Category'),
+            ),
+            TextField(
+              controller: _amountController,
+              decoration: const InputDecoration(labelText: 'Amount'),
+              keyboardType: TextInputType.number,
             ),
             TextField(
               controller: _remarksController,
