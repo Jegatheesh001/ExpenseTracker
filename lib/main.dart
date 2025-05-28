@@ -42,23 +42,30 @@ class Expense {
 }
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
+  String? _selectedCategory;
+  final List<String> _categories = [
+    'Food',
+    'Transport',
+    'Shopping',
+    'Utilities',
+  ];
   final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
   final List<Expense> _expenses = [];
 
   void _addExpense() {
-    final category = _categoryController.text;
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
     final entryDate = DateTime.now();
 
-    if (category.isNotEmpty && amount > 0) {
+    if (_selectedCategory != null && amount > 0) {
       setState(() {
         _expenses.add(Expense(
-          category: category,
+          category: _selectedCategory!,
           amount: amount,
           remarks: remarks,
+
           entryDate: entryDate,
         ));
       });
@@ -70,7 +77,6 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   @override
   void dispose() {
-    _categoryController.dispose();
     _amountController.dispose();
     _remarksController.dispose();
     super.dispose();
@@ -87,14 +93,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _categoryController,
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              hint: const Text('Select Category'),
+              items: _categories.map((String category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedCategory = newValue;
+                });
+              },
               decoration: const InputDecoration(labelText: 'Category'),
-            ),
-            TextField(
-              controller: _amountController,
-              decoration: const InputDecoration(labelText: 'Amount'),
-              keyboardType: TextInputType.number,
             ),
             TextField(
               controller: _remarksController,
