@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -81,8 +82,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
     final entryDate = DateTime.now();
+ final category = _selectedCategory;
 
-    if (_selectedCategory != null && amount > 0) {
+ if (category == null || category.isEmpty) {
+ ScaffoldMessenger.of(context).showSnackBar(
+ const SnackBar(content: Text('Please select a category')),
+ );
+    } else if (amount <= 0) {
+ ScaffoldMessenger.of(context).showSnackBar(
+ const SnackBar(content: Text('Please enter a valid amount')),
+ );
+    } else if (remarks.isEmpty) {
+ ScaffoldMessenger.of(context).showSnackBar(
+ const SnackBar(content: Text('Please enter remarks')),
+ );
+    } else {
       setState(() {
         _expenses.add(Expense(
           category: _selectedCategory!,
@@ -144,6 +158,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               controller: _amountController,
               decoration: const InputDecoration(labelText: 'Amount'),
               keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ],
             ),
             TextField(
               controller: _remarksController,
