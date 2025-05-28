@@ -37,6 +37,7 @@ class _MyAppState extends State<MyApp> {
         // Define other dark theme properties
       ),
       debugShowCheckedModeBanner: false,
+      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const ExpenseHomePage(),
     );
   }
@@ -109,7 +110,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expense Tracker'),
-      ),
+        actions: [
+        IconButton(
+          icon: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+          onPressed: () {
+            context.findAncestorStateOfType<_MyAppState>()?._toggleTheme();
+          },
+        ),
+      ], // IconButton
+      ), // AppBar
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
