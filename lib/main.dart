@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'persistence_context.dart';
+import 'entity.dart';
 
 void main() {
   runApp(const MyApp());
@@ -52,30 +53,18 @@ class ExpenseHomePage extends StatefulWidget {
   _ExpenseHomePageState createState() => _ExpenseHomePageState();
 }
 
-class Expense {
-  final String category;
-  final double amount;
-  final String remarks;
-  final DateTime entryDate;
 
-  Expense({
-    required this.category,
-    required this.amount,
-    required this.remarks,
-    required this.entryDate,
-  });
-}
+
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   String? _selectedCategory;
-  final List<String> _categories = [
-
-  ];
+  final List<String> _categories = [];
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _loadExpenses();
   }
 
   Future<void> _loadCategories() async {
@@ -85,10 +74,19 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
+  // Method to load expenses from the database
+  Future<void> _loadExpenses() async {
+    final loadedExpenses = await PersistenceContext().getExpenses();
+    setState(() {
+      _expenses.clear();
+      _expenses.addAll(loadedExpenses);
+    });
+  }
+
   final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
-  final List<Expense> _expenses = [];
+  List<Expense> _expenses = [];
 
   void _addExpense() {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
@@ -109,14 +107,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
  const SnackBar(content: Text('Please enter remarks')),
  );
     } else {
-      setState(() {
-        _expenses.add(Expense(
-          category: _selectedCategory!,
-          amount: amount,
-          remarks: remarks,
-          entryDate: entryDate,
-        ));
-      });
+      final newExpense = Expense(
+        category: _selectedCategory!,
+        amount: amount,
+        remarks: remarks,
+        entryDate: entryDate,
+      );
+      PersistenceContext().saveExpense(newExpense);
+      _loadExpenses(); // Refresh the list after saving
       _categoryController.clear();
       _amountController.clear();
       _remarksController.clear();
