@@ -5,8 +5,9 @@ This is a simple mobile application built with Flutter for tracking daily expens
 ## Features
 
 - Add expenses with details including Category, Amount, and Remarks.
-- View a list of recorded expenses.
+- View a list of recorded expenses with the selected currency.
 - Delete expenses with a confirmation dialog for accidental deletion prevention.
+- **Dark Theme Toggle:** Manually switch between dark and light themes.
 - Automatic dark mode support based on system theme settings.
 
 ## Data Persistence
