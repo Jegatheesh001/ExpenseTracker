@@ -22,9 +22,9 @@ class _MyAppState extends State<MyApp> {
 
   @override
  void initState() {
-    super.initState();
+ super.initState();
     _loadThemeMode();
- }
+  }
 
   Future<void> _loadThemeMode() async {
  final prefs = await SharedPreferences.getInstance();
@@ -62,7 +62,7 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const ExpenseHomePage(),
-    );
+    ); // MaterialApp
   }
 }
 
@@ -80,12 +80,44 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedCategory;
   final List<String> _categories = [];
+  final List<String> _currencies = ['Rupee', 'Dirham', 'Dollar'];
+  String _currentCurrency = 'Rupee'; // This will hold the loaded currency
+  String _currencySymbol = '₹';
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
     _loadTodaysExpenses(); // Load today's expenses by default
+    _loadCurrency();
+  }
+  Future<void> _loadCurrency() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _currentCurrency = prefs.getString('selectedCurrency') ?? 'Rupee';
+    });
+    _loadCurrencySymbol();
+  }
+
+  // Determine the currency symbol based on the selected currency
+  Future<void> _loadCurrencySymbol() async {
+    String currencySymbol;
+    switch (_currentCurrency) {
+        case 'Rupee':
+          currencySymbol = '₹';
+        break;
+        case 'Dirham':
+          currencySymbol = 'د.إ';
+        break;
+        case 'Dollar':
+          currencySymbol = '\$';
+        break;
+        default:
+            currencySymbol = '\$'; // Default to dollar if currency is unknown
+    }
+    setState(() {
+      _currencySymbol = currencySymbol;
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -109,6 +141,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       _expenses.clear();
       _expenses.addAll(loadedExpenses);
     });
+  }
+  Future<void> _saveCurrency(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedCurrency', value);
+    _currentCurrency = value;
+    _loadCurrencySymbol(); // Reload currency after saving
   }
 
   // Method to delete an expense from the database
@@ -190,12 +228,30 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       appBar: AppBar(
         title: const Text('Expense Tracker'),
         actions: [
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _currentCurrency,
+            icon: const Icon(Icons.currency_exchange),
+            items: _currencies.map((String currency) {
+              return DropdownMenuItem<String>(
+                value: currency,
+                child: Text(currency),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                _saveCurrency(newValue);
+              }
+            },
+          ),
+        ),
         IconButton(
-          icon: Icon(Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
+          icon: Icon(
+ Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
           onPressed: () {
             context.findAncestorStateOfType<_MyAppState>()?._toggleTheme();
           },
-        ),
+        ), // IconButtonpdownButtonHideUnderline
       ], // IconButton
       ), // AppBar
       body: Padding(
@@ -243,12 +299,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios),
                   onPressed: _previousDay,
-
                 ),
                 Row(
                   children: [
-                    Text('Total: \$${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 16.0),
+                    Text('Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 8.0),
                     Text(
                       DateFormat('dd-MM-yyyy').format(_selectedDate),
                       style: const TextStyle(fontSize: 16),
@@ -271,15 +326,16 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 itemBuilder: (context, index) {
                   final expense = _expenses[index];
                   final formattedDate =
-                      DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
+ DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
+
                   return Card(
                     child: Stack(
                       children: [
                         ListTile(
                           title: Text(expense.remarks),
                           subtitle: Text(
-                              'Amount: \$${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate'),
-                        ),
+                              'Amount: $_currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate'),
+                        ), // ListTile
                         Positioned(
                           top: 0,
                           right: 0,
@@ -312,7 +368,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                           ),
                         ),
                       ],
-                    ),
+                    ), // Stack
                   );
                 },
               ),
