@@ -50,8 +50,8 @@ class DatabaseHelper {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'expenses',
-      where: 'entryDate BETWEEN ? AND ?',
-      whereArgs: [startDate.toIso8601String(), endDate.toIso8601String()],
+      where: 'date(entryDate) BETWEEN ? AND ?',
+      whereArgs: [startDate.toIso8601String().substring(0, 10), endDate.toIso8601String().substring(0, 10)],
       orderBy: 'entryDate desc',
     );
     return _mapMapsToExpenses(maps);

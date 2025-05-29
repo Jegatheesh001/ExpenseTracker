@@ -78,7 +78,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   // Method to load today's expenses from the database
   Future<void> _loadTodaysExpenses() async {
     final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfDay, _selectedDate);
+    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfDay, startOfDay);
     _updateExpenseList(loadedExpenses);
   }
 
@@ -94,7 +94,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   // Method to delete an expense from the database
   Future<void> _deleteExpense(int id) async {
     await PersistenceContext().deleteExpense(id);
-    _loadExpenses(); // Refresh the list after deleting
+    _loadTodaysExpenses(); // Refresh the list after deleting
   }
   
   // Helper method to update the expense list state
@@ -150,7 +150,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         entryDate: entryDate,
       );
       PersistenceContext().saveExpense(newExpense);
-      _loadExpenses(); // Refresh the list after saving
+      _loadTodaysExpenses(); // Refresh the list after saving
       _categoryController.clear();
       _amountController.clear();
       _remarksController.clear();
