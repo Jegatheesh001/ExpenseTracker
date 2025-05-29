@@ -1,12 +1,21 @@
 # Expense Tracker App
 
-This is a simple expense tracker application built with Flutter. It allows users to record their daily expenses.
+This is a simple mobile application built with Flutter for tracking daily expenses.
 
 ## Features
 
 - Add expenses with details including Category, Amount, and Remarks.
-- Supports a dark mode theme based on your system preferences.
-- Responsive design with layout issues addressed.
+- View a list of recorded expenses.
+- Delete expenses with a confirmation dialog for accidental deletion prevention.
+- Automatic dark mode support based on system theme settings.
+
+## Data Persistence
+
+The application uses SQLite for local data persistence. The database operations are managed by the following files:
+
+- `database_helper.dart`: Handles the core SQLite database interactions.
+- `entity.dart`: Defines the data model for expenses.
+- `persistence_context.dart`: Provides a higher-level interface for database operations.
 
 ## Getting Started
 
