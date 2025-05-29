@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'persistence_context.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'entity.dart';
 
 void main() {
@@ -17,12 +18,31 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   // This boolean will eventually be controlled by a theme switch
-  bool _isDarkMode = ThemeMode.system == ThemeMode.dark; 
+ bool _isDarkMode = false;
+
+  @override
+ void initState() {
+    super.initState();
+    _loadThemeMode();
+ }
+
+  Future<void> _loadThemeMode() async {
+ final prefs = await SharedPreferences.getInstance();
+    setState(() {
+ _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
+    });
+  }
+
+  Future<void> _saveThemeMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', value);
+  }
 
   void _toggleTheme() {
     setState(() {
       _isDarkMode = !_isDarkMode;
     });
+    _saveThemeMode(_isDarkMode);
   }
 
   @override
