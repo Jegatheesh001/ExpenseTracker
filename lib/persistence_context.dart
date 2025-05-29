@@ -24,4 +24,8 @@ class PersistenceContext {
   Future<List<Expense>> getExpenses() async {
     return await DatabaseHelper().getExpenses();
   }
+
+  Future<int> deleteExpense(int id) async {
+    return await DatabaseHelper().deleteExpense(id);
+  }
 }

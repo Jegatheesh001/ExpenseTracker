@@ -83,6 +83,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
+  // Method to delete an expense from the database
+  Future<void> _deleteExpense(int id) async {
+    await PersistenceContext().deleteExpense(id);
+    _loadExpenses(); // Refresh the list after deleting
+  }
+
   final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
@@ -194,10 +200,45 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                   final formattedDate =
                       DateFormat('yyyy-MM-dd HH:mm').format(expense.entryDate);
                   return Card(
-                    child: ListTile(
-                      title: Text(expense.category),
-                      subtitle: Text(
-                          'Amount: \$${expense.amount.toStringAsFixed(2)}\nRemarks: ${expense.remarks}\nDate: $formattedDate'),
+                    child: Stack(
+                      children: [
+                        ListTile(
+                          title: Text(expense.remarks),
+                          subtitle: Text(
+                              'Amount: \$${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate'),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: const Text('Confirm Delete'),
+                                    content: const Text('Are you sure you want to delete this expense?'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        onPressed: () => Navigator.of(context).pop(false), // Dismiss dialog
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _deleteExpense(expense.id!); // Call the delete function
+                                          Navigator.of(context).pop(true); // Dismiss dialog and confirm deletion
+                                        },
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
