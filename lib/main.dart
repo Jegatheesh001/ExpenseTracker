@@ -57,6 +57,7 @@ class ExpenseHomePage extends StatefulWidget {
 
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
+  DateTime _selectedDate = DateTime.now();
   String? _selectedCategory;
   final List<String> _categories = [];
 
@@ -76,9 +77,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   
   // Method to load today's expenses from the database
   Future<void> _loadTodaysExpenses() async {
-    final today = DateTime.now();
-    final startOfToday = DateTime(today.year, today.month, today.day);
-    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfToday, today);
+    final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfDay, _selectedDate);
     _updateExpenseList(loadedExpenses);
   }
 
@@ -103,6 +103,20 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       _expenses.clear();
       _expenses.addAll(expenses);
     });
+  }
+
+  void _previousDay() {
+    setState(() {
+      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+    });
+    _loadTodaysExpenses(); // Load expenses for the previous day
+  }
+
+  void _nextDay() {
+    setState(() {
+      _selectedDate = _selectedDate.add(const Duration(days: 1));
+    });
+    _loadTodaysExpenses(); // Load expenses for the next day
   }
 
   final _categoryController = TextEditingController();
@@ -203,11 +217,34 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               child: const Text('Add Expense'),
             ),
             const SizedBox(height: 24.0),
-            const Text(
-              'Expenses',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios),
+                  onPressed: _previousDay,
+
+                ),
+                Row(
+                  children: [
+                    Text('Total: \$${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 16.0),
+                    Text(
+                      DateFormat('dd-MM-yyyy').format(_selectedDate),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios),
+                  onPressed: _nextDay,
+                ),
+              ],
             ),
             const SizedBox(height: 8.0),
+
+
+
             Expanded(
               child: ListView.builder(
                 itemCount: _expenses.length,
