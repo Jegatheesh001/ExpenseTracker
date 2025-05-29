@@ -40,25 +40,40 @@ class DatabaseHelper {
   }
 
   Future<List<Expense>> getExpenses() async {
-    Database db = await database;
+    final Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query('expenses', orderBy: 'entryDate desc');
-    return List.generate(maps.length, (i) {
-      return Expense(
-        id: maps[i]['id'], // Include id
-        amount: maps[i]['amount'],
-        category: maps[i]['category'],
-        remarks: maps[i]['remarks'], // Include remarks
-        entryDate: DateTime.parse(maps[i]['entryDate']), // Include entryDate
-      );
-    });
+    return _mapMapsToExpenses(maps);
+
+  }
+
+  Future<List<Expense>> getExpensesByDate(DateTime startDate, DateTime endDate) async {
+    Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'expenses',
+      where: 'entryDate BETWEEN ? AND ?',
+      whereArgs: [startDate.toIso8601String(), endDate.toIso8601String()],
+      orderBy: 'entryDate desc',
+    );
+    return _mapMapsToExpenses(maps);
   }
 
   Future<int> deleteExpense(int id) async {
-    Database db = await database;
+    final Database db = await database;
     return await db.delete(
       'expenses',
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  List<Expense> _mapMapsToExpenses(List<Map<String, dynamic>> maps) {
+    return List.generate(maps.length, (i) {
+      return Expense(
+        id: maps[i]['id'],
+        amount: maps[i]['amount'],
+        category: maps[i]['category'],
+        remarks: maps[i]['remarks'],
+        entryDate: DateTime.parse(maps[i]['entryDate']));
+    });
   }
 }

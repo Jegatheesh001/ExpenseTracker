@@ -64,7 +64,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   void initState() {
     super.initState();
     _loadCategories();
-    _loadExpenses();
+    _loadTodaysExpenses(); // Load today's expenses by default
   }
 
   Future<void> _loadCategories() async {
@@ -72,6 +72,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     setState(() {
       _categories.addAll(loadedCategories);
     });
+  }
+  
+  // Method to load today's expenses from the database
+  Future<void> _loadTodaysExpenses() async {
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfToday, today);
+    _updateExpenseList(loadedExpenses);
   }
 
   // Method to load expenses from the database
@@ -87,6 +95,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   Future<void> _deleteExpense(int id) async {
     await PersistenceContext().deleteExpense(id);
     _loadExpenses(); // Refresh the list after deleting
+  }
+  
+  // Helper method to update the expense list state
+  void _updateExpenseList(List<Expense> expenses) {
+    setState(() {
+      _expenses.clear();
+      _expenses.addAll(expenses);
+    });
   }
 
   final _categoryController = TextEditingController();
@@ -198,7 +214,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 itemBuilder: (context, index) {
                   final expense = _expenses[index];
                   final formattedDate =
-                      DateFormat('yyyy-MM-dd HH:mm').format(expense.entryDate);
+                      DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
                   return Card(
                     child: Stack(
                       children: [
