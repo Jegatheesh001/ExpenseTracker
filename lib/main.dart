@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'add_expense_screen.dart'; // Import the new screen
 import 'persistence_context.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'settings_screen.dart'; // Import the new settings screen
 import 'entity.dart';
 
 void main() {
@@ -20,29 +21,23 @@ class _MyAppState extends State<MyApp> {
   // This boolean will eventually be controlled by a theme switch
  bool _isDarkMode = false;
 
-  @override
+ @override
  void initState() {
  super.initState();
     _loadThemeMode();
   }
 
   Future<void> _loadThemeMode() async {
- final prefs = await SharedPreferences.getInstance();
-    setState(() {
- _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
-    });
-  }
-
-  Future<void> _saveThemeMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', value);
+    setState(() {
+      _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
+    });
   }
 
   void _toggleTheme() {
     setState(() {
       _isDarkMode = !_isDarkMode;
     });
-    _saveThemeMode(_isDarkMode);
   }
 
   @override
@@ -79,7 +74,6 @@ class ExpenseHomePage extends StatefulWidget {
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
   final List<String> _categories = [];
-  final List<String> _currencies = ['Rupee', 'Dirham', 'Dollar'];
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
   String _currencySymbol = '₹';
 
@@ -141,12 +135,6 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       _expenses.addAll(loadedExpenses);
     });
   }
-  Future<void> _saveCurrency(String value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selectedCurrency', value);
-    _currentCurrency = value;
-    _loadCurrencySymbol(); // Reload currency after saving
-  }
 
   // Method to delete an expense from the database
   Future<void> _deleteExpense(int id) async {
@@ -193,31 +181,19 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       appBar: AppBar(
         title: const Text('Expense Tracker'),
         actions: [
-        DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _currentCurrency,
-            icon: const Icon(Icons.currency_exchange),
-            items: _currencies.map((String currency) {
-              return DropdownMenuItem<String>(
-                value: currency,
-                child: Text(currency),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) {
+                  final myAppState = context.findAncestorStateOfType<_MyAppState>();
+                  return SettingsScreen(onThemeToggle: myAppState?._toggleTheme ?? () {});
+                }),
               );
-            }).toList(),
-            onChanged: (String? newValue) {
-              if (newValue != null) {
-                _saveCurrency(newValue);
-              }
             },
-          ),
-        ),
-        IconButton(
-          icon: Icon(
- Theme.of(context).brightness == Brightness.dark ? Icons.light_mode : Icons.dark_mode),
-          onPressed: () {
-            context.findAncestorStateOfType<_MyAppState>()?._toggleTheme();
-          },
-        ), // IconButtonpdownButtonHideUnderline
-      ], // IconButton
+          ),// IconButtonpdownButtonHideUnderline
+        ], // IconButton
       ), // AppBar
       body: Padding(
         padding: const EdgeInsets.all(8.0),
