@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/services.dart';
+import 'add_expense_screen.dart'; // Import the new screen
 import 'persistence_context.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'entity.dart';
@@ -78,7 +78,6 @@ class ExpenseHomePage extends StatefulWidget {
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
-  String? _selectedCategory;
   final List<String> _categories = [];
   final List<String> _currencies = ['Rupee', 'Dirham', 'Dollar'];
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
@@ -177,43 +176,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadTodaysExpenses(); // Load expenses for the next day
   }
 
-  final _categoryController = TextEditingController();
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
   List<Expense> _expenses = [];
-
-  void _addExpense() {
-    final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final remarks = _remarksController.text;
-    final entryDate = DateTime.now();
- final category = _selectedCategory;
-
- if (category == null || category.isEmpty) {
- ScaffoldMessenger.of(context).showSnackBar(
- const SnackBar(content: Text('Please select a category')),
- );
-    } else if (amount <= 0) {
- ScaffoldMessenger.of(context).showSnackBar(
- const SnackBar(content: Text('Please enter a valid amount')),
- );
-    } else if (remarks.isEmpty) {
- ScaffoldMessenger.of(context).showSnackBar(
- const SnackBar(content: Text('Please enter remarks')),
- );
-    } else {
-      final newExpense = Expense(
-        category: _selectedCategory!,
-        amount: amount,
-        remarks: remarks,
-        entryDate: entryDate,
-      );
-      PersistenceContext().saveExpense(newExpense);
-      _loadTodaysExpenses(); // Refresh the list after saving
-      _categoryController.clear();
-      _amountController.clear();
-      _remarksController.clear();
-    }
-  }
 
   @override
   void dispose() {
@@ -255,44 +220,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       ], // IconButton
       ), // AppBar
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DropdownButtonFormField<String>(
-              value: _selectedCategory,
-              hint: const Text('Select Category'),
-              items: _categories.map((String category) {
-                return DropdownMenuItem<String>(
-                  value: category,
-                  child: Text(category),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedCategory = newValue;
-                });
-              },
-              decoration: const InputDecoration(labelText: 'Category'),
-            ),
-            TextField(
-              controller: _amountController,
-              decoration: const InputDecoration(labelText: 'Amount'),
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-            ),
-            TextField(
-              controller: _remarksController,
-              decoration: const InputDecoration(labelText: 'Remarks'),
-            ),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: _addExpense,
-              child: const Text('Add Expense'),
-            ),
-            const SizedBox(height: 24.0),
+            Center(
+              child: Text('Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
+ ),
+            const SizedBox(height: 8.0), // Add some spacing
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -302,8 +238,6 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 ),
                 Row(
                   children: [
-                    Text('Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8.0),
                     Text(
                       DateFormat('dd-MM-yyyy').format(_selectedDate),
                       style: const TextStyle(fontSize: 16),
@@ -317,9 +251,6 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               ],
             ),
             const SizedBox(height: 8.0),
-
-
-
             Expanded(
               child: ListView.builder(
                 itemCount: _expenses.length,
@@ -375,6 +306,16 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final bool result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddExpenseScreen()));
+          if (result == true) { // Or whatever condition you expect
+            _loadTodaysExpenses();
+          }
+        },
+        tooltip: 'Add Expense',
+        child: const Icon(Icons.add),
       ),
     );
   }
