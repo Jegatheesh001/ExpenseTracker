@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:expense_tracker/database_helper.dart';
-import 'package:expense_tracker/entity.dart';
+import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/db/entity.dart';
 
 class PersistenceContext {
   Future<List<String>> getCategories() async {

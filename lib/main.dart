@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'add_expense_screen.dart'; // Import the new screen
-import 'persistence_context.dart';
+import 'db/persistence_context.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'settings_screen.dart'; // Import the new settings screen
-import 'entity.dart';
+import 'db/entity.dart';
 
 void main() {
   runApp(const MyApp());
