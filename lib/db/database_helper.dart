@@ -122,8 +122,12 @@ class DatabaseHelper {
 
   Future<int> updateExpense(Expense expense) async {
     final Database db = await database;
-    return await db.update('expenses', expense.toMap(),
-        where: 'id = ?', whereArgs: [expense.id]);
+    return await db.update(
+      'expenses',
+      expense.toMap(),
+      where: 'id = ?',
+      whereArgs: [expense.id],
+    );
   }
 
   // Helper function to map database results to Expense objects
@@ -142,8 +146,22 @@ class DatabaseHelper {
 
   Future<void> saveCategory(Category cat) async {
     Database db = await database;
-    await db.insert('categories', {
-      'category': cat.category,
-    });
+    await db.insert('categories', {'category': cat.category});
+  }
+
+  Future<bool> deleteCategory(int id) async {
+    Database db = await database;
+    final expenseCountQuery = '''
+      SELECT COUNT(*) AS expenseCount
+      FROM expenses
+      WHERE categoryId = ?
+    ''';
+    final expenseCountResult = await db.rawQuery(expenseCountQuery, [id]);
+    final expenseCount = expenseCountResult.first['expenseCount'] as int;
+    if (expenseCount == 0) {
+      await db.delete('categories', where: 'categoryId = ?', whereArgs: [id]);
+      return true;
+    }
+    return false;
   }
 }

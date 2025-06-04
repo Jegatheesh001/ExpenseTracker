@@ -34,4 +34,8 @@ class PersistenceContext {
   Future<void> saveCategory(Category newCategory) async {
     await DatabaseHelper().saveCategory(newCategory);
   }
+
+  Future<bool> deleteCategory(int id) async {
+    return await DatabaseHelper().deleteCategory(id);
+  }
 }
