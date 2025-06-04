@@ -100,7 +100,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add New Expense')),
+      appBar: AppBar(title: Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -151,7 +151,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 24.0),
               ElevatedButton(
                 onPressed: _addExpense,
-                child: const Text('Add Expense'),
+                child: Text(expenseToEdit == null ? 'Add Expense' : 'Update Expense'),
               ),
             ],
           ),

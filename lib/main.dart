@@ -285,27 +285,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                           right: 0, // Adjust position to make space for edit button
                           child: IconButton(
                             icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              // Show the AddExpenseScreen as a dialog for editing
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return Dialog(
-                                    child: AddExpenseScreen(
-                                      expenseToEdit:
-                                          expense, // Pass the expense to the dialog
-                                    ),
-                                  );
-                                },
-                              ).then((value) {
-                                // Refresh the expense list after the dialog is closed
-                                if (value == true) {
-                                  _loadTodaysExpenses();
-                                }
-                              });
+                            onPressed: () async {
+                              final bool result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => AddExpenseScreen(expenseToEdit: expense),
+                                ),
+                              );
+                              // Refresh the expense list after the dialog is closed
+                              if (result == true) {
+                                _loadTodaysExpenses();
+                              }
                             },
                           ),
-                        )
+                        ),
                       ],
                     ), // Stack
                   );
