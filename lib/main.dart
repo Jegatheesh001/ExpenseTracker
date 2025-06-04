@@ -19,18 +19,19 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   // This boolean will eventually be controlled by a theme switch
- bool _isDarkMode = false;
+  bool _isDarkMode = false;
 
- @override
- void initState() {
- super.initState();
+  @override
+  void initState() {
+    super.initState();
     _loadThemeMode();
   }
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
+      _isDarkMode =
+          prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
     });
   }
 
@@ -68,22 +69,18 @@ class ExpenseHomePage extends StatefulWidget {
   _ExpenseHomePageState createState() => _ExpenseHomePageState();
 }
 
-
-
-
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
-  final List<String> _categories = [];
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
   String _currencySymbol = '₹';
 
   @override
   void initState() {
     super.initState();
-    _loadCategories();
     _loadTodaysExpenses(); // Load today's expenses by default
     _loadCurrency();
   }
+
   Future<void> _loadCurrency() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -96,52 +93,52 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   Future<void> _loadCurrencySymbol() async {
     String currencySymbol;
     switch (_currentCurrency) {
-        case 'Rupee':
-          currencySymbol = '₹';
+      case 'Rupee':
+        currencySymbol = '₹';
         break;
-        case 'Dirham':
-          currencySymbol = 'د.إ';
+      case 'Dirham':
+        currencySymbol = 'د.إ';
         break;
-        case 'Dollar':
-          currencySymbol = '\$';
+      case 'Dollar':
+        currencySymbol = '\$';
         break;
-        default:
-            currencySymbol = '\$'; // Default to dollar if currency is unknown
+      default:
+        currencySymbol = '\$'; // Default to dollar if currency is unknown
     }
     setState(() {
       _currencySymbol = currencySymbol;
     });
   }
 
-  Future<void> _loadCategories() async {
-    final loadedCategories = await PersistenceContext().getCategories();
-    setState(() {
-      _categories.addAll(loadedCategories);
-    });
-  }
-  
   // Method to load today's expenses from the database
   Future<void> _loadTodaysExpenses() async {
-    final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final loadedExpenses = await PersistenceContext().getExpensesByDate(startOfDay, startOfDay);
+    final startOfDay = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    final loadedExpenses = await PersistenceContext().getExpensesByDate(
+      startOfDay,
+      startOfDay,
+    );
     _updateExpenseList(loadedExpenses);
   }
 
-  // Method to load expenses from the database
-  Future<void> _loadExpenses() async {
+  // Method to load expenses from the database (unused)
+  /* Future<void> _loadExpenses() async {
     final loadedExpenses = await PersistenceContext().getExpenses();
     setState(() {
       _expenses.clear();
       _expenses.addAll(loadedExpenses);
     });
-  }
+  } */
 
   // Method to delete an expense from the database
   Future<void> _deleteExpense(int id) async {
     await PersistenceContext().deleteExpense(id);
     _loadTodaysExpenses(); // Refresh the list after deleting
   }
-  
+
   // Helper method to update the expense list state
   void _updateExpenseList(List<Expense> expenses) {
     setState(() {
@@ -186,13 +183,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) {
-                  final myAppState = context.findAncestorStateOfType<_MyAppState>();
-                  return SettingsScreen(onThemeToggle: myAppState?._toggleTheme ?? () {});
-                }),
+                MaterialPageRoute(
+                  builder: (context) {
+                    final myAppState =
+                        context.findAncestorStateOfType<_MyAppState>();
+                    return SettingsScreen(
+                      onThemeToggle: myAppState?._toggleTheme ?? () {},
+                    );
+                  },
+                ),
               );
             },
-          ),// IconButtonpdownButtonHideUnderline
+          ), // IconButtonpdownButtonHideUnderline
         ], // IconButton
       ), // AppBar
       body: Padding(
@@ -201,9 +203,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
-              child: Text('Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
- ),
+              child: Text(
+                'Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ),
             const SizedBox(height: 8.0), // Add some spacing
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -232,8 +240,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 itemCount: _expenses.length,
                 itemBuilder: (context, index) {
                   final expense = _expenses[index];
-                  final formattedDate =
- DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
+                  final formattedDate = DateFormat(
+                    'dd-MM-yyyy HH:mm:ss',
+                  ).format(expense.entryDate);
 
                   return Card(
                     child: Stack(
@@ -241,7 +250,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ListTile(
                           title: Text(expense.remarks),
                           subtitle: Text(
-                              'Amount: $_currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate'),
+                            'Amount: $_currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
+                          ),
                         ), // ListTile
                         Positioned(
                           top: 0,
@@ -254,16 +264,25 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                                 builder: (BuildContext context) {
                                   return AlertDialog(
                                     title: const Text('Confirm Delete'),
-                                    content: const Text('Are you sure you want to delete this expense?'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this expense?',
+                                    ),
                                     actions: <Widget>[
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(false), // Dismiss dialog
+                                        onPressed:
+                                            () => Navigator.of(
+                                              context,
+                                            ).pop(false), // Dismiss dialog
                                         child: const Text('Cancel'),
                                       ),
                                       TextButton(
                                         onPressed: () {
-                                          _deleteExpense(expense.id!); // Call the delete function
-                                          Navigator.of(context).pop(true); // Dismiss dialog and confirm deletion
+                                          _deleteExpense(
+                                            expense.id!,
+                                          ); // Call the delete function
+                                          Navigator.of(context).pop(
+                                            true,
+                                          ); // Dismiss dialog and confirm deletion
                                         },
                                         child: const Text('Delete'),
                                       ),
@@ -285,8 +304,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final bool result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddExpenseScreen()));
-          if (result == true) { // Or whatever condition you expect
+          final bool result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+          );
+          if (result == true) {
+            // Or whatever condition you expect
             _loadTodaysExpenses();
           }
         },

@@ -1,5 +1,6 @@
 class Expense {
   final int? id;
+  final int? categoryId;
   final String category;
   final double amount;
   final String remarks;
@@ -12,7 +13,9 @@ class Expense {
       category: map['category'],
       amount: map['amount'],
       remarks: map['remarks'],
-      entryDate: DateTime.parse(map['entryDate']), // Assuming entryDate is stored as a String
+      entryDate: DateTime.parse(
+        map['entryDate'],
+      ), // Assuming entryDate is stored as a String
     );
   }
 
@@ -22,15 +25,24 @@ class Expense {
       'category': category,
       'amount': amount,
       'remarks': remarks,
-      'entryDate': entryDate.toIso8601String(), // Store DateTime as ISO 8601 string
+      'entryDate':
+          entryDate.toIso8601String(), // Store DateTime as ISO 8601 string
     };
   }
 
   Expense({
     this.id,
+    this.categoryId,
     required this.category,
     required this.amount,
     required this.remarks,
     required this.entryDate,
   });
+}
+
+class Category {
+  final int categoryId;
+  final String category;
+
+  Category(this.categoryId, this.category);
 }

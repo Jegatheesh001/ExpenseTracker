@@ -11,8 +11,8 @@ class AddExpenseScreen extends StatefulWidget {
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  String? _selectedCategory;
-  final List<String> _categories = [];
+  Category? _selectedCategory;
+  final List<Category> _categories = [];
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
@@ -34,23 +34,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
     final entryDate = DateTime.now();
-    final category = _selectedCategory;
+    final category = _selectedCategory?.category;
 
     if (category == null || category.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-          );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a category')));
     } else if (amount <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid amount')),
-        );
+      );
     } else if (remarks.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter remarks')),
-        );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter remarks')));
     } else {
       final newExpense = Expense(
-        category: _selectedCategory!,
+        categoryId: _selectedCategory!.categoryId,
+        category: category,
         amount: amount,
         remarks: remarks,
         entryDate: entryDate,
@@ -71,27 +72,28 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add New Expense'),
-      ),
+      appBar: AppBar(title: const Text('Add New Expense')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              DropdownButtonFormField<String>(
+              DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Category'),
-                value: _selectedCategory,
-                items: _categories.map((String category) {
-                  return DropdownMenuItem<String>(
-                    value: category,
-                    child: Text(category),
+                items:
+                    _categories.map((Category category) {
+                      return DropdownMenuItem<int>(
+                        value: category.categoryId,
+                        child: Text(category.category),
+                      );
+                    }).toList(),
+                onChanged: (int? newValue) {
+                  final Category selectedCat = _categories.firstWhere(
+                    (category) => category.categoryId == newValue,
                   );
-                }).toList(),
-                onChanged: (String? newValue) {
                   setState(() {
-                    _selectedCategory = newValue;
+                    _selectedCategory = selectedCat;
                   });
                 },
                 validator: (value) {

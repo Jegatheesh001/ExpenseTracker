@@ -4,16 +4,16 @@ import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
 
 class PersistenceContext {
-  Future<List<String>> getCategories() async {
+  Future<List<Category>> getCategories() async {
     return Future.value([
-      'Food',
-      'Transport',
-      'Shopping',
-      'Utilities',
-      'Entertainment',
-      'Health',
-      'Education',
-      'Others',
+      Category(1, 'Food'),
+      Category(2, 'Transport'),
+      Category(3, 'Shopping'),
+      Category(4, 'Utilities'),
+      Category(5, 'Entertainment'),
+      Category(6, 'Health'),
+      Category(7, 'Education'),
+      Category(8, 'Others'),
     ]);
   }
 
@@ -30,7 +30,9 @@ class PersistenceContext {
   }
 
   Future<List<Expense>> getExpensesByDate(
-      DateTime startDate, DateTime endDate) async {
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     return await DatabaseHelper().getExpensesByDate(startDate, endDate);
   }
 }
