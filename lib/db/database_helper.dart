@@ -24,13 +24,53 @@ class DatabaseHelper {
       (await getApplicationDocumentsDirectory()).path,
       'expenses.db',
     ); // Use getApplicationDocumentsDirectory from path_provider
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    // Create expenses table
     await db.execute(
-      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, category TEXT, entryDate TEXT)',
+      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, entryDate TEXT)',
     );
+
+    await version2DbChanges(db);
+  }
+
+  Future<void> version2DbChanges(Database db) async {
+    // Create categories table
+    await db.execute(
+      'CREATE TABLE categories(categoryId INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL UNIQUE)',
+    );
+    // Insert initial categories
+    final List<Category> initialCategories = [
+      Category(1, 'Food'),
+      Category(2, 'Transport'),
+      Category(3, 'Shopping'),
+      Category(4, 'Utilities'),
+      Category(5, 'Entertainment'),
+      Category(6, 'Health'),
+      Category(7, 'Education'),
+      Category(8, 'Others'),
+    ];
+
+    for (final c in initialCategories) {
+      await db.insert('categories', {
+        'categoryId': c.categoryId,
+        'category': c.category,
+      });
+    }
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (1 == oldVersion) {
+      await db.execute('ALTER TABLE expenses ADD COLUMN categoryId INTEGER');
+      await version2DbChanges(db);
+    }
   }
 
   Future<int> insertExpense(Expense expense) async {
@@ -38,6 +78,7 @@ class DatabaseHelper {
     return await db.insert('expenses', expense.toMap());
   }
 
+  // Method to get expenses (all)
   Future<List<Expense>> getExpenses() async {
     final Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -47,6 +88,7 @@ class DatabaseHelper {
     return _mapMapsToExpenses(maps);
   }
 
+  // Method to get expenses by date range
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,
     DateTime endDate,
@@ -64,11 +106,21 @@ class DatabaseHelper {
     return _mapMapsToExpenses(maps);
   }
 
+  // Method to get all categories
+  Future<List<Category>> getCategories() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('categories');
+    return List.generate(maps.length, (i) {
+      return Category(maps[i]['categoryId'], maps[i]['category']);
+    });
+  }
+
   Future<int> deleteExpense(int id) async {
     final Database db = await database;
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Helper function to map database results to Expense objects
   List<Expense> _mapMapsToExpenses(List<Map<String, dynamic>> maps) {
     return List.generate(maps.length, (i) {
       return Expense(

@@ -5,16 +5,7 @@ import 'package:expense_tracker/db/entity.dart';
 
 class PersistenceContext {
   Future<List<Category>> getCategories() async {
-    return Future.value([
-      Category(1, 'Food'),
-      Category(2, 'Transport'),
-      Category(3, 'Shopping'),
-      Category(4, 'Utilities'),
-      Category(5, 'Entertainment'),
-      Category(6, 'Health'),
-      Category(7, 'Education'),
-      Category(8, 'Others'),
-    ]);
+    return DatabaseHelper().getCategories();
   }
 
   Future<void> saveExpense(Expense expense) async {

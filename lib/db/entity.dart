@@ -10,6 +10,7 @@ class Expense {
   factory Expense.fromMap(Map<String, dynamic> map) {
     return Expense(
       id: map['id'],
+      categoryId: map['categoryId'],
       category: map['category'],
       amount: map['amount'],
       remarks: map['remarks'],
@@ -45,4 +46,8 @@ class Category {
   final String category;
 
   Category(this.categoryId, this.category);
+
+  Map<String, dynamic> toMap() {
+    return {'categoryId': categoryId, 'category': category};
+  }
 }
