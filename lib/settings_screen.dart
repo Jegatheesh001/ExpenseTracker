@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'categories_screen.dart'; // Import the new categories screen
+
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   const SettingsScreen({Key? key, required this.onThemeToggle}) : super(key: key);
@@ -87,6 +89,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ],
+          ),
+           ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 0), // Reduce horizontal padding
+            title: const Text('Categories'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CategoriesScreen()),
+              );
+            },
           ),
         ],
       ),
