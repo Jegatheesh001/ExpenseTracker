@@ -30,4 +30,8 @@ class PersistenceContext {
   ) async {
     return await DatabaseHelper().getExpensesByDate(startDate, endDate);
   }
+
+  Future<void> saveCategory(Category newCategory) async {
+    await DatabaseHelper().saveCategory(newCategory);
+  }
 }

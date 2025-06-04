@@ -126,7 +126,6 @@ class DatabaseHelper {
         where: 'id = ?', whereArgs: [expense.id]);
   }
 
-
   // Helper function to map database results to Expense objects
   List<Expense> _mapMapsToExpenses(List<Map<String, dynamic>> maps) {
     return List.generate(maps.length, (i) {
@@ -138,6 +137,13 @@ class DatabaseHelper {
         remarks: maps[i]['remarks'],
         entryDate: DateTime.parse(maps[i]['entryDate']),
       );
+    });
+  }
+
+  Future<void> saveCategory(Category cat) async {
+    Database db = await database;
+    await db.insert('categories', {
+      'category': cat.category,
     });
   }
 }
