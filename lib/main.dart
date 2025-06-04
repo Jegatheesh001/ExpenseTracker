@@ -244,7 +244,34 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     'dd-MM-yyyy HH:mm:ss',
                   ).format(expense.entryDate);
 
-                  return Card(
+                  return GestureDetector(
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Confirm Delete'),
+                            content: const Text(
+                              'Are you sure you want to delete this expense?',
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed:
+                                    () => Navigator.of(context).pop(false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  _deleteExpense(expense.id!);
+                                  Navigator.of(context).pop(true);
+                                },
+                                child: const Text('Delete'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
                     child: Stack(
                       children: [
                         ListTile(
@@ -255,7 +282,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ), // ListTile
                         Positioned(
                           top: 0,
-                          right: 40, // Adjust position to make space for edit button
+                          right: 0, // Adjust position to make space for edit button
                           child: IconButton(
                             icon: const Icon(Icons.edit),
                             onPressed: () {
@@ -278,47 +305,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                               });
                             },
                           ),
-                        ), // Positioned for edit button
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: const Text('Confirm Delete'),
-                                    content: const Text(
-                                      'Are you sure you want to delete this expense?',
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        onPressed:
-                                            () => Navigator.of(
-                                              context,
-                                            ).pop(false), // Dismiss dialog
-                                        child: const Text('Cancel'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          _deleteExpense(
-                                            expense.id!,
-                                          ); // Call the delete function
-                                          Navigator.of(context).pop(
-                                            true,
-                                          ); // Dismiss dialog and confirm deletion
-                                        },
-                                        child: const Text('Delete'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
+                        )
                       ],
                     ), // Stack
                   );
