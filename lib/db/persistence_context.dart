@@ -8,8 +8,12 @@ class PersistenceContext {
     return DatabaseHelper().getCategories();
   }
 
-  Future<void> saveExpense(Expense expense) async {
-    await DatabaseHelper().insertExpense(expense);
+  Future<void> saveOrUpdateExpense(Expense expense) async {
+    if (expense.id == null) {
+      await DatabaseHelper().insertExpense(expense);
+    } else {
+      await DatabaseHelper().updateExpense(expense);
+    }
   }
 
   Future<List<Expense>> getExpenses() async {

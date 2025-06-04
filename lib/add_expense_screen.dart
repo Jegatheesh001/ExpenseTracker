@@ -4,13 +4,17 @@ import 'db/entity.dart';
 import 'db/persistence_context.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({Key? key}) : super(key: key);
+  const AddExpenseScreen({Key? key, this.expenseToEdit}) : super(key: key);
+
+  final Expense? expenseToEdit;
 
   @override
+  // ignore: library_private_types_in_public_api
   _AddExpenseScreenState createState() => _AddExpenseScreenState();
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
+  Expense? expenseToEdit;
   Category? _selectedCategory;
   final List<Category> _categories = [];
   final TextEditingController _categoryController = TextEditingController();
@@ -19,14 +23,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void initState() {
+    expenseToEdit = widget.expenseToEdit;
     super.initState();
-    _loadCategories();
+    _loadCategories().then((_) {
+      if (expenseToEdit != null) {
+        _loadExpense(expenseToEdit!);
+      }
+    });
   }
 
   Future<void> _loadCategories() async {
     final loadedCategories = await PersistenceContext().getCategories();
     setState(() {
       _categories.addAll(loadedCategories);
+    });
+  }
+
+  Future<void> _loadExpense(Expense expense) async {
+    _amountController.text = expense.amount.toString();
+    _remarksController.text = expense.remarks;
+    Category selectedCategory;
+    if (expense.categoryId != null) {
+      selectedCategory = _categories.firstWhere(
+        (category) => category.categoryId == expense.categoryId,
+      );
+    } else {
+      selectedCategory = _categories.firstWhere(
+        (category) => category.category == expense.category,
+      );
+    }
+    setState(() {
+      _selectedCategory = selectedCategory;
     });
   }
 
@@ -50,13 +77,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ).showSnackBar(const SnackBar(content: Text('Please enter remarks')));
     } else {
       final newExpense = Expense(
+        id: expenseToEdit?.id,
         categoryId: _selectedCategory!.categoryId,
         category: category,
         amount: amount,
         remarks: remarks,
         entryDate: entryDate,
       );
-      PersistenceContext().saveExpense(newExpense);
+      PersistenceContext().saveOrUpdateExpense(newExpense);
       Navigator.pop(context, true);
     }
   }
@@ -81,6 +109,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: <Widget>[
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Category'),
+                value: _selectedCategory?.categoryId,
                 items:
                     _categories.map((Category category) {
                       return DropdownMenuItem<int>(
@@ -103,6 +132,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16.0),
               const SizedBox(height: 16.0),
               TextField(
                 controller: _amountController,

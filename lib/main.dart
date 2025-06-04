@@ -255,6 +255,32 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ), // ListTile
                         Positioned(
                           top: 0,
+                          right: 40, // Adjust position to make space for edit button
+                          child: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () {
+                              // Show the AddExpenseScreen as a dialog for editing
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return Dialog(
+                                    child: AddExpenseScreen(
+                                      expenseToEdit:
+                                          expense, // Pass the expense to the dialog
+                                    ),
+                                  );
+                                },
+                              ).then((value) {
+                                // Refresh the expense list after the dialog is closed
+                                if (value == true) {
+                                  _loadTodaysExpenses();
+                                }
+                              });
+                            },
+                          ),
+                        ), // Positioned for edit button
+                        Positioned(
+                          top: 0,
                           right: 0,
                           child: IconButton(
                             icon: const Icon(Icons.delete),

@@ -120,12 +120,20 @@ class DatabaseHelper {
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> updateExpense(Expense expense) async {
+    final Database db = await database;
+    return await db.update('expenses', expense.toMap(),
+        where: 'id = ?', whereArgs: [expense.id]);
+  }
+
+
   // Helper function to map database results to Expense objects
   List<Expense> _mapMapsToExpenses(List<Map<String, dynamic>> maps) {
     return List.generate(maps.length, (i) {
       return Expense(
         id: maps[i]['id'],
         amount: maps[i]['amount'],
+        categoryId: maps[i]['categoryId'],
         category: maps[i]['category'],
         remarks: maps[i]['remarks'],
         entryDate: DateTime.parse(maps[i]['entryDate']),

@@ -23,11 +23,11 @@ class Expense {
   // Convert an Expense object into a Map
   Map<String, dynamic> toMap() {
     return {
+      'categoryId': categoryId,
       'category': category,
       'amount': amount,
       'remarks': remarks,
-      'entryDate':
-          entryDate.toIso8601String(), // Store DateTime as ISO 8601 string
+      'entryDate': entryDate.toIso8601String(), // Store DateTime as ISO 8601 string
     };
   }
 
