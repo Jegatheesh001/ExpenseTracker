@@ -95,6 +95,24 @@ class DatabaseHelper {
     return _mapMapsToExpenses(maps);
   }
 
+  // Method to get expenses for a specific date
+  Future<double> getExpenseSumByDate(DateTime date) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'expenses',
+      // Specify the 'amount' column to be summed.
+      columns: ['SUM(amount) as total'],
+      where: 'date(expenseDate) = ?',
+      whereArgs: [date.toIso8601String().substring(0, 10)],
+    );
+
+    // Safely extract the sum from the result.
+    // The result of a SUM query is a list with one map, e.g., [{'total': 123.45}].
+    final double sum = result.first['total'] ?? 0.0;
+
+    return sum;
+  }
+
   // Method to get expenses by date range
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,

@@ -121,7 +121,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       startOfDay,
       startOfDay,
     );
+    _expensesTotal = loadedExpenses.fold(0.0, (sum, item) => sum + item.amount);
     _updateExpenseList(loadedExpenses);
+    _showPreviousDayPercentageChange();
   }
 
   // Method to load expenses from the database (unused)
@@ -163,13 +165,30 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
+
   List<Expense> _expenses = [];
+  double _expensesTotal = 0;
+  double _percentageChange = 0;
 
   @override
   void dispose() {
     _amountController.dispose();
     _remarksController.dispose();
     super.dispose();
+  }
+
+  void _showPreviousDayPercentageChange() async {
+    final previousDay = _selectedDate.subtract(const Duration(days: 1));
+    final previousDayTotal = await PersistenceContext().getExpenseSumByDate(
+      previousDay,
+    );
+    _percentageChange = 0;
+    if (previousDayTotal == 0 && _expensesTotal > 0) {
+      _percentageChange = 100; // other-wise this will be infinity
+    } else if (_expensesTotal > 0.0) {
+      _percentageChange =
+          ((_expensesTotal - previousDayTotal) / previousDayTotal) * 100;
+    }
   }
 
   @override
@@ -203,14 +222,27 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
-              child: Text(
-                'Total: $_currencySymbol${_expenses.fold(0.0, (sum, item) => sum + item.amount).toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                ),
-              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Total: $_currencySymbol${_expensesTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(width: 8.0),
+                  Text(
+                    '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: _percentageChange > 0 ? Colors.red : Colors.green,
+                    ),
+                  ),
+                ],
+              ), // Row
             ),
             const SizedBox(height: 8.0), // Add some spacing
             Row(
@@ -282,7 +314,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ), // ListTile
                         Positioned(
                           top: 0,
-                          right: 0, // Adjust position to make space for edit button
+                          right:
+                              0, // Adjust position to make space for edit button
                           child: IconButton(
                             icon: const Icon(Icons.edit),
                             onPressed: () async {
@@ -290,7 +323,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                                 context,
                                 MaterialPageRoute(
                                   builder:
-                                      (context) => AddExpenseScreen(expenseToEdit: expense),
+                                      (context) => AddExpenseScreen(
+                                        expenseToEdit: expense,
+                                      ),
                                 ),
                               );
                               // Refresh the expense list after the dialog is closed

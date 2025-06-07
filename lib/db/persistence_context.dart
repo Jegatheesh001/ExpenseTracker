@@ -38,4 +38,8 @@ class PersistenceContext {
   Future<bool> deleteCategory(int id) async {
     return await DatabaseHelper().deleteCategory(id);
   }
+
+  Future<double> getExpenseSumByDate(DateTime date) async {
+    return await DatabaseHelper().getExpenseSumByDate(date);
+  }
 }
