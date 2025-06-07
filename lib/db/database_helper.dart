@@ -26,7 +26,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -35,7 +35,7 @@ class DatabaseHelper {
   Future<void> _onCreate(Database db, int version) async {
     // Create expenses table
     await db.execute(
-      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, entryDate TEXT)',
+      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, expenseDate TEXT, entryDate TEXT)',
     );
 
     await version2DbChanges(db);
@@ -71,6 +71,13 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE expenses ADD COLUMN categoryId INTEGER');
       await version2DbChanges(db);
     }
+    // Version 3 changes
+    if (oldVersion < 3) {
+      await db.execute('ALTER TABLE expenses ADD COLUMN expenseDate TEXT');
+      await db.execute(
+        'UPDATE expenses SET expenseDate=date(entryDate) where expenseDate is null',
+      );
+    }
   }
 
   Future<int> insertExpense(Expense expense) async {
@@ -96,7 +103,7 @@ class DatabaseHelper {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'expenses',
-      where: 'date(entryDate) BETWEEN ? AND ?',
+      where: 'date(expenseDate) BETWEEN ? AND ?',
       whereArgs: [
         startDate.toIso8601String().substring(0, 10),
         endDate.toIso8601String().substring(0, 10),
@@ -139,6 +146,7 @@ class DatabaseHelper {
         categoryId: maps[i]['categoryId'],
         category: maps[i]['category'],
         remarks: maps[i]['remarks'],
+        expenseDate: DateTime.parse(maps[i]['expenseDate']),
         entryDate: DateTime.parse(maps[i]['entryDate']),
       );
     });

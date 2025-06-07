@@ -4,6 +4,7 @@ class Expense {
   final String category;
   final double amount;
   final String remarks;
+  final DateTime expenseDate;
   final DateTime entryDate;
 
   // Factory constructor to create an Expense from a Map
@@ -14,9 +15,12 @@ class Expense {
       category: map['category'],
       amount: map['amount'],
       remarks: map['remarks'],
+      expenseDate: DateTime.parse(
+        map['expenseDate'],
+      ),
       entryDate: DateTime.parse(
         map['entryDate'],
-      ), // Assuming entryDate is stored as a String
+      ),
     );
   }
 
@@ -27,7 +31,8 @@ class Expense {
       'category': category,
       'amount': amount,
       'remarks': remarks,
-      'entryDate': entryDate.toIso8601String(), // Store DateTime as ISO 8601 string
+      'expenseDate': expenseDate.toIso8601String(),
+      'entryDate': entryDate.toIso8601String(),
     };
   }
 
@@ -37,6 +42,7 @@ class Expense {
     required this.category,
     required this.amount,
     required this.remarks,
+    required this.expenseDate,
     required this.entryDate,
   });
 }

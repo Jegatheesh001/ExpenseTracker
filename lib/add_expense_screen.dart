@@ -20,6 +20,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -27,6 +28,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.initState();
     _loadCategories().then((_) {
       if (expenseToEdit != null) {
+        setState(() {
+          _selectedDate = expenseToEdit!.expenseDate;
+        });
         _loadExpense(expenseToEdit!);
       }
     });
@@ -60,7 +64,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _addExpense() {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
-    final entryDate = DateTime.now();
     final category = _selectedCategory?.category;
 
     if (category == null || category.isEmpty) {
@@ -82,7 +85,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         category: category,
         amount: amount,
         remarks: remarks,
-        entryDate: entryDate,
+        expenseDate: _selectedDate,
+        entryDate: DateTime.now(),
       );
       PersistenceContext().saveOrUpdateExpense(newExpense);
       Navigator.pop(context, true);
@@ -100,7 +104,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense')),
+      appBar: AppBar(
+        title: Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -133,6 +139,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 },
               ),
               const SizedBox(height: 16.0),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'Date: ${_selectedDate.toLocal().toString().split(' ')[0]}',
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2101),
+                      );
+                      if (pickedDate != null && pickedDate != _selectedDate) {
+                        setState(() {
+                          _selectedDate = pickedDate;
+                        });
+                      }
+                    },
+                    child: const Text('Select Date'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16.0),
               TextField(
                 controller: _amountController,
@@ -151,7 +182,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 24.0),
               ElevatedButton(
                 onPressed: _addExpense,
-                child: Text(expenseToEdit == null ? 'Add Expense' : 'Update Expense'),
+                child: Text(
+                  expenseToEdit == null ? 'Add Expense' : 'Update Expense',
+                ),
               ),
             ],
           ),
