@@ -73,6 +73,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
   String _currencySymbol = '₹';
+  double _monthlyLimit = 0;
+  double _monthlyLimitPerc =
+      0; // Variable to store the monthly limit percentage
 
   @override
   void initState() {
@@ -110,6 +113,27 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
+  // Method to calculate the total spending for the current month
+  Future<void> _calculateSelectedMonthSpending() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? monthlyLimitStr = prefs.getString('monthlyLimit');
+    if (monthlyLimitStr != null || monthlyLimitStr != '') {
+      double monthlyExp = await PersistenceContext().getExpenseSumByMonth(
+        _selectedDate,
+      );
+      double? monthlyLimit = double.tryParse(monthlyLimitStr!);
+      if (monthlyExp < monthlyLimit!) {
+        _monthlyLimitPerc = monthlyExp / monthlyLimit;
+      } else {
+        _monthlyLimitPerc = 1;
+      }
+      setState(() {
+        _monthlyLimit = monthlyLimit;
+        _monthlyLimitPerc = _monthlyLimitPerc;
+      });
+    }
+  }
+
   // Method to load today's expenses from the database
   Future<void> _loadTodaysExpenses() async {
     final startOfDay = DateTime(
@@ -124,6 +148,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _expensesTotal = loadedExpenses.fold(0.0, (sum, item) => sum + item.amount);
     _updateExpenseList(loadedExpenses);
     _showPreviousDayPercentageChange();
+    _calculateSelectedMonthSpending();
   }
 
   // Method to load expenses from the database (unused)
@@ -245,6 +270,31 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               ), // Row
             ),
             const SizedBox(height: 8.0), // Add some spacing
+            // Add a FutureBuilder to display the current month's spending and the progress slider
+            // Display the current month's spending and the progress slider
+            Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start, // Aligns text to the left
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(1.0),
+                  child: Tooltip(
+                    // 1. The message to display on hover or long-press
+                    message:
+                        'Monthly Limit: $_monthlyLimit Used: ${_monthlyLimitPerc * 100}%',
+
+                    // 2. The widget that triggers the tooltip
+                    child: Slider(
+                      value: _monthlyLimitPerc,
+                      onChanged: (double value) {},
+                      activeColor:
+                          _monthlyLimitPerc > 0.8 ? Colors.red : Colors.green,
+                      inactiveColor: Colors.grey[300],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

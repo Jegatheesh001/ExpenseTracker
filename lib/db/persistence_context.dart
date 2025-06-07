@@ -42,4 +42,8 @@ class PersistenceContext {
   Future<double> getExpenseSumByDate(DateTime date) async {
     return await DatabaseHelper().getExpenseSumByDate(date);
   }
+
+  Future<double> getExpenseSumByMonth(DateTime date) async {
+    return await DatabaseHelper().getExpenseSumByMonth(date);
+  }
 }

@@ -190,4 +190,17 @@ class DatabaseHelper {
     }
     return false;
   }
+
+  Future<double> getExpenseSumByMonth(DateTime date) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'expenses',
+      // Specify the 'amount' column to be summed.
+      columns: ['SUM(amount) as total'],
+      where: "strftime('%Y-%m', expenseDate) = ?",
+      whereArgs: [date.toIso8601String().substring(0, 7)],
+    );
+    final double sum = result.first['total'] ?? 0.0;
+    return sum;
+  }
 }
