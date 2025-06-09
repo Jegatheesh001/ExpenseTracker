@@ -10,6 +10,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
 - Delete expenses with a confirmation dialog for accidental deletion prevention.
 - **Dark Theme Toggle:** Manually switch between dark and light themes.
 - Option to change currency in master
+- Attach images to expenses (available when editing an expense). Images are saved directly to the file system for each expense and can be viewed and deleted by long-pressing them.
 - Option to track month expense in the main page
 
 ## Data Persistence

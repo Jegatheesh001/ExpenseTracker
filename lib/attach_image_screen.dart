@@ -53,6 +53,23 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
     }
   }
 
+  Future<void> _deleteImage(BuildContext context, String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        await file.delete();
+        _listImages(); // Refresh the list
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image deleted successfully!')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting image: $e')),
+      );
+    }
+  }
+
   Future<void> _listImages() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
@@ -95,13 +112,41 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
                     itemCount: _attachedImages.length,
                     itemBuilder: (context, index) {
                       return Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Image.file(
-                          _attachedImages[index],
-                          height: 150,
-                          fit: BoxFit.cover,
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: GestureDetector(
+                          onLongPress: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Delete Image'),
+                                  content: const Text('Are you sure you want to delete this image?'),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: const Text('Cancel'),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: const Text('Delete'),
+                                      onPressed: () {
+                                        _deleteImage(context, _attachedImages[index].path);
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          child: Image.file(
+                            _attachedImages[index],
+                            height: 150,
+                            fit: BoxFit.cover,
+                          ),
                         ),
-                      );
+                      ); 
                     },
                   ),
           ),
