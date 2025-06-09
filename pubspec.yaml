@@ -39,6 +39,7 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.0.15
   path: ^1.9.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

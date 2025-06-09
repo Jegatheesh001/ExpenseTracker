@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'db/entity.dart';
+import 'attach_image_screen.dart';
 import 'db/persistence_context.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -180,6 +181,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 keyboardType: TextInputType.text,
               ),
               const SizedBox(height: 24.0),
+              if (widget.expenseToEdit != null && widget.expenseToEdit!.id != null)
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => AttachImageScreen(
+                              expenseId: widget.expenseToEdit!.id!,
+                            ),
+                      ),
+                    );
+                  },
+                  child: const Text('Attach Image'),
+                ),
+              const SizedBox(
+                height: 16.0,
+              ), // Add some spacing if the attach button is shown
               ElevatedButton(
                 onPressed: _addExpense,
                 child: Text(
