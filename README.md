@@ -1,14 +1,16 @@
 # Expense Tracker App
-
-This is a simple mobile application built with Flutter for tracking daily expenses.
+Track and manage your daily expenses with ease using this feature-rich mobile application built with Flutter.
 
 ## Features
 
 - Add expenses with details including Category, Amount, and Remarks.
+- Option to set monthly and daily expense limits.
+- Categorize expenses and option to edit in master.
 - View a list of recorded expenses with the selected currency.
 - Delete expenses with a confirmation dialog for accidental deletion prevention.
 - **Dark Theme Toggle:** Manually switch between dark and light themes.
-- Automatic dark mode support based on system theme settings.
+- Option to change currency in master
+- Option to track month expense in the main page
 
 ## Data Persistence
 
