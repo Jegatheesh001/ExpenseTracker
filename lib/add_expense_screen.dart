@@ -37,6 +37,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
   }
 
+  // Loads categories from the persistence context.
   Future<void> _loadCategories() async {
     final loadedCategories = await PersistenceContext().getCategories();
     setState(() {
@@ -44,6 +45,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
   }
 
+  // Loads expense data into the form fields.
   Future<void> _loadExpense(Expense expense) async {
     _amountController.text = expense.amount.toString();
     _remarksController.text = expense.remarks;
@@ -62,6 +64,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     });
   }
 
+  // Adds or updates an expense.
   void _addExpense() {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;

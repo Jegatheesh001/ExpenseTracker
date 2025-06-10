@@ -24,6 +24,7 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
     _listImages();
   }
 
+  // Picks an image from the gallery and saves it to the application's document directory.
   Future<void> _pickAndSaveImage(BuildContext context) async {
     try {
       final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -53,6 +54,7 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
     }
   }
 
+  // Deletes an image file from the specified path.
   Future<void> _deleteImage(BuildContext context, String filePath) async {
     try {
       final file = File(filePath);
@@ -70,6 +72,7 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
     }
   }
 
+  // Lists all images attached to the current expense.
   Future<void> _listImages() async {
     try {
       final directory = await getApplicationDocumentsDirectory();

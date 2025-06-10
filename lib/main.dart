@@ -27,6 +27,7 @@ class _MyAppState extends State<MyApp> {
     _loadThemeMode();
   }
 
+  // Loads the saved theme mode (dark/light) from shared preferences.
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -35,6 +36,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // Toggles the theme between dark and light mode.
   void _toggleTheme() {
     setState(() {
       _isDarkMode = !_isDarkMode;
@@ -84,6 +86,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadCurrency();
   }
 
+  // Loads the selected currency from shared preferences.
   Future<void> _loadCurrency() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -92,7 +95,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadCurrencySymbol();
   }
 
-  // Determine the currency symbol based on the selected currency
+  // Determines the currency symbol based on the selected currency.
   Future<void> _loadCurrencySymbol() async {
     String currencySymbol;
     switch (_currentCurrency) {
@@ -113,7 +116,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
-  // Method to calculate the total spending for the current month
+  // Calculates the total spending for the current month and updates the progress.
   Future<void> _calculateSelectedMonthSpending() async {
     final prefs = await SharedPreferences.getInstance();
     String? monthlyLimitStr = prefs.getString('monthlyLimit');
@@ -134,7 +137,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
-  // Method to load today's expenses from the database
+  // Loads expenses for the selected date from the database.
   Future<void> _loadTodaysExpenses() async {
     final startOfDay = DateTime(
       _selectedDate.year,
@@ -151,7 +154,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _calculateSelectedMonthSpending();
   }
 
-  // Method to load expenses from the database (unused)
+  // Method to load all expenses from the database (currently unused).
   /* Future<void> _loadExpenses() async {
     final loadedExpenses = await PersistenceContext().getExpenses();
     setState(() {
@@ -160,13 +163,13 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   } */
 
-  // Method to delete an expense from the database
+  // Deletes an expense from the database and refreshes the list.
   Future<void> _deleteExpense(int id) async {
     await PersistenceContext().deleteExpense(id);
     _loadTodaysExpenses(); // Refresh the list after deleting
   }
 
-  // Helper method to update the expense list state
+  // Updates the state of the expense list.
   void _updateExpenseList(List<Expense> expenses) {
     setState(() {
       _expenses.clear();
@@ -174,6 +177,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
+  // Navigates to the previous day and loads its expenses.
   void _previousDay() {
     setState(() {
       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
@@ -181,6 +185,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadTodaysExpenses(); // Load expenses for the previous day
   }
 
+  // Navigates to the next day and loads its expenses.
   void _nextDay() {
     setState(() {
       _selectedDate = _selectedDate.add(const Duration(days: 1));
@@ -202,6 +207,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     super.dispose();
   }
 
+  // Calculates and displays the percentage change in expenses compared to the previous day.
   void _showPreviousDayPercentageChange() async {
     final previousDay = _selectedDate.subtract(const Duration(days: 1));
     final previousDayTotal = await PersistenceContext().getExpenseSumByDate(

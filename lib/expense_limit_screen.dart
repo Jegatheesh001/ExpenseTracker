@@ -65,7 +65,7 @@ class _ExpenseLimitScreenState extends State<ExpenseLimitScreen> {
     super.dispose();
   }
 
-  // Load existing limits from SharedPreferences and populate the text fields
+  // Loads existing limits from SharedPreferences and populates the text fields.
   Future<void> _loadLimits() async {
     final prefs = await SharedPreferences.getInstance();
     monthlyLimitController.text = prefs.getString('monthlyLimit') ?? '';

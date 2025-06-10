@@ -13,12 +13,14 @@ class DatabaseHelper {
 
   DatabaseHelper._internal();
 
+  // Provides access to the database instance, initializing it if necessary.
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
+  // Initializes the database.
   Future<Database> _initDatabase() async {
     String path = join(
       (await getApplicationDocumentsDirectory()).path,
@@ -32,6 +34,7 @@ class DatabaseHelper {
     );
   }
 
+  // Creates database tables when the database is first created.
   Future<void> _onCreate(Database db, int version) async {
     // Create expenses table
     await db.execute(
@@ -41,6 +44,7 @@ class DatabaseHelper {
     await version2DbChanges(db);
   }
 
+  // Applies database changes for version 2.
   Future<void> version2DbChanges(Database db) async {
     // Create categories table
     await db.execute(
@@ -66,6 +70,7 @@ class DatabaseHelper {
     }
   }
 
+  // Handles database upgrades between versions.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (1 == oldVersion) {
       await db.execute('ALTER TABLE expenses ADD COLUMN categoryId INTEGER');
@@ -80,6 +85,7 @@ class DatabaseHelper {
     }
   }
 
+  // Inserts a new expense into the database.
   Future<int> insertExpense(Expense expense) async {
     Database db = await database;
     return await db.insert('expenses', expense.toMap());
@@ -140,11 +146,13 @@ class DatabaseHelper {
     });
   }
 
+  // Deletes an expense from the database by its ID.
   Future<int> deleteExpense(int id) async {
     final Database db = await database;
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Updates an existing expense in the database.
   Future<int> updateExpense(Expense expense) async {
     final Database db = await database;
     return await db.update(
@@ -170,11 +178,13 @@ class DatabaseHelper {
     });
   }
 
+  // Saves a new category to the database.
   Future<void> saveCategory(Category cat) async {
     Database db = await database;
     await db.insert('categories', {'category': cat.category});
   }
 
+  // Deletes a category from the database by its ID, if no expenses are associated with it.
   Future<bool> deleteCategory(int id) async {
     Database db = await database;
     final expenseCountQuery = '''
@@ -191,6 +201,7 @@ class DatabaseHelper {
     return false;
   }
 
+  // Calculates the sum of expenses for a given month.
   Future<double> getExpenseSumByMonth(DateTime date) async {
     final Database db = await database;
     final List<Map<String, dynamic>> result = await db.query(

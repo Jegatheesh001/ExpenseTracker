@@ -25,6 +25,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _loadCategories();
   }
 
+  // Loads categories from the persistence context.
   Future<void> _loadCategories() async {
     final loadedCategories = await PersistenceContext().getCategories();
     setState(() {
@@ -32,6 +33,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     });
   }
 
+  // Adds a new category to the database.
   void _addCategory() async {
     final categoryName = _categoryController.text.trim();
     if (categoryName.isNotEmpty) {
@@ -49,6 +51,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
+  // Deletes a category after user confirmation.
   void _deleteCategory(BuildContext context, Category category) async {
     final confirmed = await showDialog<bool>(
       context: context,

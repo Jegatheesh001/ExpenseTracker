@@ -36,6 +36,7 @@ class Expense {
     };
   }
 
+  // Constructor for Expense.
   Expense({
     this.id,
     this.categoryId,
@@ -51,6 +52,7 @@ class Category {
   final int categoryId;
   final String category;
 
+  // Constructor for Category.
   Category(this.categoryId, this.category);
 
   Map<String, dynamic> toMap() {

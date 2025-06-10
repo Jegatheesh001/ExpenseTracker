@@ -23,6 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSettings();
   }
 
+  // Loads saved settings (theme mode and currency) from shared preferences.
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -31,12 +32,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  // Saves the selected theme mode to shared preferences.
   Future<void> _saveThemeMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
   }
 
-
+  // Saves the selected currency to shared preferences.
   Future<void> _saveCurrency(String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selectedCurrency', value);
