@@ -73,11 +73,9 @@ class ExpenseHomePage extends StatefulWidget {
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   DateTime _selectedDate = DateTime.now();
-  String _currentCurrency = 'Rupee'; // This will hold the loaded currency
-  String _currencySymbol = '₹';
+  String _currencySymbol = '₹'; // Default currency symbol
   double _monthlyLimit = 0;
-  double _monthlyLimitPerc =
-      0; // Variable to store the monthly limit percentage
+  double _monthlyLimitPerc = 0; // Variable to store the monthly limit percentage
 
   @override
   void initState() {
@@ -89,16 +87,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   // Loads the selected currency from shared preferences.
   Future<void> _loadCurrency() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentCurrency = prefs.getString('selectedCurrency') ?? 'Rupee';
-    });
-    _loadCurrencySymbol();
+    final currency = prefs.getString('selectedCurrency') ?? 'Rupee';
+    _loadCurrencySymbol(currency);
   }
 
   // Determines the currency symbol based on the selected currency.
-  Future<void> _loadCurrencySymbol() async {
+  Future<void> _loadCurrencySymbol(currency) async {
     String currencySymbol;
-    switch (_currentCurrency) {
+    switch (currency) {
       case 'Rupee':
         currencySymbol = '₹';
         break;
@@ -109,7 +105,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         currencySymbol = '\$';
         break;
       default:
-        currencySymbol = '\$'; // Default to dollar if currency is unknown
+        currencySymbol = '₹'; // Default to dollar if currency is unknown
     }
     setState(() {
       _currencySymbol = currencySymbol;
@@ -235,10 +231,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 context,
                 MaterialPageRoute(
                   builder: (context) {
-                    final myAppState =
-                        context.findAncestorStateOfType<_MyAppState>();
+                    final myAppState = context.findAncestorStateOfType<_MyAppState>();
                     return SettingsScreen(
                       onThemeToggle: myAppState?._toggleTheme ?? () {},
+                      onCurrencyToggle: _loadCurrency
                     );
                   },
                 ),

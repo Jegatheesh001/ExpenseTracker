@@ -6,7 +6,8 @@ import 'expense_limit_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
-  const SettingsScreen({Key? key, required this.onThemeToggle}) : super(key: key);
+  final VoidCallback onCurrencyToggle;
+  const SettingsScreen({Key? key, required this.onThemeToggle, required this.onCurrencyToggle}) : super(key: key);
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -45,6 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _currentCurrency = value;
     });
+    widget.onCurrencyToggle();
   }
 
 
