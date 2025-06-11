@@ -40,20 +40,7 @@ class _ExpenseLimitScreenState extends State<ExpenseLimitScreen> {
               controller: dailyLimitController,
               decoration: InputDecoration(labelText: 'Daily Limit'),
             ),
-            const SizedBox(height: 16.0),
-            SwitchListTile(
-              title: const Text('Show Expense Status Bar'),
-              value: _isStatusBarEnabled,
-              onChanged: (bool value) {
-                widget.onStatusBarToggle(); // Call the callback from ExpenseHomePage
-                setState(() {
-                  _isStatusBarEnabled = value; // Update local state for the switch
-                });
-              },
-              contentPadding: EdgeInsets.zero, // Adjust padding as needed
-            ),
             const SizedBox(height: 20.0), // Add some spacing before the button
-            
             Center(
               // Center the button
               child: ElevatedButton(
@@ -71,6 +58,18 @@ class _ExpenseLimitScreenState extends State<ExpenseLimitScreen> {
                 }, // Add some spacing before the button
                 child: Text('Save Limits'),
               ),
+            ),
+            const SizedBox(height: 16.0),
+            SwitchListTile(
+              title: const Text('Show Expense Status Bar'),
+              value: _isStatusBarEnabled,
+              onChanged: (bool value) {
+                widget.onStatusBarToggle(); // Call the callback from ExpenseHomePage
+                setState(() {
+                  _isStatusBarEnabled = value; // Update local state for the switch
+                });
+              },
+              contentPadding: EdgeInsets.zero, // Adjust padding as needed
             ),
           ],
         ),
