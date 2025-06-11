@@ -109,7 +109,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min, // To keep the Row compact around its children
+          children: <Widget>[
+            Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense'),
+            if (expenseToEdit != null && expenseToEdit!.id != null) // Show icon only in edit mode and if id exists
+              Padding(
+                padding: const EdgeInsets.only(left: 4.0), // Reduced padding slightly for IconButton
+                child: IconButton(
+                  icon: const Icon(Icons.attach_file),
+                  tooltip: 'Attach Image',
+                  // Constraints can be added to control tap target size if needed
+                  // constraints: const BoxConstraints(), 
+                  // padding: EdgeInsets.zero, // If you want to remove default IconButton padding
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AttachImageScreen(
+                          expenseId: widget.expenseToEdit!.id!,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -183,24 +209,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: const InputDecoration(labelText: 'Remarks'),
                 keyboardType: TextInputType.text,
               ),
-              const SizedBox(height: 24.0),
-              if (widget.expenseToEdit != null && widget.expenseToEdit!.id != null)
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => AttachImageScreen(
-                              expenseId: widget.expenseToEdit!.id!,
-                            ),
-                      ),
-                    );
-                  },
-                  child: const Text('Attach Image'),
-                ),
               const SizedBox(
-                height: 16.0,
+                height: 20.0,
               ), // Add some spacing if the attach button is shown
               ElevatedButton(
                 onPressed: _addExpense,
