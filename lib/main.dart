@@ -76,6 +76,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   String _currencySymbol = '₹'; // Default currency symbol
   double _monthlyLimit = 0;
   double _monthlyLimitPerc = 0; // Variable to store the monthly limit percentage
+  double _currMonthExp = 0;
   bool _showExpStatusBar = false;
 
   @override
@@ -132,22 +133,36 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   // Calculates the total spending for the current month and updates the progress.
   Future<void> _calculateSelectedMonthSpending() async {
     final prefs = await SharedPreferences.getInstance();
-    String? monthlyLimitStr = prefs.getString('monthlyLimit');
-    if (monthlyLimitStr != null || monthlyLimitStr != '') {
+    String monthlyLimitStr = prefs.getString('monthlyLimit') ?? '';
+    if (monthlyLimitStr != '') {
       double monthlyExp = await PersistenceContext().getExpenseSumByMonth(
         _selectedDate,
       );
-      double? monthlyLimit = double.tryParse(monthlyLimitStr!);
-      if (monthlyExp < monthlyLimit!) {
-        _monthlyLimitPerc = monthlyExp / monthlyLimit;
-      } else {
-        _monthlyLimitPerc = 1;
-      }
+      double monthlyLimit = double.parse(monthlyLimitStr);
+      double monthlyLimitPerc = getMonthlyLimitPerc(monthlyLimit, monthlyExp);
       setState(() {
         _monthlyLimit = monthlyLimit;
-        _monthlyLimitPerc = _monthlyLimitPerc;
+        _monthlyLimitPerc = monthlyLimitPerc;
+        _currMonthExp = monthlyExp;
       });
     }
+  }
+
+  double getMonthlyLimitPerc(double monthlyLimit, double monthlyExp) {
+    double monthlyLimitPerc = 1;
+    if (monthlyExp < monthlyLimit) {
+      monthlyLimitPerc = monthlyExp / monthlyLimit;
+    }
+    return monthlyLimitPerc;
+  }
+
+  Future<void> _handleMonthlyLimitUpdate(String newLimit) async {
+    double monthlyLimit = double.parse(newLimit);
+    double monthlyLimitPerc = getMonthlyLimitPerc(monthlyLimit, _currMonthExp);
+    setState(() {
+      _monthlyLimit = monthlyLimit;
+      _monthlyLimitPerc = monthlyLimitPerc;
+    });
   }
 
   // Loads expenses for the selected date from the database.
@@ -252,7 +267,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     return SettingsScreen(
                       onThemeToggle: myAppState?._toggleTheme ?? () {},
                       onCurrencyToggle: _loadCurrency,
-                      onStatusBarToggle: _toggleExpStatusBar, // Pass the callback
+                      onStatusBarToggle: _toggleExpStatusBar,
+                      onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
                     );
                   },
                 ),

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ExpenseLimitScreen extends StatefulWidget {
+  final Function(String) onMonthlyLimitSaved; // Callback for when monthly limit is saved
   final VoidCallback onStatusBarToggle;
-  const ExpenseLimitScreen({Key? key, required this.onStatusBarToggle}) : super(key: key);
+  const ExpenseLimitScreen({
+    Key? key, required this.onStatusBarToggle,
+    required this.onMonthlyLimitSaved,
+  }) : super(key: key);
   @override
   _ExpenseLimitScreenState createState() => _ExpenseLimitScreenState();
 }
@@ -49,6 +53,7 @@ class _ExpenseLimitScreenState extends State<ExpenseLimitScreen> {
                       await SharedPreferences.getInstance();
                   prefs.setString('monthlyLimit', monthlyLimitController.text);
                   prefs.setString('dailyLimit', dailyLimitController.text);
+                  widget.onMonthlyLimitSaved(monthlyLimitController.text); // Invoke the callback
 
                   // Show a confirmation message
 

@@ -8,11 +8,13 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final VoidCallback onCurrencyToggle;
   final VoidCallback onStatusBarToggle;
+  final Function(String) onMonthlyLimitSaved; // Callback for when monthly limit is saved
   const SettingsScreen({
     Key? key,
     required this.onThemeToggle,
     required this.onCurrencyToggle,
-    required this.onStatusBarToggle}) : super(key: key);
+    required this.onStatusBarToggle,
+    required this.onMonthlyLimitSaved}) : super(key: key);
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -120,6 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 MaterialPageRoute(builder: (context) => ExpenseLimitScreen(
                   onStatusBarToggle: widget.onStatusBarToggle, // Pass callback
+                  onMonthlyLimitSaved: widget.onMonthlyLimitSaved, // Pass down the new callback
                 )),
               );
             },
