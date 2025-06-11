@@ -148,6 +148,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
+  // Callback to reload data after deletion from settings
+  void _handleDataDeletion() {
+    // Reload all relevant data for the home screen
+    _loadTodaysExpenses();
+  }
+
   double getMonthlyLimitPerc(double monthlyLimit, double monthlyExp) {
     double monthlyLimitPerc = 1;
     if (monthlyExp < monthlyLimit) {
@@ -273,6 +279,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                       onCurrencyToggle: _loadCurrency,
                       onStatusBarToggle: _toggleExpStatusBar,
                       onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
+                      onDeleteAllData: _handleDataDeletion, // Pass the new callback
                     );
                   },
                 ),

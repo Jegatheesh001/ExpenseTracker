@@ -214,4 +214,13 @@ class DatabaseHelper {
     final double sum = result.first['total'] ?? 0.0;
     return sum;
   }
+
+  // Deletes all data from expenses and categories tables, then re-inserts initial categories.
+  Future<void> deleteAllExpenseData() async {
+    final Database db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('expenses');
+      await txn.delete('categories');
+    });
+  }
 }

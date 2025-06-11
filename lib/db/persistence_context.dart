@@ -54,4 +54,8 @@ class PersistenceContext {
   Future<double> getExpenseSumByMonth(DateTime date) async {
     return await DatabaseHelper().getExpenseSumByMonth(date);
   }
+
+  Future<void> deleteAllExpenseData() async {
+    await DatabaseHelper().deleteAllExpenseData();
+  }
 }
