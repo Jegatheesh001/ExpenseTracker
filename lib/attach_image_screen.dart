@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
+import 'image_viewer_screen.dart'; // Import the new image viewer screen
 
 class AttachImageScreen extends StatefulWidget {
   final int expenseId;
@@ -116,11 +117,23 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
                     itemBuilder: (context, index) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: GestureDetector(
+                        child: InkWell( // Changed to InkWell for tap feedback
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ImageViewerScreen(
+                                  imageFile: _attachedImages[index],
+                                  imageList: _attachedImages, // Pass the whole list for gallery view
+                                  initialIndex: index,        // Pass the current index
+                                ),
+                              ),
+                            );
+                          },
                           onLongPress: () {
                             showDialog(
                               context: context,
-                              builder: (BuildContext context) {
+                              builder: (BuildContext dialogContext) { // Renamed context to avoid conflict
                                 return AlertDialog(
                                   title: const Text('Delete Image'),
                                   content: const Text('Are you sure you want to delete this image?'),
@@ -128,14 +141,14 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
                                     TextButton(
                                       child: const Text('Cancel'),
                                       onPressed: () {
-                                        Navigator.of(context).pop();
+                                        Navigator.of(dialogContext).pop(); // Use dialogContext
                                       },
                                     ),
                                     TextButton(
                                       child: const Text('Delete'),
                                       onPressed: () {
                                         _deleteImage(context, _attachedImages[index].path);
-                                        Navigator.of(context).pop();
+                                        Navigator.of(dialogContext).pop(); // Use dialogContext
                                       },
                                     ),
                                   ],
@@ -143,10 +156,13 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
                               },
                             );
                           },
-                          child: Image.file(
-                            _attachedImages[index],
-                            height: 150,
-                            fit: BoxFit.cover,
+                          child: Hero( // Added Hero for smooth transition
+                            tag: _attachedImages[index].path, // Unique tag for Hero animation
+                            child: Image.file(
+                              _attachedImages[index],
+                              height: 150,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ); 
