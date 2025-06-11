@@ -85,7 +85,6 @@ The application uses SQLite for local data persistence. The database operations 
 
 ## Future Enhancements
 
-*   Detailed category management (add, edit, delete custom categories).
 *   Expense reporting (e.g., weekly, monthly, yearly summaries with charts).
 *   Data backup and restore options (e.g., cloud sync or local file export/import).
 *   Ability to set recurring expenses.
