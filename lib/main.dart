@@ -76,12 +76,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   String _currencySymbol = '₹'; // Default currency symbol
   double _monthlyLimit = 0;
   double _monthlyLimitPerc = 0; // Variable to store the monthly limit percentage
+  bool _showExpStatusBar = false;
 
   @override
   void initState() {
     super.initState();
     _loadTodaysExpenses(); // Load today's expenses by default
     _loadCurrency();
+    setExpStatusBar();
   }
 
   // Loads the selected currency from shared preferences.
@@ -110,6 +112,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     setState(() {
       _currencySymbol = currencySymbol;
     });
+  }
+
+  Future<void> setExpStatusBar() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool status = prefs.getBool('showExpStatusBar') ?? false;
+    setState(() {
+      _showExpStatusBar = status;
+    });
+  }
+
+  Future<void> _toggleExpStatusBar() async {
+    _showExpStatusBar = !_showExpStatusBar;
+    setState(() {});
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool('showExpStatusBar', _showExpStatusBar);
   }
 
   // Calculates the total spending for the current month and updates the progress.
@@ -234,7 +251,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     final myAppState = context.findAncestorStateOfType<_MyAppState>();
                     return SettingsScreen(
                       onThemeToggle: myAppState?._toggleTheme ?? () {},
-                      onCurrencyToggle: _loadCurrency
+                      onCurrencyToggle: _loadCurrency,
+                      onStatusBarToggle: _toggleExpStatusBar, // Pass the callback
                     );
                   },
                 ),
@@ -274,29 +292,30 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             const SizedBox(height: 8.0), // Add some spacing
             // Add a FutureBuilder to display the current month's spending and the progress slider
             // Display the current month's spending and the progress slider
-            Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start, // Aligns text to the left
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(1.0),
-                  child: Tooltip(
-                    // 1. The message to display on hover or long-press
-                    message:
-                        'Monthly Limit: $_monthlyLimit Used: ${_monthlyLimitPerc * 100}%',
+            if(_showExpStatusBar)
+              Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start, // Aligns text to the left
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(1.0),
+                    child: Tooltip(
+                      // 1. The message to display on hover or long-press
+                      message:
+                          'Monthly Limit: $_monthlyLimit Used: ${_monthlyLimitPerc * 100}%',
 
-                    // 2. The widget that triggers the tooltip
-                    child: Slider(
-                      value: _monthlyLimitPerc,
-                      onChanged: (double value) {},
-                      activeColor:
-                          _monthlyLimitPerc > 0.8 ? Colors.red : Colors.green,
-                      inactiveColor: Colors.grey[300],
+                      // 2. The widget that triggers the tooltip
+                      child: Slider(
+                        value: _monthlyLimitPerc,
+                        onChanged: (double value) {},
+                        activeColor:
+                            _monthlyLimitPerc > 0.8 ? Colors.red : Colors.green,
+                        inactiveColor: Colors.grey[300],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

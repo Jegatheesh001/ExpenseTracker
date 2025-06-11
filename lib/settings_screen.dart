@@ -7,7 +7,12 @@ import 'expense_limit_screen.dart';
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final VoidCallback onCurrencyToggle;
-  const SettingsScreen({Key? key, required this.onThemeToggle, required this.onCurrencyToggle}) : super(key: key);
+  final VoidCallback onStatusBarToggle;
+  const SettingsScreen({
+    Key? key,
+    required this.onThemeToggle,
+    required this.onCurrencyToggle,
+    required this.onStatusBarToggle}) : super(key: key);
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -113,7 +118,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ExpenseLimitScreen()),
+                MaterialPageRoute(builder: (context) => ExpenseLimitScreen(
+                  onStatusBarToggle: widget.onStatusBarToggle, // Pass callback
+                )),
               );
             },
           ),
