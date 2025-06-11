@@ -166,7 +166,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
 
   // Loads expenses for the selected date from the database.
-  Future<void> _loadTodaysExpenses() async {
+  Future<void> _loadSelectedDateExpense() async {
     final startOfDay = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -179,6 +179,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _expensesTotal = loadedExpenses.fold(0.0, (sum, item) => sum + item.amount);
     _updateExpenseList(loadedExpenses);
     _showPreviousDayPercentageChange();
+  }
+
+  // Loads expenses for the selected date from the database.
+  Future<void> _loadTodaysExpenses() async {
+    _loadSelectedDateExpense();
     _calculateSelectedMonthSpending();
   }
 
@@ -205,20 +210,16 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
-  // Navigates to the previous day and loads its expenses.
-  void _previousDay() {
-    setState(() {
-      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-    });
-    _loadTodaysExpenses(); // Load expenses for the previous day
-  }
-
   // Navigates to the next day and loads its expenses.
-  void _nextDay() {
+  void _addDayToCurrent(int daysToAdd) {
+    final DateTime oldDay = _selectedDate;
     setState(() {
-      _selectedDate = _selectedDate.add(const Duration(days: 1));
+      _selectedDate = _selectedDate.add(Duration(days: daysToAdd));
     });
-    _loadTodaysExpenses(); // Load expenses for the next day
+    _loadSelectedDateExpense();
+    if(oldDay.month != _selectedDate.month) {
+      _calculateSelectedMonthSpending();
+    }
   }
 
   final _amountController = TextEditingController();
@@ -248,6 +249,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       _percentageChange =
           ((_expensesTotal - previousDayTotal) / previousDayTotal) * 100;
     }
+    setState(() {
+      _percentageChange = _percentageChange;
+    });
   }
 
   @override
@@ -337,7 +341,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios),
-                  onPressed: _previousDay,
+                  onPressed: () => _addDayToCurrent(-1)
                 ),
                 Row(
                   children: [
@@ -349,7 +353,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.arrow_forward_ios),
-                  onPressed: _nextDay,
+                  onPressed: () => _addDayToCurrent(1)
                 ),
               ],
             ),
