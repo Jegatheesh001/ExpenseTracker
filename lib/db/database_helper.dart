@@ -181,7 +181,11 @@ class DatabaseHelper {
   // Saves a new category to the database.
   Future<void> saveCategory(Category cat) async {
     Database db = await database;
-    await db.insert('categories', {'category': cat.category});
+    if(cat.categoryId == 0) {
+      await db.insert('categories', {'category': cat.category});
+    } else {
+      await db.insert('categories', {'categoryId': cat.categoryId, 'category': cat.category});
+    }
   }
 
   // Deletes a category from the database by its ID, if no expenses are associated with it.

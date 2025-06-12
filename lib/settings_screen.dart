@@ -1,9 +1,12 @@
 import 'dart:io'; // For File operations
+import 'dart:convert';
 
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart'; // For file picking
+import 'package:intl/intl.dart';
+
 import 'package:expense_tracker/db/entity.dart'; // Import your Category and Expense entities
 
 import 'categories_screen.dart'; // Import the new categories screen
@@ -108,7 +111,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                 );
                 final expense = Expense(
-                  id: int.parse(parts[0]),
                   categoryId: categoryId,
                   category: category.category,
                   amount: double.parse(parts[2]),
@@ -153,6 +155,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File selection cancelled.')));
+    }
+  }
+
+  Future<void> _exportData() async {
+    try {
+      // 1. Fetch data from DB
+      final db = PersistenceContext();
+      List<Category> categories = await db.getCategories();
+      List<Expense> expenses = await db.getExpenses();
+
+      // 2. Format data into a string
+      StringBuffer exportContent = StringBuffer();
+
+      // Add categories first
+      for (Category cat in categories) {
+        exportContent.writeln('${cat.categoryId};;${cat.category}');
+      }
+
+      // Add expenses
+      for (Expense exp in expenses) {
+        // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId
+        // Note: ActiveFLag and ProfileId are not stored in the current Expense entity.
+        // Exporting 'Y' for ActiveFLag and '0' for ProfileId to match the import format example.
+        exportContent.writeln(
+            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;0'
+        );
+      }
+
+      // 3. Save the file
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: 'Export Expense Data',
+        fileName: 'expense_data_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.txt',
+        type: FileType.custom,
+        allowedExtensions: ['txt'],
+        bytes: utf8.encode(exportContent.toString())
+      );
+
+      if (outputFile != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data exported successfully to $outputFile')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export cancelled.')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error exporting data: $e')));
     }
   }
 
@@ -224,6 +272,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onMonthlyLimitSaved: widget.onMonthlyLimitSaved, // Pass down the new callback
                 )),
               );
+            },
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+            title: const Text('Export Data'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              _exportData();
             },
           ),
           ListTile(
