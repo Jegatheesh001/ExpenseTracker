@@ -342,7 +342,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     child: Tooltip(
                       // 1. The message to display on hover or long-press
                       message:
-                          'Monthly Limit: $_monthlyLimit Used: ${_monthlyLimitPerc * 100}%',
+                          'Monthly Limit: $_monthlyLimit Used: ${(_monthlyLimitPerc * 100).toStringAsFixed(2)}%',
 
                       // 2. The widget that triggers the tooltip
                       child: Slider(
