@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'add_expense_screen.dart'; // Import the new screen
-import 'db/persistence_context.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'settings_screen.dart'; // Import the new settings screen
+import 'db/persistence_context.dart';
 import 'db/entity.dart';
+import 'expense_list_view.dart';
+import 'add_expense_screen.dart'; // Import the new screen
+import 'settings_screen.dart'; // Import the new settings screen
 
 void main() {
   runApp(const MyApp());
@@ -202,6 +203,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   } */
 
+ Future<void> _editExpense(Expense expense) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddExpenseScreen(expenseToEdit: expense),
+      ),
+    );
+    if (result == true) {
+      _loadTodaysExpenses();
+    }
+  }
+
   // Deletes an expense from the database and refreshes the list.
   Future<void> _deleteExpense(int id) async {
     await PersistenceContext().deleteExpense(id);
@@ -365,79 +378,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               ],
             ),
             const SizedBox(height: 8.0),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _expenses.length,
-                itemBuilder: (context, index) {
-                  final expense = _expenses[index];
-                  final formattedDate = DateFormat(
-                    'dd-MM-yyyy HH:mm:ss',
-                  ).format(expense.entryDate);
-
-                  return GestureDetector(
-                    onLongPress: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text('Confirm Delete'),
-                            content: const Text(
-                              'Are you sure you want to delete this expense?',
-                            ),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed:
-                                    () => Navigator.of(context).pop(false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  _deleteExpense(expense.id!);
-                                  Navigator.of(context).pop(true);
-                                },
-                                child: const Text('Delete'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    child: Stack(
-                      children: [
-                        ListTile(
-                          title: Text(expense.remarks),
-                          subtitle: Text(
-                            'Amount: $_currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
-                          ),
-                        ), // ListTile
-                        Positioned(
-                          top: 0,
-                          right:
-                              0, // Adjust position to make space for edit button
-                          child: IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () async {
-                              final bool result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => AddExpenseScreen(
-                                        expenseToEdit: expense,
-                                      ),
-                                ),
-                              );
-                              // Refresh the expense list after the dialog is closed
-                              if (result == true) {
-                                _loadTodaysExpenses();
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ), // Stack
-                  );
-                },
-              ),
+            ExpenseListView(
+              expenses: _expenses,
+              currencySymbol: _currencySymbol,
+              onDelete: _deleteExpense,
+              onEdit: _editExpense,
             ),
           ],
         ),
