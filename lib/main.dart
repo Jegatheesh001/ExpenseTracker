@@ -6,6 +6,7 @@ import 'db/entity.dart';
 import 'expense_list_view.dart';
 import 'add_expense_screen.dart'; // Import the new screen
 import 'settings_screen.dart'; // Import the new settings screen
+import 'currency_symbol.dart';
 
 void main() {
   runApp(const MyApp());
@@ -78,12 +79,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   double _monthlyLimit = 0;
   double _monthlyLimitPerc = 0; // Variable to store the monthly limit percentage
   double _currMonthExp = 0;
+  double _walletAmount = 0.0; // To store wallet amount
   bool _showExpStatusBar = false;
 
   @override
   void initState() {
     super.initState();
     _loadTodaysExpenses(); // Load today's expenses by default
+    _loadWalletAmount(); // Load wallet amount
     _loadCurrency();
     setExpStatusBar();
   }
@@ -95,22 +98,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadCurrencySymbol(currency);
   }
 
+  // Loads the wallet amount from shared preferences.
+  Future<void> _loadWalletAmount() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      // Using the same key as in SettingsScreen
+      _walletAmount = prefs.getDouble('walletAmount') ?? 0.0;
+    });
+  }
+
   // Determines the currency symbol based on the selected currency.
   Future<void> _loadCurrencySymbol(currency) async {
-    String currencySymbol;
-    switch (currency) {
-      case 'Rupee':
-        currencySymbol = '₹';
-        break;
-      case 'Dirham':
-        currencySymbol = 'د.إ';
-        break;
-      case 'Dollar':
-        currencySymbol = '\$';
-        break;
-      default:
-        currencySymbol = '₹'; // Default to dollar if currency is unknown
-    }
+    String currencySymbol = CurrencySymbol().getSymbol(currency);
     setState(() {
       _currencySymbol = currencySymbol;
     });
@@ -207,7 +206,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddExpenseScreen(expenseToEdit: expense),
+        builder: (context) => AddExpenseScreen(expenseToEdit: expense, onWalletAmountChange: _loadWalletAmount),
       ),
     );
     if (result == true) {
@@ -293,6 +292,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                       onStatusBarToggle: _toggleExpStatusBar,
                       onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
                       onDeleteAllData: _handleDataDeletion, // Pass the new callback
+                      onWalletAmountUpdated: _loadWalletAmount, // Pass callback to update wallet amount
                     );
                   },
                 ),
@@ -306,28 +306,48 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
+            // Display Total Expenses and Wallet Amount on a single line
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Total: $_currencySymbol${_expensesTotal.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
+                  // Left side: Total and Percentage Change
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Total: $_currencySymbol${_expensesTotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(width: 8.0),
+                      Text(
+                        '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: _percentageChange > 0 ? Colors.red : Colors.green,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8.0),
-                  Text(
-                    '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: _percentageChange > 0 ? Colors.red : Colors.green,
-                    ),
+                  // Right side: Wallet Icon and Amount
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.account_balance_wallet, color: Colors.green, size: 24),
+                      const SizedBox(width: 8.0),
+                      Text(
+                        '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.green),
+                      ),
+                    ],
                   ),
                 ],
-              ), // Row
+              ),
             ),
             const SizedBox(height: 8.0), // Add some spacing
             // Add a FutureBuilder to display the current month's spending and the progress slider
@@ -391,7 +411,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         onPressed: () async {
           final bool result = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AddExpenseScreen()),
+            MaterialPageRoute(builder: (context) => AddExpenseScreen(
+              onWalletAmountChange: _loadWalletAmount,
+            )),
           );
           if (result == true) {
             // Or whatever condition you expect

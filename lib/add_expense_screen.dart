@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'db/entity.dart';
-import 'attach_image_screen.dart';
 import 'db/persistence_context.dart';
+import 'attach_image_screen.dart';
+import 'pref_keys.dart';
 
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({Key? key, this.expenseToEdit}) : super(key: key);
+  const AddExpenseScreen({Key? key, this.expenseToEdit, required this.onWalletAmountChange,}) : super(key: key);
 
   final Expense? expenseToEdit;
+  final VoidCallback onWalletAmountChange;
 
   @override
   // ignore: library_private_types_in_public_api
@@ -22,6 +25,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  bool _deductFromWallent = true;
 
   @override
   void initState() {
@@ -93,6 +97,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         entryDate: DateTime.now(),
       );
       PersistenceContext().saveOrUpdateExpense(newExpense);
+      deductFromWallet(amount);
       Navigator.pop(context, true);
     }
   }
@@ -212,6 +217,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(
                 height: 20.0,
               ), // Add some spacing if the attach button is shown
+              CheckboxListTile(
+                title: const Text("Deduct from wallet"),
+                value: _deductFromWallent,
+                onChanged: (bool? value) => deductFromWalletState(value),
+                controlAffinity: ListTileControlAffinity.leading, // Checkbox on the left
+                contentPadding: EdgeInsets.zero, // Remove default padding
+              ),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _addExpense,
                 child: Text(
@@ -223,5 +236,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ),
       ),
     );
+  }
+  
+  void deductFromWalletState(bool? value) {
+    setState(() {
+      _deductFromWallent = value ?? false;
+    });
+  }
+  void deductFromWallet(double amount) async {
+    if(_deductFromWallent) {
+      final prefs = await SharedPreferences.getInstance();
+      double walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+      if(expenseToEdit == null) {
+        if(walletAmount > 0) {
+          walletAmount -= amount;
+          prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+          widget.onWalletAmountChange();
+        }
+      } else {
+        double oldExpAmt = expenseToEdit!.amount;
+        if(oldExpAmt != amount) {
+          walletAmount -= amount - oldExpAmt;
+          prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+          widget.onWalletAmountChange();
+        }
+      }
+    }
   }
 }

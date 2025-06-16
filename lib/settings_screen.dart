@@ -11,18 +11,22 @@ import 'package:expense_tracker/db/entity.dart'; // Import your Category and Exp
 
 import 'categories_screen.dart'; // Import the new categories screen
 import 'expense_limit_screen.dart';
+import 'pref_keys.dart';
+import 'currency_symbol.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final VoidCallback onCurrencyToggle; // Callback for currency change
   final VoidCallback onStatusBarToggle;
   final Function(String) onMonthlyLimitSaved; // Callback for when monthly limit is saved
+  final VoidCallback onWalletAmountUpdated; // Callback for when wallet amount is updated
   final VoidCallback onDeleteAllData; // New callback for data deletion
   const SettingsScreen({
     Key? key,
     required this.onDeleteAllData, // Add the new callback
     required this.onThemeToggle,
     required this.onCurrencyToggle,
+    required this.onWalletAmountUpdated,
     required this.onStatusBarToggle,
     required this.onMonthlyLimitSaved}) : super(key: key);
 
@@ -34,6 +38,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDarkMode = false;
   final List<String> _currencies = ['Rupee', 'Dirham', 'Dollar'];
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
+
+  // Wallet settings
+  double _currentWalletAmount = 0.0;
+  final TextEditingController _walletAmountController = TextEditingController();
+
   final TextEditingController _deleteConfirmationController = TextEditingController(); // Controller for the delete confirmation text field
 
   @override
@@ -48,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
       _currentCurrency = prefs.getString('selectedCurrency') ?? 'Rupee';
+      _currentWalletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
     });
   }
 
@@ -67,9 +77,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     widget.onCurrencyToggle();
   }
 
+  // Saves the wallet amount to shared preferences.
+  Future<void> _saveWalletAmount(double amount) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(PrefKeys.walletAmount, amount);
+    setState(() {
+      _currentWalletAmount = amount;
+    });
+    widget.onWalletAmountUpdated.call();
+  }
+
   @override
   void dispose() {
     _deleteConfirmationController.dispose(); // Dispose the controller
+    _walletAmountController.dispose(); // Dispose wallet controller
     super.dispose();
   }
 
@@ -204,6 +225,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _showSetWalletAmountDialog() async {
+    _walletAmountController.text = _currentWalletAmount.toStringAsFixed(2); // Pre-fill with current amount
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button!
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Set Wallet Balance'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                const Text('Enter your current wallet balance.'),
+                TextField(
+                  controller: _walletAmountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    prefixText: '${CurrencySymbol().getSymbol(_currentCurrency)} ',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Save'),
+              onPressed: () {
+                final double? newAmount = double.tryParse(_walletAmountController.text);
+                if (newAmount != null && newAmount >= 0) {
+                  _saveWalletAmount(newAmount);
+                  Navigator.of(dialogContext).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid non-negative amount.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,6 +347,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 )),
               );
             },
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+            title: const Text('Wallet Balance'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  NumberFormat.currency(
+                    symbol: CurrencySymbol().getSymbol(_currentCurrency),
+                    decimalDigits: 2,
+                  ).format(_currentWalletAmount),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                ),
+              ],
+            ),
+            onTap: _showSetWalletAmountDialog,
           ),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 0),
