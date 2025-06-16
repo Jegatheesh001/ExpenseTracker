@@ -349,7 +349,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 8.0), // Add some spacing
+            const SizedBox(height: 5.0), // Add some spacing
             // Add a FutureBuilder to display the current month's spending and the progress slider
             // Display the current month's spending and the progress slider
             if(_showExpStatusBar)
@@ -363,14 +363,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                       // 1. The message to display on hover or long-press
                       message:
                           'Monthly Limit: $_monthlyLimit Used: ${(_monthlyLimitPerc * 100).toStringAsFixed(2)}%',
-
-                      // 2. The widget that triggers the tooltip
-                      child: Slider(
-                        value: _monthlyLimitPerc,
-                        onChanged: (double value) {},
-                        activeColor:
-                            _monthlyLimitPerc > 0.8 ? Colors.red : Colors.green,
-                        inactiveColor: Colors.grey[300],
+                      // 2. Wrap Slider with SliderTheme to customize its appearance
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 2.0,
+                        ),
+                        child: Slider(
+                          value: _monthlyLimitPerc,
+                          onChanged: (double value) {}, // Slider is for display only
+                          activeColor:
+                              _monthlyLimitPerc > 0.8 ? Colors.red : Colors.green,
+                          inactiveColor: Colors.grey[300],
+                        ),
                       ),
                     ),
                   ),

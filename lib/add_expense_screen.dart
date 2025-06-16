@@ -69,7 +69,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   // Adds or updates an expense.
-  void _addExpense() {
+  void _addExpense(BuildContext context) async {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
     final category = _selectedCategory?.category;
@@ -96,9 +96,50 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         expenseDate: _selectedDate,
         entryDate: DateTime.now(),
       );
-      PersistenceContext().saveOrUpdateExpense(newExpense);
+      await PersistenceContext().saveOrUpdateExpense(newExpense);
       deductFromWallet(amount);
       Navigator.pop(context, true);
+    }
+  }
+
+  // Deletes the current expense being edited.
+  Future<void> _deleteCurrentExpense(BuildContext context) async {
+    if (widget.expenseToEdit == null || widget.expenseToEdit!.id == null) return;
+
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: const Text('Are you sure you want to delete this expense? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmDelete == true) {
+      if (_deductFromWallent) { // If the checkbox is currently checked
+        final prefs = await SharedPreferences.getInstance();
+        double walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+        walletAmount += widget.expenseToEdit!.amount; // Add back the amount
+        await prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+        widget.onWalletAmountChange(); // Update wallet display on home screen
+      }
+      await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
+      Navigator.pop(context, true); // Signal deletion
     }
   }
 
@@ -226,11 +267,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _addExpense,
+                onPressed: () => _addExpense(context),
                 child: Text(
                   expenseToEdit == null ? 'Add Expense' : 'Update Expense',
                 ),
               ),
+              if (expenseToEdit != null) ...[
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => _deleteCurrentExpense(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red, // Set button color to red
+                  ),
+                  child: const Text('Delete Expense'),
+                ),
+              ],
             ],
           ),
         ),

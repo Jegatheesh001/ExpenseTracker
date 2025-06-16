@@ -15,6 +15,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   See the percentage change in spending compared to the previous day (e.g., +10% or -5%).
     *   Track monthly spending against a user-defined limit.
     *   Visual progress bar (slider) indicating the percentage of the monthly limit used.
+    *   Monitor your wallet balance, which can be updated through settings and reflects changes after adding or editing expenses.
 
 *   **Customization & Settings:**
     *   **Theme:**
