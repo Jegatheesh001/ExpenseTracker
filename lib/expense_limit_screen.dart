@@ -96,7 +96,7 @@ class _ExpenseLimitScreenState extends State<ExpenseLimitScreen> {
     dailyLimitController.text = prefs.getString('dailyLimit') ?? '';
     if (mounted) {
       setState(() {
-        _isStatusBarEnabled = prefs.getBool('showExpStatusBar') ?? true;
+        _isStatusBarEnabled = prefs.getBool('showExpStatusBar') ?? false;
       });
     }
   }
