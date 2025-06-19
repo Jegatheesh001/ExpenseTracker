@@ -158,7 +158,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min, // To keep the Row compact around its children
           children: <Widget>[
-            Text(expenseToEdit == null ? 'Add New Expense' : 'Edit Expense'),
+            Text((expenseToEdit != null && expenseToEdit!.id != null) ? 'Edit Expense' : 'Add New Expense'),
             if (expenseToEdit != null && expenseToEdit!.id != null) // Show icon only in edit mode and if id exists
               Padding(
                 padding: const EdgeInsets.only(left: 4.0), // Reduced padding slightly for IconButton
@@ -269,10 +269,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ElevatedButton(
                 onPressed: () => _addExpense(context),
                 child: Text(
-                  expenseToEdit == null ? 'Add Expense' : 'Update Expense',
+                  (expenseToEdit != null && expenseToEdit!.id != null) ? 'Update Expense' : 'Add Expense',
                 ),
               ),
-              if (expenseToEdit != null) ...[
+              if (expenseToEdit != null && expenseToEdit!.id != null) ...[
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => _deleteCurrentExpense(context),

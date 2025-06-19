@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
 import 'expense_list_view.dart';
@@ -89,6 +92,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadWalletAmount(); // Load wallet amount
     _loadCurrency();
     setExpStatusBar();
+    _handleCopiedTextFromSharing();
   }
 
   // Loads the selected currency from shared preferences.
@@ -240,17 +244,13 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
-  final _amountController = TextEditingController();
-  final _remarksController = TextEditingController();
-
   List<Expense> _expenses = [];
   double _expensesTotal = 0;
   double _percentageChange = 0;
 
   @override
   void dispose() {
-    _amountController.dispose();
-    _remarksController.dispose();
+    _intentSub.cancel();
     super.dispose();
   }
 
@@ -428,5 +428,43 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  late StreamSubscription _intentSub;
+  // Method to handle shared text
+  void _handleCopiedTextFromSharing() {
+    // Listen to media sharing coming from outside the app while the app is in the memory.
+    _intentSub = ReceiveSharingIntent.instance.getMediaStream().listen((value) {
+      retrieveSharedContent(value);
+    }, onError: (err) {});
+
+    // Get the media sharing coming from outside the app while the app is closed.
+    ReceiveSharingIntent.instance.getInitialMedia().then((value) {
+      retrieveSharedContent(value);
+      ReceiveSharingIntent.instance.reset();
+    });
+  }
+  
+  void retrieveSharedContent(List<SharedMediaFile> value) {
+    final RegExp regExp = RegExp(
+      r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|ABU DHABI|SHJ|AUH|MUMBAI|DUBAI|LONDON|RIYADH)\..*",
+      caseSensitive: false,
+    );
+    String content = value.first.path;
+    ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(content)));
+    final RegExpMatch? match = regExp.firstMatch(content);
+    if (match != null) {
+      var expense = Expense(
+        categoryId: 0,
+        category: '',
+        amount: double.parse(match.group(2)!),
+        remarks: match.group(5)!,
+        expenseDate: _selectedDate,
+        entryDate: DateTime.now(),
+      );
+      _editExpense(expense);
+    }
   }
 }
