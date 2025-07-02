@@ -32,8 +32,9 @@ class PersistenceContext {
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,
     DateTime endDate,
+    int profileId
   ) async {
-    return await DatabaseHelper().getExpensesByDate(startDate, endDate);
+    return await DatabaseHelper().getExpensesByDate(startDate, endDate, profileId);
   }
 
   // Saves a new category to the database.
@@ -47,12 +48,12 @@ class PersistenceContext {
   }
 
   // Retrieves the sum of expenses for a specific date.
-  Future<double> getExpenseSumByDate(DateTime date) async {
-    return await DatabaseHelper().getExpenseSumByDate(date);
+  Future<double> getExpenseSumByDate(DateTime date, int profileId) async {
+    return await DatabaseHelper().getExpenseSumByDate(date, profileId);
   }
 
-  Future<double> getExpenseSumByMonth(DateTime date) async {
-    return await DatabaseHelper().getExpenseSumByMonth(date);
+  Future<double> getExpenseSumByMonth(DateTime date, int profileId) async {
+    return await DatabaseHelper().getExpenseSumByMonth(date, profileId);
   }
 
   Future<void> deleteAllExpenseData() async {

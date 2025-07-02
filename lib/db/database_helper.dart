@@ -28,7 +28,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -83,6 +83,10 @@ class DatabaseHelper {
         'UPDATE expenses SET expenseDate=date(entryDate) where expenseDate is null',
       );
     }
+    // Version 4 changes
+    if (oldVersion < 4) {
+      await db.execute('ALTER TABLE expenses ADD COLUMN profileId INTEGER default 0');
+    }
   }
 
   // Inserts a new expense into the database.
@@ -102,14 +106,14 @@ class DatabaseHelper {
   }
 
   // Method to get expenses for a specific date
-  Future<double> getExpenseSumByDate(DateTime date) async {
+  Future<double> getExpenseSumByDate(DateTime date, int profileId) async {
     final Database db = await database;
     final List<Map<String, dynamic>> result = await db.query(
       'expenses',
       // Specify the 'amount' column to be summed.
       columns: ['SUM(amount) as total'],
-      where: 'date(expenseDate) = ?',
-      whereArgs: [date.toIso8601String().substring(0, 10)],
+      where: 'date(expenseDate) = ? AND profileId = ?',
+      whereArgs: [date.toIso8601String().substring(0, 10), profileId],
     );
 
     // Safely extract the sum from the result.
@@ -123,14 +127,16 @@ class DatabaseHelper {
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,
     DateTime endDate,
+    int profileId
   ) async {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'expenses',
-      where: 'date(expenseDate) BETWEEN ? AND ?',
+      where: 'date(expenseDate) BETWEEN ? AND ? AND profileId = ?',
       whereArgs: [
         startDate.toIso8601String().substring(0, 10),
         endDate.toIso8601String().substring(0, 10),
+        profileId
       ],
       orderBy: 'entryDate desc',
     );
@@ -174,6 +180,7 @@ class DatabaseHelper {
         remarks: maps[i]['remarks'],
         expenseDate: DateTime.parse(maps[i]['expenseDate']),
         entryDate: DateTime.parse(maps[i]['entryDate']),
+        profileId: 0 // Not required for processing
       );
     });
   }
@@ -206,14 +213,14 @@ class DatabaseHelper {
   }
 
   // Calculates the sum of expenses for a given month.
-  Future<double> getExpenseSumByMonth(DateTime date) async {
+  Future<double> getExpenseSumByMonth(DateTime date, int profileId) async {
     final Database db = await database;
     final List<Map<String, dynamic>> result = await db.query(
       'expenses',
       // Specify the 'amount' column to be summed.
       columns: ['SUM(amount) as total'],
-      where: "strftime('%Y-%m', expenseDate) = ?",
-      whereArgs: [date.toIso8601String().substring(0, 7)],
+      where: "strftime('%Y-%m', expenseDate) = ? AND profileId = ?",
+      whereArgs: [date.toIso8601String().substring(0, 7), profileId],
     );
     final double sum = result.first['total'] ?? 0.0;
     return sum;

@@ -1,5 +1,6 @@
 class Expense {
   final int? id;
+  final int profileId;
   final int? categoryId;
   final String category;
   final double amount;
@@ -11,6 +12,7 @@ class Expense {
   factory Expense.fromMap(Map<String, dynamic> map) {
     return Expense(
       id: map['id'],
+      profileId: map['profileId'],
       categoryId: map['categoryId'],
       category: map['category'],
       amount: map['amount'],
@@ -27,6 +29,7 @@ class Expense {
   // Convert an Expense object into a Map
   Map<String, dynamic> toMap() {
     return {
+      'profileId': profileId,
       'categoryId': categoryId,
       'category': category,
       'amount': amount,
@@ -39,6 +42,7 @@ class Expense {
   // Constructor for Expense.
   Expense({
     this.id,
+    required this.profileId,
     this.categoryId,
     required this.category,
     required this.amount,

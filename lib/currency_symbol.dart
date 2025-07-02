@@ -12,7 +12,24 @@ class CurrencySymbol {
         currencySymbol = '\$';
         break;
       default:
-        currencySymbol = '₹'; // Default to dollar if currency is unknown
+        currencySymbol = '₹'; // Default to rupee if currency is unknown
+    }
+    return currencySymbol;
+  }
+  String getLabel(String currency) {
+    String currencySymbol;
+    switch (currency) {
+      case 'Rupee':
+        currencySymbol = 'INR';
+        break;
+      case 'Dirham':
+        currencySymbol = 'AED';
+        break;
+      case 'Dollar':
+        currencySymbol = 'USD';
+        break;
+      default:
+        currencySymbol = 'INR'; // Default to INR if currency is unknown
     }
     return currencySymbol;
   }

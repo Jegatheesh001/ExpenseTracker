@@ -53,7 +53,7 @@ class DataBackup {
                   expenseDate: DateTime.parse(parts[3]),
                   entryDate: DateTime.parse(parts[4]),
                   remarks: parts[5],
-                  //profileId: int.parse(parts[7]),
+                  profileId: int.parse(parts[7]),
                 );
                 //print("expense: \n${expense.toMap()}");
                 expensesToInsert.add(expense);
@@ -111,11 +111,10 @@ class DataBackup {
 
       // Add expenses
       for (Expense exp in expenses) {
-        // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId
-        // Note: ActiveFLag and ProfileId are not stored in the current Expense entity.
-        // Exporting 'Y' for ActiveFLag and '0' for ProfileId to match the import format example.
+        // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFlag;;ProfileId
+        // Note: ActiveFlag is not stored in the current Expense entity. Showing 'Y' as default.
         exportContent.writeln(
-            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;0'
+            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;${exp.profileId}'
         );
       }
 

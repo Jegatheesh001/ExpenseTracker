@@ -16,6 +16,7 @@ class SettingsScreen extends StatefulWidget {
   final Function(String) onMonthlyLimitSaved; // Callback for when monthly limit is saved
   final VoidCallback onWalletAmountUpdated; // Callback for when wallet amount is updated
   final VoidCallback onDeleteAllData; // New callback for data deletion
+  final VoidCallback onProfileChange;
   const SettingsScreen({
     Key? key,
     required this.onDeleteAllData, // Add the new callback
@@ -23,7 +24,8 @@ class SettingsScreen extends StatefulWidget {
     required this.onCurrencyToggle,
     required this.onWalletAmountUpdated,
     required this.onStatusBarToggle,
-    required this.onMonthlyLimitSaved}) : super(key: key);
+    required this.onMonthlyLimitSaved, 
+    required this.onProfileChange}) : super(key: key);
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -36,8 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Wallet settings
   double _currentWalletAmount = 0.0;
-  final TextEditingController _walletAmountController = TextEditingController();
+  int _profileId = 0;
 
+  final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _deleteConfirmationController = TextEditingController(); // Controller for the delete confirmation text field
 
   @override
@@ -50,22 +53,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isDarkMode = prefs.getBool('isDarkMode') ?? (ThemeMode.system == ThemeMode.dark);
-      _currentCurrency = prefs.getString('selectedCurrency') ?? 'Rupee';
+      _isDarkMode = prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
+      _currentCurrency = prefs.getString(PrefKeys.selectedCurrency) ?? 'Rupee';
       _currentWalletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+      _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
     });
   }
 
   // Saves the selected theme mode to shared preferences.
   Future<void> _saveThemeMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', value);
+    await prefs.setBool(PrefKeys.isDarkMode, value);
   }
 
   // Saves the selected currency to shared preferences.
   Future<void> _saveCurrency(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selectedCurrency', value);
+    await prefs.setString(PrefKeys.selectedCurrency, value);
     setState(() {
       _currentCurrency = value;
     });
@@ -140,6 +144,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _switchProfileId() async {
+    if(_profileId == 0) {
+      _profileId = 1;
+    } else {
+      _profileId = 0;
+    }
+    setState(() {
+      _profileId = _profileId;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setInt(PrefKeys.profileId, _profileId);
+    widget.onProfileChange();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Logic not implemented yet')));
   }
 
   @override
@@ -228,6 +249,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             onTap: _showSetWalletAmountDialog,
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+            title: const Text('Switch Profile'),
+            trailing: Text(
+              CurrencySymbol().getLabel(_currentCurrency),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            ),
+            onTap: () {
+              _switchProfileId();
+            },
           ),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 0),

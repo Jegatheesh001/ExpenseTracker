@@ -26,6 +26,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController _remarksController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _deductFromWallent = true;
+  int _profileId = 0;
 
   @override
   void initState() {
@@ -39,6 +40,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _loadExpense(expenseToEdit!);
       }
     });
+    _loadSelectedProfile();
   }
 
   // Loads categories from the persistence context.
@@ -46,6 +48,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final loadedCategories = await PersistenceContext().getCategories();
     setState(() {
       _categories.addAll(loadedCategories);
+    });
+  }
+
+  Future<void> _loadSelectedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
     });
   }
 
@@ -88,17 +97,49 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ).showSnackBar(const SnackBar(content: Text('Please enter remarks')));
     } else {
       final newExpense = Expense(
-        id: expenseToEdit?.id,
-        categoryId: _selectedCategory!.categoryId,
-        category: category,
-        amount: amount,
-        remarks: remarks,
-        expenseDate: _selectedDate,
-        entryDate: DateTime.now(),
+        id: expenseToEdit?.id, // Use existing ID if editing
+        categoryId: _selectedCategory!.categoryId, // Selected category ID
+        category: category, // Selected category name
+        amount: amount, // Entered amount
+        remarks: remarks, // Entered remarks
+        expenseDate: _selectedDate, // Selected date
+        entryDate: DateTime.now(), // Current date/time for entry
+        profileId: _profileId, // Current profile ID
       );
-      await PersistenceContext().saveOrUpdateExpense(newExpense);
-      deductFromWallet(amount);
-      Navigator.pop(context, true);
+
+      // Show confirmation dialog only if it's an update (expenseToEdit is not null)
+      bool confirmUpdate = true;
+      if (expenseToEdit != null && expenseToEdit!.id != null) {
+        confirmUpdate = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Confirm Update'),
+              content: const Text('Are you sure you want to update this expense?'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop(false); // User cancelled
+                  },
+                ),
+                TextButton(
+                  child: const Text('Update'),
+                  onPressed: () {
+                    Navigator.of(context).pop(true); // User confirmed
+                  },
+                ),
+              ],
+            );
+          },
+        ) ?? false; // Default to false if dialog is dismissed
+      }
+
+      if (confirmUpdate) {
+        await PersistenceContext().saveOrUpdateExpense(newExpense);
+        deductFromWallet(amount);
+        Navigator.pop(context, true);
+      }
     }
   }
 

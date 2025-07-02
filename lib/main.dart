@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:expense_tracker/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -84,6 +85,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   double _currMonthExp = 0;
   double _walletAmount = 0.0; // To store wallet amount
   bool _showExpStatusBar = false;
+  int _profileId = 0;
+
 
   @override
   void initState() {
@@ -91,14 +94,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadTodaysExpenses(); // Load today's expenses by default
     _loadWalletAmount(); // Load wallet amount
     _loadCurrency();
-    setExpStatusBar();
+    _loadExpStatusBar();
+    _loadSelectedProfile();
     _handleCopiedTextFromSharing();
   }
 
   // Loads the selected currency from shared preferences.
   Future<void> _loadCurrency() async {
     final prefs = await SharedPreferences.getInstance();
-    final currency = prefs.getString('selectedCurrency') ?? 'Rupee';
+    final currency = prefs.getString(PrefKeys.selectedCurrency) ?? 'Rupee';
     _loadCurrencySymbol(currency);
   }
 
@@ -107,7 +111,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       // Using the same key as in SettingsScreen
-      _walletAmount = prefs.getDouble('walletAmount') ?? 0.0;
+      _walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
     });
   }
 
@@ -119,11 +123,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
-  Future<void> setExpStatusBar() async {
+  Future<void> _loadExpStatusBar() async {
     final prefs = await SharedPreferences.getInstance();
-    bool status = prefs.getBool('showExpStatusBar') ?? false;
+    bool status = prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
     setState(() {
       _showExpStatusBar = status;
+    });
+  }
+
+  Future<void> _loadSelectedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
     });
   }
 
@@ -140,7 +151,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     String monthlyLimitStr = prefs.getString('monthlyLimit') ?? '';
     if (monthlyLimitStr != '') {
       double monthlyExp = await PersistenceContext().getExpenseSumByMonth(
-        _selectedDate,
+        _selectedDate, _profileId
       );
       double monthlyLimit = double.parse(monthlyLimitStr);
       double monthlyLimitPerc = getMonthlyLimitPerc(monthlyLimit, monthlyExp);
@@ -185,6 +196,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final loadedExpenses = await PersistenceContext().getExpensesByDate(
       startOfDay,
       startOfDay,
+      _profileId
     );
     _expensesTotal = loadedExpenses.fold(0.0, (sum, item) => sum + item.amount);
     _updateExpenseList(loadedExpenses);
@@ -258,7 +270,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   void _showPreviousDayPercentageChange() async {
     final previousDay = _selectedDate.subtract(const Duration(days: 1));
     final previousDayTotal = await PersistenceContext().getExpenseSumByDate(
-      previousDay,
+      previousDay, _profileId
     );
     _percentageChange = 0;
     if (previousDayTotal == 0 && _expensesTotal > 0) {
@@ -293,6 +305,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                       onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
                       onDeleteAllData: _handleDataDeletion, // Pass the new callback
                       onWalletAmountUpdated: _loadWalletAmount, // Pass callback to update wallet amount
+                      onProfileChange: _loadSelectedProfile, // Pass callback to update profile
                     );
                   },
                 ),
@@ -463,6 +476,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         remarks: match.group(5)!,
         expenseDate: _selectedDate,
         entryDate: DateTime.now(),
+        profileId: _profileId,
       );
       _editExpense(expense);
     }
