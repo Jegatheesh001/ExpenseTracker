@@ -39,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Wallet settings
   double _currentWalletAmount = 0.0;
   int _profileId = 0;
+  late SharedPreferences _prefs;
 
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _deleteConfirmationController = TextEditingController(); // Controller for the delete confirmation text field
@@ -51,25 +52,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Loads saved settings (theme mode and currency) from shared preferences.
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    _prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isDarkMode = prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
-      _currentCurrency = prefs.getString(PrefKeys.selectedCurrency) ?? 'Rupee';
-      _currentWalletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
-      _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
+      _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
+      _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
+      _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
+      _currentWalletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
     });
   }
 
   // Saves the selected theme mode to shared preferences.
   Future<void> _saveThemeMode(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(PrefKeys.isDarkMode, value);
+    await _prefs.setBool(PrefKeys.isDarkMode, value);
   }
 
   // Saves the selected currency to shared preferences.
   Future<void> _saveCurrency(String value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(PrefKeys.selectedCurrency, value);
+    await _prefs.setString('${PrefKeys.selectedCurrency}-$_profileId', value);
     setState(() {
       _currentCurrency = value;
     });
@@ -78,8 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Saves the wallet amount to shared preferences.
   Future<void> _saveWalletAmount(double amount) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(PrefKeys.walletAmount, amount);
+    await _prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', amount);
     setState(() {
       _currentWalletAmount = amount;
     });
@@ -155,12 +153,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _profileId = _profileId;
     });
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setInt(PrefKeys.profileId, _profileId);
+    _prefs.setInt(PrefKeys.profileId, _profileId);
     widget.onProfileChange();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Logic not implemented yet')));
+    // Remove the SnackBar, as the logic is now implemented
+    Navigator.pop(context); // Go back to the previous screen
   }
 
   @override

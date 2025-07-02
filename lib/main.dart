@@ -85,33 +85,47 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   double _currMonthExp = 0;
   double _walletAmount = 0.0; // To store wallet amount
   bool _showExpStatusBar = false;
+  late SharedPreferences _prefs;
   int _profileId = 0;
 
 
   @override
-  void initState() {
+  void initState() async {
     super.initState();
-    _loadTodaysExpenses(); // Load today's expenses by default
-    _loadWalletAmount(); // Load wallet amount
-    _loadCurrency();
-    _loadExpStatusBar();
-    _loadSelectedProfile();
+    _prefs = await SharedPreferences.getInstance();
+    _loadPageContent();
     _handleCopiedTextFromSharing();
+  }
+
+  /// Initializes all the necessary data for the home page.
+  void _loadPageContent() async {
+    await _loadSelectedProfile();
+    await _loadCurrency();
+    _loadWalletAmount();
+    _loadExpStatusBar();
+    _loadTodaysExpenses();
+  }
+
+  /// Handles profile change event from settings.
+  Future<void> _onProfileChange() async {
+    await _loadSelectedProfile();
+    await _loadCurrency();
+    _loadWalletAmount();
+    // Reload today's expenses to reflect the new profile's data.
+    _loadTodaysExpenses();
   }
 
   // Loads the selected currency from shared preferences.
   Future<void> _loadCurrency() async {
-    final prefs = await SharedPreferences.getInstance();
-    final currency = prefs.getString(PrefKeys.selectedCurrency) ?? 'Rupee';
+    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
     _loadCurrencySymbol(currency);
   }
 
   // Loads the wallet amount from shared preferences.
   Future<void> _loadWalletAmount() async {
-    final prefs = await SharedPreferences.getInstance();
     setState(() {
       // Using the same key as in SettingsScreen
-      _walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+      _walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
     });
   }
 
@@ -124,31 +138,29 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
 
   Future<void> _loadExpStatusBar() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool status = prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
+    bool status = _prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
     setState(() {
       _showExpStatusBar = status;
     });
   }
 
   Future<void> _loadSelectedProfile() async {
-    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
+      _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
     });
   }
 
   Future<void> _toggleExpStatusBar() async {
-    _showExpStatusBar = !_showExpStatusBar;
-    setState(() {});
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setBool('showExpStatusBar', _showExpStatusBar);
+    bool flag = !_showExpStatusBar;
+    _prefs.setBool('showExpStatusBar', flag);
+    setState(() {
+      _showExpStatusBar = flag;
+    });
   }
 
   // Calculates the total spending for the current month and updates the progress.
   Future<void> _calculateSelectedMonthSpending() async {
-    final prefs = await SharedPreferences.getInstance();
-    String monthlyLimitStr = prefs.getString('monthlyLimit') ?? '';
+    String monthlyLimitStr = _prefs.getString(PrefKeys.monthlyLimit) ?? '';
     if (monthlyLimitStr != '') {
       double monthlyExp = await PersistenceContext().getExpenseSumByMonth(
         _selectedDate, _profileId
@@ -305,7 +317,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                       onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
                       onDeleteAllData: _handleDataDeletion, // Pass the new callback
                       onWalletAmountUpdated: _loadWalletAmount, // Pass callback to update wallet amount
-                      onProfileChange: _loadSelectedProfile, // Pass callback to update profile
+                      onProfileChange: _onProfileChange, // Pass callback to update profile
                     );
                   },
                 ),
