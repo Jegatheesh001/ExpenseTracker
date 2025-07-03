@@ -38,7 +38,7 @@ class DatabaseHelper {
   Future<void> _onCreate(Database db, int version) async {
     // Create expenses table
     await db.execute(
-      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, expenseDate TEXT, entryDate TEXT)',
+      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, expenseDate TEXT, profileId INTEGER, entryDate TEXT)',
     );
 
     await version2DbChanges(db);

@@ -90,15 +90,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
 
   @override
-  void initState() async {
+  void initState() {
     super.initState();
-    _prefs = await SharedPreferences.getInstance();
     _loadPageContent();
     _handleCopiedTextFromSharing();
   }
 
   /// Initializes all the necessary data for the home page.
   void _loadPageContent() async {
+    _prefs = await SharedPreferences.getInstance();
     await _loadSelectedProfile();
     await _loadCurrency();
     _loadWalletAmount();
