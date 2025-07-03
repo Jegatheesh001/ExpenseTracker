@@ -21,21 +21,27 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   **Theme:**
         *   Switch between Light and Dark mode.
         *   Theme preference is saved and loaded automatically.
-    *   **Currency:**
-        *   Select your preferred currency. Supported options:
+*   **Currency:**
+        *   Select your preferred currency for each profile. Supported options:
             *   Indian Rupee (₹)
             *   UAE Dirham (د.إ)
             *   US Dollar ($)
-        *   Currency preference is saved.
+        *   Currency preference is saved for each profile.
+*   **Multiple Profiles:**
+        *   The app supports multiple profiles (2), each with its own currency option and unique wallet.
     *   **Monthly Limit:**
         *   Set and update your monthly spending goal.
         *   The progress bar updates dynamically based on this limit.
     *   **Expense Status Bar:**
         *   Toggle the visibility of the monthly limit progress bar on the home screen.
         *   This preference is saved.
-    *   **Data Management:**
+*   **Data Management:**
         *   Option to delete all stored expense data.
+*   **Attachments:**
+    *   Attach images to expenses.
 
+*   **Categories:**
+    *   Categorize expenses for better tracking.
 *   **User Interface:**
     *   Clean and user-friendly interface.
     *   Intuitive navigation.
@@ -74,7 +80,7 @@ To get a local copy up and running, follow these simple steps.
 *   **Dart:** Programming language for Flutter.
 *   **`shared_preferences`:** For persisting simple data like theme settings, currency preferences, and monthly limits.
 *   **`intl`:** For date formatting.
-*   **Local Database (e.g., `sqflite`):**
+*   **Local Database (e.g., `sqflite`):** For storing expense data.
 
 ## Data Persistence
 
