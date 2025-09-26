@@ -180,7 +180,7 @@ class DatabaseHelper {
         remarks: maps[i]['remarks'],
         expenseDate: DateTime.parse(maps[i]['expenseDate']),
         entryDate: DateTime.parse(maps[i]['entryDate']),
-        profileId: 0 // Not required for processing
+        profileId: maps[i]['profileId']
       );
     });
   }
