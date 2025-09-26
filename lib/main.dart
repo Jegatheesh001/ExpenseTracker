@@ -11,6 +11,7 @@ import 'expense_list_view.dart';
 import 'add_expense_screen.dart'; // Import the new screen
 import 'settings_screen.dart'; // Import the new settings screen
 import 'currency_symbol.dart';
+import 'reports_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -302,6 +303,17 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       appBar: AppBar(
         title: const Text('Expense Tracker'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.pie_chart),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReportsScreen(profileId: _profileId),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () {

@@ -59,4 +59,8 @@ class PersistenceContext {
   Future<void> deleteAllExpenseData() async {
     await DatabaseHelper().deleteAllExpenseData();
   }
+
+  Future<Map<String, double>> getCategorySpendingForMonth(DateTime date, int profileId) async {
+    return await DatabaseHelper().getCategorySpendingForMonth(date, profileId);
+  }
 }

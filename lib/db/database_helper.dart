@@ -234,4 +234,22 @@ class DatabaseHelper {
       await txn.delete('categories');
     });
   }
+
+  // Retrieves the total spending for each category for a given month.
+  Future<Map<String, double>> getCategorySpendingForMonth(DateTime date, int profileId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT category, SUM(amount) as total
+      FROM expenses
+      WHERE strftime('%Y-%m', expenseDate) = ? AND profileId = ?
+      GROUP BY category
+    ''', [date.toIso8601String().substring(0, 7), profileId]);
+
+    final Map<String, double> categorySpending = {};
+    for (var row in result) {
+      categorySpending[row['category']] = row['total'];
+    }
+
+    return categorySpending;
+  }
 }
