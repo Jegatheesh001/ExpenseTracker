@@ -5,8 +5,9 @@ import 'db/persistence_context.dart';
 
 class ReportsScreen extends StatefulWidget {
   final int profileId;
+  final String currencySymbol;
 
-  const ReportsScreen({Key? key, required this.profileId}) : super(key: key);
+  const ReportsScreen({Key? key, required this.profileId, required this.currencySymbol}) : super(key: key);
 
   @override
   _ReportsScreenState createState() => _ReportsScreenState();
@@ -119,7 +120,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   const SizedBox(width: 8),
                                   Text(entry.key, style: const TextStyle(fontSize: 16)),
                                   const Spacer(),
-                                  Text('₹${entry.value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  Text('${widget.currencySymbol}${entry.value.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             );

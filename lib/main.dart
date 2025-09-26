@@ -309,7 +309,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ReportsScreen(profileId: _profileId),
+                  builder: (context) => ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
                 ),
               );
             },
