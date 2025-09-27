@@ -30,7 +30,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   void _changeMonth(int month) {
     setState(() {
-            _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + month, 1);
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + month, 1);
       _updateFuture();
     });
   }
@@ -82,34 +82,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       children: [
                         SizedBox(
                           height: 300,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              PieChart(
-                                PieChartData(
-                                  sections: categorySpending.entries.map((entry) {
-                                    final percentage = (entry.value / totalSpending) * 100;
-                                    return PieChartSectionData(
-                                      color: Colors.primaries[categorySpending.keys.toList().indexOf(entry.key) % Colors.primaries.length],
-                                      value: entry.value,
-                                      title: '${percentage.toStringAsFixed(1)}%',
-                                      radius: 100,
-                                      titleStyle: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    );
-                                  }).toList(),
-                                  sectionsSpace: 2,
-                                  centerSpaceRadius: 80,
-                                ),
-                              ),
-                              Text(
-                                'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                              ),
-                            ],
+                          child: PieChart(
+                            PieChartData(
+                              sections: categorySpending.entries.map((entry) {
+                                final percentage = (entry.value / totalSpending) * 100;
+                                return PieChartSectionData(
+                                  color: Colors.primaries[categorySpending.keys.toList().indexOf(entry.key) % Colors.primaries.length],
+                                  value: entry.value,
+                                  title: '${percentage.toStringAsFixed(1)}%',
+                                  radius: 100,
+                                  titleStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                );
+                              }).toList(),
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 0,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -136,6 +127,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               ),
                             );
                           },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
