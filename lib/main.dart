@@ -12,6 +12,7 @@ import 'add_expense_screen.dart'; // Import the new screen
 import 'settings_screen.dart'; // Import the new settings screen
 import 'currency_symbol.dart';
 import 'reports_screen.dart';
+import 'month_view.dart';
 
 void main() {
   runApp(const MyApp());
@@ -88,6 +89,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   bool _showExpStatusBar = false;
   late SharedPreferences _prefs;
   int _profileId = 0;
+  bool _isMonthView = false;
 
 
   @override
@@ -218,7 +220,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   // Loads expenses for the selected date from the database.
   Future<void> _loadTodaysExpenses() async {
-    _loadSelectedDateExpense();
+    if (_isMonthView) {
+      setState(() {});
+    } else {
+      _loadSelectedDateExpense();
+    }
     _calculateSelectedMonthSpending();
   }
 
@@ -264,6 +270,16 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       _selectedDate = _selectedDate.add(Duration(days: daysToAdd));
     });
     _loadSelectedDateExpense();
+    if(oldDay.month != _selectedDate.month) {
+      _calculateSelectedMonthSpending();
+    }
+  }
+
+  void _addMonthToCurrent(int monthsToAdd) {
+    final DateTime oldDay = _selectedDate;
+    setState(() {
+      _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + monthsToAdd, _selectedDate.day);
+    });
     if(oldDay.month != _selectedDate.month) {
       _calculateSelectedMonthSpending();
     }
@@ -362,13 +378,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ),
                       ),
                       const SizedBox(width: 8.0),
-                      Text(
-                        '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: _percentageChange > 0 ? Colors.red : Colors.green,
+                      if (!_isMonthView)
+                        Text(
+                          '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: _percentageChange > 0 ? Colors.red : Colors.green,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   // Right side: Wallet Icon and Amount
@@ -417,34 +434,75 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                   ),
                 ],
               ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios),
-                  onPressed: () => _addDayToCurrent(-1)
-                ),
-                Row(
-                  children: [
-                    Text(
-                      DateFormat('dd-MM-yyyy').format(_selectedDate),
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios),
-                  onPressed: () => _addDayToCurrent(1)
-                ),
-              ],
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: SegmentedButton<bool>(
+                segments: const <ButtonSegment<bool>>[
+                  ButtonSegment<bool>(value: false, label: Text('Day')),
+                  ButtonSegment<bool>(value: true, label: Text('Month')),
+                ],
+                selected: <bool>{_isMonthView},
+                onSelectionChanged: (Set<bool> newSelection) {
+                  setState(() {
+                    _isMonthView = newSelection.first;
+                    _loadTodaysExpenses();
+                  });
+                },
+              ),
             ),
+            if (_isMonthView)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () => _addMonthToCurrent(-1),
+                  ),
+                  Text(
+                    DateFormat('MMMM yyyy').format(_selectedDate),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios),
+                    onPressed: () => _addMonthToCurrent(1),
+                  ),
+                ],
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () => _addDayToCurrent(-1),
+                  ),
+                  Text(
+                    DateFormat('dd-MM-yyyy').format(_selectedDate),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios),
+                    onPressed: () => _addDayToCurrent(1),
+                  ),
+                ],
+              ),
             const SizedBox(height: 8.0),
-            ExpenseListView(
-              expenses: _expenses,
-              currencySymbol: _currencySymbol,
-              onDelete: _deleteExpense,
-              onEdit: _editExpense,
-            ),
+            if (_isMonthView)
+              Expanded(
+                child: MonthView(
+                  selectedDate: _selectedDate,
+                  currencySymbol: _currencySymbol,
+                  profileId: _profileId,
+                  onEdit: _editExpense,
+                ),
+              )
+            else
+              ExpenseListView(
+                expenses: _expenses,
+                currencySymbol: _currencySymbol,
+                onDelete: _deleteExpense,
+                onEdit: _editExpense,
+              ),
           ],
         ),
       ),
