@@ -9,6 +9,7 @@ class MonthView extends StatefulWidget {
   final String currencySymbol;
   final int profileId;
   final Future<void> Function(Expense) onEdit;
+  final void Function(double) onTotalChanged;
 
   const MonthView({
     Key? key,
@@ -16,6 +17,7 @@ class MonthView extends StatefulWidget {
     required this.currencySymbol,
     required this.profileId,
     required this.onEdit,
+    required this.onTotalChanged,
   }) : super(key: key);
 
   @override
@@ -45,8 +47,10 @@ class _MonthViewState extends State<MonthView> {
 
     final expenses = await DatabaseHelper().getExpensesByDate(firstDayOfMonth, lastDayOfMonth, widget.profileId);
     final groupedExpenses = <DateTime, List<Expense>>{};
+    double total = 0;
 
     for (final expense in expenses) {
+      total += expense.amount;
       final day = DateTime(expense.expenseDate.year, expense.expenseDate.month, expense.expenseDate.day);
       if (groupedExpenses.containsKey(day)) {
         groupedExpenses[day]!.add(expense);
@@ -54,7 +58,7 @@ class _MonthViewState extends State<MonthView> {
         groupedExpenses[day] = [expense];
       }
     }
-
+    widget.onTotalChanged(total);
     return groupedExpenses;
   }
 

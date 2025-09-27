@@ -285,6 +285,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
+  void _updateMonthlyTotal(double total) {
+    setState(() {
+      _expensesTotal = total;
+    });
+  }
+
   List<Expense> _expenses = [];
   double _expensesTotal = 0;
   double _percentageChange = 0;
@@ -494,6 +500,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                   currencySymbol: _currencySymbol,
                   profileId: _profileId,
                   onEdit: _editExpense,
+                  onTotalChanged: _updateMonthlyTotal,
                 ),
               )
             else
