@@ -9,6 +9,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   Delete individual expenses with confirmation.
     *   View expenses categorized by date.
     *   Easily navigate between daily expense views (previous/next day).
+    *   Toggle between a day-wise and month-wise view of your expenses for flexible analysis.
 
 *   **Dashboard & Insights:**
     *   View total expenses for the selected day.
@@ -16,6 +17,11 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   Track monthly spending against a user-defined limit.
     *   Visual progress bar (slider) indicating the percentage of the monthly limit used.
     *   Monitor your wallet balance, which can be updated through settings and reflects changes after adding or editing expenses.
+
+*   **Reports & Analysis:**
+    *   **Pie Chart Expense View:**
+        *   Visualize your expenses with an intuitive pie chart.
+        *   Switch between different months to see expense distribution over time.
 
 *   **Customization & Settings:**
     *   **Theme:**
@@ -37,6 +43,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
         *   This preference is saved.
 *   **Data Management:**
         *   Option to delete all stored expense data.
+        *   Data backup and restore options (local file export/import).
 *   **Attachments:**
     *   Attach images to expenses.
 
@@ -93,9 +100,13 @@ The application uses SQLite for local data persistence. The database operations 
 ## Future Enhancements
 
 *   Expense reporting (e.g., weekly, monthly, yearly summaries with charts).
-*   Data backup and restore options (e.g., cloud sync or local file export/import).
+*   Cloud sync with Google Drive/Dropbox for data backup and restore.
+*   Export/import to CSV/PDF formats.
 *   Ability to set recurring expenses.
 *   Advanced search and filtering of expenses.
+*   Budgeting features to set limits for different categories.
+*   OCR for scanning receipts to automatically add expenses.
+*   Multi-language support.
 
 ## Contributing
 
