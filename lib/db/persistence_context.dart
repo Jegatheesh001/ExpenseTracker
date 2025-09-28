@@ -63,4 +63,8 @@ class PersistenceContext {
   Future<Map<String, double>> getCategorySpendingForMonth(DateTime date, int profileId) async {
     return await DatabaseHelper().getCategorySpendingForMonth(date, profileId);
   }
+
+  Future<Map<String, double>> getExpensesForLastFiveMonths(int profileId) async {
+    return await DatabaseHelper().getExpensesForLastFiveMonths(profileId);
+  }
 }

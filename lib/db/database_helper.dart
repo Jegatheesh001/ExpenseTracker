@@ -252,4 +252,26 @@ class DatabaseHelper {
 
     return categorySpending;
   }
+
+  // Retrieves the total expenses for the last five months.
+  Future<Map<String, double>> getExpensesForLastFiveMonths(int profileId) async {
+    final Database db = await database;
+    final Map<String, double> monthlyTotals = {};
+    final now = DateTime.now();
+
+    for (int i = 0; i < 5; i++) {
+      final month = DateTime(now.year, now.month - i, 1);
+      final monthKey = month.toIso8601String().substring(0, 7);
+      final List<Map<String, dynamic>> result = await db.query(
+        'expenses',
+        columns: ['SUM(amount) as total'],
+        where: "strftime('%Y-%m', expenseDate) = ? AND profileId = ?",
+        whereArgs: [monthKey, profileId],
+      );
+      final double sum = result.first['total'] ?? 0.0;
+      monthlyTotals[monthKey] = sum;
+    }
+
+    return monthlyTotals;
+  }
 }
