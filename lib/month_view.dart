@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'db/database_helper.dart';
 import 'db/entity.dart';
-import 'main.dart';
 
 class MonthView extends StatefulWidget {
   final DateTime selectedDate;

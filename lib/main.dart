@@ -285,6 +285,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+      _loadSelectedDateExpense();
+    }
+  }
+
   void _updateMonthlyTotal(double total) {
     setState(() {
       _expensesTotal = total;
@@ -482,9 +497,12 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     icon: const Icon(Icons.arrow_back_ios),
                     onPressed: () => _addDayToCurrent(-1),
                   ),
-                  Text(
-                    DateFormat('dd-MM-yyyy').format(_selectedDate),
-                    style: const TextStyle(fontSize: 16),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: Text(
+                      DateFormat('dd-MM-yyyy').format(_selectedDate),
+                      style: const TextStyle(fontSize: 16),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.arrow_forward_ios),
