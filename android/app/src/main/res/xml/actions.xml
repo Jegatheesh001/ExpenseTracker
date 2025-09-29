@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<actions>
+    <action intentName="actions.intent.OPEN_APP_FEATURE">
+        <fulfillment urlTemplate="app://com.jegatheesh.expenseTracker/open{?featureName}">
+            <parameter-mapping
+                intentParameter="feature"
+                urlParameter="featureName" />
+        </fulfillment>
+
+        <parameter name="feature">
+            <entity-set-reference entitySetId="featureEntitySet" />
+        </parameter>
+    </action>
+
+    <entity-set entitySetId="featureEntitySet">
+        <entity
+            name="Wallet Balance"
+            identifier="wallet" />
+        <entity
+            name="wallet"
+            identifier="wallet" />
+    </entity-set>
+</actions>

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+import 'package:flutter/services.dart';
 
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
@@ -92,11 +93,32 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   bool _isMonthView = false;
 
 
+  static const platform = MethodChannel('com.jegatheesh.expenseTracker/channel');
+
   @override
   void initState() {
     super.initState();
     _loadPageContent();
     _handleCopiedTextFromSharing();
+
+    platform.setMethodCallHandler(_handleMethod);
+  }
+
+  Future<dynamic> _handleMethod(MethodCall call) async {
+    switch (call.method) {
+      case 'getWalletAmount':
+        final prefs = await SharedPreferences.getInstance();
+        final profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
+        final walletAmount = prefs.getDouble('${PrefKeys.walletAmount}-$profileId') ?? 0.0;
+        debugPrint('Wallet Amount: $walletAmount');
+        // Here you could show a dialog or update the UI
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Wallet Amount: $_currencySymbol$walletAmount')),
+        );
+        break;
+      default:
+        throw MissingPluginException();
+    }
   }
 
   /// Initializes all the necessary data for the home page.
