@@ -174,9 +174,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (confirmDelete == true) {
       if (_deductFromWallent) { // If the checkbox is currently checked
         final prefs = await SharedPreferences.getInstance();
-        double walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+        String walletAmountKey = '${PrefKeys.walletAmount}-$_profileId';
+        double walletAmount = prefs.getDouble(walletAmountKey) ?? 0.0;
         walletAmount += widget.expenseToEdit!.amount; // Add back the amount
-        await prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+        await prefs.setDouble(walletAmountKey, walletAmount);
         widget.onWalletAmountChange(); // Update wallet display on home screen
       }
       await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
@@ -338,18 +339,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void deductFromWallet(double amount) async {
     if(_deductFromWallent) {
       final prefs = await SharedPreferences.getInstance();
-      double walletAmount = prefs.getDouble(PrefKeys.walletAmount) ?? 0.0;
+      String walletAmountKey = '${PrefKeys.walletAmount}-$_profileId';
+      double walletAmount = prefs.getDouble(walletAmountKey) ?? 0.0;
       if(expenseToEdit == null) {
         if(walletAmount > 0) {
           walletAmount -= amount;
-          prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+          prefs.setDouble(walletAmountKey, walletAmount);
           widget.onWalletAmountChange();
         }
       } else {
         double oldExpAmt = expenseToEdit!.amount;
         if(oldExpAmt != amount) {
           walletAmount -= amount - oldExpAmt;
-          prefs.setDouble(PrefKeys.walletAmount, walletAmount);
+          prefs.setDouble(walletAmountKey, walletAmount);
           widget.onWalletAmountChange();
         }
       }
