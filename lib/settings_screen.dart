@@ -158,6 +158,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Remove the SnackBar, as the logic is now implemented
     Navigator.pop(context); // Go back to the previous screen
   }
+  
+  Future<void> _showProfileSwitchConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button!
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Switch Profile'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Are you sure you want to switch profile?'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Switch'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _switchProfileId();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -253,9 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CurrencySymbol().getLabel(_currentCurrency),
               style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
-            onTap: () {
-              _switchProfileId();
-            },
+            onTap: _showProfileSwitchConfirmationDialog,
           ),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 0),
