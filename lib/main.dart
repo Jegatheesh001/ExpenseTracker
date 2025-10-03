@@ -589,7 +589,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   
   void retrieveSharedContent(List<SharedMediaFile> value) {
     final RegExp regExp = RegExp(
-      r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|ABU DHABI|SHJ|AUH|MUMBAI|DUBAI|LONDON|RIYADH)\..*",
+      r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|SHJ|AUH|DUBAI|SHARJAH|ESHARJAH|ABU DHABI|LONDON)\..*",
       caseSensitive: false,
     );
     String content = value.first.path;
