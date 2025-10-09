@@ -26,9 +26,9 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
   }
 
   // Picks an image from the gallery and saves it to the application's document directory.
-  Future<void> _pickAndSaveImage(BuildContext context) async {
+  Future<void> _pickAndSaveImage(BuildContext context, ImageSource source) async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? pickedFile = await _picker.pickImage(source: source);
 
       if (pickedFile != null) {
         final directory = await getApplicationDocumentsDirectory();
@@ -46,7 +46,9 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
           const SnackBar(content: Text('Image saved successfully!')),
         );
 
-        _listImages(); // Refresh the list of images
+        setState(() {
+          _attachedImages.add(File(newPath)); // Adding new file
+        });
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,13 +101,39 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Attach Image to Expense ${widget.expenseId}'),
+        title: Text('Expense - ${widget.expenseId}'),
       ),
       body: Column(
         children: [
           ElevatedButton(
             onPressed: () {
-              _pickAndSaveImage(context);
+              showModalBottomSheet(
+                context: context,
+                builder: (BuildContext bc) {
+                  return SafeArea(
+                    child: Wrap(
+                      children: <Widget>[
+                        ListTile(
+                          leading: const Icon(Icons.photo_library),
+                          title: const Text('Gallery'),
+                          onTap: () {
+                            _pickAndSaveImage(context, ImageSource.gallery);
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.photo_camera),
+                          title: const Text('Camera'),
+                          onTap: () {
+                            _pickAndSaveImage(context, ImageSource.camera);
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
             },
             child: const Text('Attach Image'),
           ),
