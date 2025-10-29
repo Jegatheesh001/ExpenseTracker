@@ -1,0 +1,52 @@
+buildscript {
+    ext {
+        kotlin_version = '2.1.0'
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.6.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// 🧩 Force same build directory for all subprojects
+rootProject.buildDir = "../build"
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    afterEvaluate { subproject ->
+        // Align Java version
+        if (subproject.hasProperty("android")) {
+            subproject.android {
+                compileOptions {
+                    sourceCompatibility = JavaVersion.VERSION_21
+                    targetCompatibility = JavaVersion.VERSION_21
+                }
+            }
+        }
+
+        // Align Kotlin version (safe for all)
+        subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "21"
+            }
+        }
+    }
+}
+
+// 🧹 Clean task
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
