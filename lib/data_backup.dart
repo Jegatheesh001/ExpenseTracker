@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DataBackup {
   Future<void> importData(BuildContext context, VoidCallback refreshMainPage) async {
@@ -26,6 +27,8 @@ class DataBackup {
         List<Expense> expensesToInsert = [];
         List<String> errors = [];
 
+        final prefs = await SharedPreferences.getInstance();
+
         // 2. Parse content
         for (String line in lines) {
           String trimmedLine = line.trim();
@@ -33,7 +36,19 @@ class DataBackup {
 
           List<String> parts = trimmedLine.split(';;');
           try {
-            if (parts.length == 2) { // Category: ID;;Name
+            if (parts.length == 2) { // SharedPreferences: Key;;Value
+              final key = parts[0];
+              final valueStr = parts[1];
+              if (valueStr.toLowerCase() == 'true' || valueStr.toLowerCase() == 'false') {
+                await prefs.setBool(key, valueStr.toLowerCase() == 'true');
+              } else if (int.tryParse(valueStr) != null) {
+                await prefs.setInt(key, int.parse(valueStr));
+              } else if (double.tryParse(valueStr) != null) {
+                await prefs.setDouble(key, double.parse(valueStr));
+              } else {
+                await prefs.setString(key, valueStr);
+              }
+            } else if (parts.length == 3) { // Category: ID;;Name;;ActiveFlag
               final category = Category(int.parse(parts[0]), parts[1]);
               categoriesToInsert.add(category);
             } else if (parts.length == 8) { // Expense: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId
@@ -104,9 +119,17 @@ class DataBackup {
       // 2. Format data into a string
       StringBuffer exportContent = StringBuffer();
 
-      // Add categories first
+      // Add SharedPreferences data
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys();
+      for (String key in keys) {
+        final value = prefs.get(key);
+        exportContent.writeln('$key;;$value');
+      }
+
+      // Add categories
       for (Category cat in categories) {
-        exportContent.writeln('${cat.categoryId};;${cat.category}');
+        exportContent.writeln('${cat.categoryId};;${cat.category};;Y');
       }
 
       // Add expenses
