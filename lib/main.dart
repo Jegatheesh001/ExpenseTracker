@@ -91,6 +91,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   late SharedPreferences _prefs;
   int _profileId = 0;
   bool _isMonthView = false;
+  Key _monthViewKey = UniqueKey();
 
 
   static const platform = MethodChannel('com.jegatheesh.expenseTracker/channel');
@@ -243,7 +244,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   // Loads expenses for the selected date from the database.
   Future<void> _loadTodaysExpenses() async {
     if (_isMonthView) {
-      setState(() {});
+      setState(() {
+        _monthViewKey = UniqueKey();
+      });
     } else {
       _loadSelectedDateExpense();
     }
@@ -536,6 +539,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             if (_isMonthView)
               Expanded(
                 child: MonthView(
+                  key: _monthViewKey,
                   selectedDate: _selectedDate,
                   currencySymbol: _currencySymbol,
                   profileId: _profileId,
