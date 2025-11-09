@@ -592,14 +592,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
   
   void retrieveSharedContent(List<SharedMediaFile> value) {
-    final RegExp regExp = RegExp(
-      r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|SHJ|AUH|DUBAI|SHARJAH|ESHARJAH|ABU DHABI|LONDON)\..*",
-      caseSensitive: false,
-    );
     String content = value.first.path;
     ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(content)));
+    final RegExp regExp = RegExp(
+      r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|SHJ|AUH|DUBAI|SHARJAH|ESHARJAH|ABU DHABI|LONDON)\..*",
+      caseSensitive: false,
+    );
     final RegExpMatch? match = regExp.firstMatch(content);
     if (match != null) {
       var expense = Expense(
@@ -612,6 +612,21 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         profileId: _profileId,
       );
       _editExpense(expense);
+    } else {
+      final RegExp upiTransRegex = RegExp(r'Sent Rs\.(?<amount>\d+\.\d{2})\s*\nFrom (?<from>.*?)\nTo (?<to>.*?)\nOn (?<date>\d{2}/\d{2}/\d{2})', multiLine: true);
+      final RegExpMatch? matchFound = upiTransRegex.firstMatch(content);
+      if (matchFound != null) {
+        var expense = Expense(
+          categoryId: 0,
+          category: '',
+          amount: double.parse(matchFound.namedGroup('amount')!),
+          remarks: matchFound.namedGroup('to')!,
+          expenseDate: _selectedDate,
+          entryDate: DateTime.now(),
+          profileId: _profileId,
+        );
+        _editExpense(expense);
+      }
     }
   }
 }
