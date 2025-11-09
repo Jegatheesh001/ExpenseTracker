@@ -336,4 +336,33 @@ class DatabaseHelper {
 
     return monthlyTotals;
   }
+
+  Future<List<Expense>> getExpensesByTag(String tagName, int profileId) async {
+    final Database db = await database;
+    // Find the tagId for the given tagName
+    final List<Map<String, dynamic>> tagResult = await db.query(
+      'tags',
+      columns: ['tagId'],
+      where: 'tagName = ?',
+      whereArgs: [tagName],
+    );
+
+    if (tagResult.isEmpty) {
+      // If the tag doesn't exist, return an empty list of expenses
+      return [];
+    }
+
+    final int tagId = tagResult.first['tagId'] as int;
+
+    // Use the tagId to get the expenses
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT E.*
+      FROM expenses E
+      JOIN expense_tags ET ON E.id = ET.expenseId
+      WHERE ET.tagId = ? AND E.profileId = ?
+      ORDER BY E.amount DESC
+    ''', [tagId, profileId]);
+
+    return _mapMapsToExpenses(maps);
+  }
 }

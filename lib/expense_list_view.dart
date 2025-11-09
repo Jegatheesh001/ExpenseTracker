@@ -1,3 +1,4 @@
+import 'package:expense_tracker/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'db/entity.dart';
@@ -70,8 +71,17 @@ class ExpenseListView extends StatelessWidget {
                             spacing: 4.0,
                             runSpacing: 0.0,
                             children: expense.tags
-                                .map((tag) => Chip(
+                                .map((tag) => ActionChip(
                                       label: Text(tag),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                TagExpensesScreen(tag: tag),
+                                          ),
+                                        );
+                                      },
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 4.0, vertical: 0.0),
                                       labelStyle:
