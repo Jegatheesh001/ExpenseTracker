@@ -24,9 +24,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  final TextEditingController _tagsController = TextEditingController();
+  final FocusNode _tagsFocusNode = FocusNode();
   DateTime _selectedDate = DateTime.now();
   bool _deductFromWallent = true;
   int _profileId = 0;
+  String _previousTagText = '';
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _loadExpense(Expense expense) async {
     _amountController.text = expense.amount.toString();
     _remarksController.text = expense.remarks;
+    _tagsController.text = expense.tags.join(', ');
     Category selectedCategory;
     if (expense.categoryId != null) {
       selectedCategory = _categories.firstWhere(
@@ -82,6 +86,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
     final category = _selectedCategory?.category;
+    final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
     if (category == null || category.isEmpty) {
       ScaffoldMessenger.of(
@@ -105,6 +110,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         expenseDate: _selectedDate, // Selected date
         entryDate: DateTime.now(), // Current date/time for entry
         profileId: _profileId, // Current profile ID
+        tags: tags,
       );
 
       // Show confirmation dialog only if it's an update (expenseToEdit is not null)
@@ -190,6 +196,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _categoryController.dispose();
     _amountController.dispose();
     _remarksController.dispose();
+    _tagsController.dispose();
+    _tagsFocusNode.dispose();
     super.dispose();
   }
 
@@ -296,6 +304,74 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 controller: _remarksController,
                 decoration: const InputDecoration(labelText: 'Remarks'),
                 keyboardType: TextInputType.text,
+              ),
+              const SizedBox(height: 16.0),
+              RawAutocomplete<String>(
+                textEditingController: _tagsController,
+                focusNode: _tagsFocusNode,
+                optionsBuilder: (TextEditingValue textEditingValue) {
+                  if (textEditingValue.text.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+                  String currentTag = textEditingValue.text.split(',').last.trim();
+                  if (currentTag.isEmpty) {
+                    return const Iterable<String>.empty();
+                  }
+                  return PersistenceContext().searchTags(currentTag);
+                },
+                onSelected: (String selection) {
+                  final text = _previousTagText;
+                  List<String> tags = text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                  if (!text.endsWith(', ') && tags.isNotEmpty) {
+                    tags.removeLast();
+                  }
+                  if (!tags.contains(selection)) {
+                    tags.add(selection);
+                  }
+                  final newText = '${tags.join(', ')}, ';
+                  _tagsController.value = TextEditingValue(
+                    text: newText,
+                    selection: TextSelection.collapsed(offset: newText.length),
+                  );
+                },
+                fieldViewBuilder: (BuildContext context, TextEditingController textEditingController,
+                    FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                  return TextField(
+                    controller: textEditingController,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Tags (comma-separated)',
+                    ),
+                    keyboardType: TextInputType.text,
+                  );
+                },
+                optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 4.0,
+                      child: SizedBox(
+                        height: 200.0,
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          itemCount: options.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final String option = options.elementAt(index);
+                            return InkWell(
+                              onTap: () {
+                                _previousTagText = _tagsController.text;
+                                onSelected(option);
+                              },
+                              child: ListTile(
+                                title: Text(option),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(
                 height: 20.0,

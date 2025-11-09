@@ -59,8 +59,27 @@ class ExpenseListView extends StatelessWidget {
                 children: [
                   ListTile(
                     title: Text(expense.remarks),
-                    subtitle: Text(
-                      'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
+                        ),
+                        if (expense.tags.isNotEmpty)
+                          Wrap(
+                            spacing: 4.0,
+                            runSpacing: 0.0,
+                            children: expense.tags
+                                .map((tag) => Chip(
+                                      label: Text(tag),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 4.0, vertical: 0.0),
+                                      labelStyle:
+                                          const TextStyle(fontSize: 12.0),
+                                    ))
+                                .toList(),
+                          ),
+                      ],
                     ),
                     contentPadding: const EdgeInsets.only(left: 16, right: 56, top: 8, bottom: 8),
                   ),

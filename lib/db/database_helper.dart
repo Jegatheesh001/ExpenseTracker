@@ -28,7 +28,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -42,6 +42,7 @@ class DatabaseHelper {
     );
 
     await version2DbChanges(db);
+    await version5DbChanges(db);
   }
 
   // Applies database changes for version 2.
@@ -87,12 +88,38 @@ class DatabaseHelper {
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE expenses ADD COLUMN profileId INTEGER default 0');
     }
+    // Version 5 changes
+    if (oldVersion < 5) {
+      await version5DbChanges(db);
+    }
   }
 
-  // Inserts a new expense into the database.
-  Future<int> insertExpense(Expense expense) async {
+  // Applies database changes for version 2.
+  Future<void> version5DbChanges(Database db) async {
+    await db.execute(
+      'CREATE TABLE tags(tagId INTEGER PRIMARY KEY AUTOINCREMENT, tagName TEXT NOT NULL UNIQUE)',
+    );
+    await db.execute(
+      'CREATE TABLE expense_tags(expenseId INTEGER, tagId INTEGER, FOREIGN KEY(expenseId) REFERENCES expenses(id), FOREIGN KEY(tagId) REFERENCES tags(tagId), PRIMARY KEY (expenseId, tagId))',
+    );
+  }
+
+  // Insert/Update expense into the database.
+  Future<int> saveOrUpdateExpense(Expense expense) async {
     Database db = await database;
-    return await db.insert('expenses', expense.toMap());
+    int expenseId = expense.id ?? 0;
+    if (expenseId > 0) {
+      await db.update(
+        'expenses',
+        expense.toMap(),
+        where: 'id = ?',
+        whereArgs: [expense.id],
+      );
+    } else {
+      expenseId = await db.insert('expenses', expense.toMap());
+    }
+    await _saveTagsForExpense(expenseId, expense.tags);
+    return expenseId;
   }
 
   // Method to get expenses (all)
@@ -155,6 +182,7 @@ class DatabaseHelper {
   // Deletes an expense from the database by its ID.
   Future<int> deleteExpense(int id) async {
     final Database db = await database;
+    await db.delete('expense_tags', where: 'expenseId = ?', whereArgs: [id]);
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -170,19 +198,53 @@ class DatabaseHelper {
   }
 
   // Helper function to map database results to Expense objects
-  List<Expense> _mapMapsToExpenses(List<Map<String, dynamic>> maps) {
-    return List.generate(maps.length, (i) {
-      return Expense(
-        id: maps[i]['id'],
-        amount: maps[i]['amount'],
-        categoryId: maps[i]['categoryId'],
-        category: maps[i]['category'],
-        remarks: maps[i]['remarks'],
-        expenseDate: DateTime.parse(maps[i]['expenseDate']),
-        entryDate: DateTime.parse(maps[i]['entryDate']),
-        profileId: maps[i]['profileId']
-      );
-    });
+  Future<List<Expense>> _mapMapsToExpenses(List<Map<String, dynamic>> maps) async {
+    List<Expense> expenses = [];
+    for (var map in maps) {
+      List<String> tags = await _getTagsForExpense(map['id']);
+      expenses.add(Expense.fromMap(map, tags: tags));
+    }
+    return expenses;
+  }
+
+  Future<List<String>> _getTagsForExpense(int expenseId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT T.tagName
+      FROM tags T
+      JOIN expense_tags ET ON T.tagId = ET.tagId
+      WHERE ET.expenseId = ?
+    ''', [expenseId]);
+    return List.generate(maps.length, (i) => maps[i]['tagName']);
+  }
+
+  Future<void> _saveTagsForExpense(int expenseId, List<String> tags) async {
+    final Database db = await database;
+    await db.delete('expense_tags', where: 'expenseId = ?', whereArgs: [expenseId]);
+    for (String tagName in tags) {
+      int tagId;
+      var existingTag = await db.query('tags', where: 'tagName = ?', whereArgs: [tagName]);
+      if (existingTag.isNotEmpty) {
+        tagId = existingTag.first['tagId'] as int;
+      } else {
+        tagId = await db.insert('tags', {'tagName': tagName});
+      }
+      await db.insert('expense_tags', {'expenseId': expenseId, 'tagId': tagId});
+    }
+  }
+
+  Future<List<String>> searchTags(String query) async {
+    final Database db = await database;
+    if (query.isEmpty) {
+      return [];
+    }
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tags',
+      where: 'tagName LIKE ?',
+      whereArgs: ['$query%'],
+      limit: 10,
+    );
+    return List.generate(maps.length, (i) => maps[i]['tagName'] as String);
   }
 
   // Saves a new category to the database.

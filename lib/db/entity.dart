@@ -7,9 +7,10 @@ class Expense {
   final String remarks;
   final DateTime expenseDate;
   final DateTime entryDate;
+  final List<String> tags;
 
   // Factory constructor to create an Expense from a Map
-  factory Expense.fromMap(Map<String, dynamic> map) {
+  factory Expense.fromMap(Map<String, dynamic> map, {List<String>? tags}) {
     return Expense(
       id: map['id'],
       profileId: map['profileId'],
@@ -23,6 +24,7 @@ class Expense {
       entryDate: DateTime.parse(
         map['entryDate'],
       ),
+      tags: tags ?? [],
     );
   }
 
@@ -49,6 +51,7 @@ class Expense {
     required this.remarks,
     required this.expenseDate,
     required this.entryDate,
+    this.tags = const [],
   });
 }
 
@@ -61,5 +64,16 @@ class Category {
 
   Map<String, dynamic> toMap() {
     return {'categoryId': categoryId, 'category': category};
+  }
+}
+
+class Tag {
+  final int tagId;
+  final String tagName;
+
+  Tag(this.tagId, this.tagName);
+
+  Map<String, dynamic> toMap() {
+    return {'tagId': tagId, 'tagName': tagName};
   }
 }

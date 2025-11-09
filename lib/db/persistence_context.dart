@@ -11,11 +11,7 @@ class PersistenceContext {
 
   // Saves a new expense or updates an existing one.
   Future<void> saveOrUpdateExpense(Expense expense) async {
-    if (expense.id == null) {
-      await DatabaseHelper().insertExpense(expense);
-    } else {
-      await DatabaseHelper().updateExpense(expense);
-    }
+    await DatabaseHelper().saveOrUpdateExpense(expense);
   }
 
   // Retrieves all expenses from the database.
@@ -50,6 +46,10 @@ class PersistenceContext {
   // Retrieves the sum of expenses for a specific date.
   Future<double> getExpenseSumByDate(DateTime date, int profileId) async {
     return await DatabaseHelper().getExpenseSumByDate(date, profileId);
+  }
+
+  Future<List<String>> searchTags(String query) async {
+    return await DatabaseHelper().searchTags(query);
   }
 
   Future<double> getExpenseSumByMonth(DateTime date, int profileId) async {
