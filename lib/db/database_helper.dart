@@ -360,9 +360,19 @@ class DatabaseHelper {
       FROM expenses E
       JOIN expense_tags ET ON E.id = ET.expenseId
       WHERE ET.tagId = ? AND E.profileId = ?
-      ORDER BY E.amount DESC
+      ORDER BY E.expenseDate DESC
     ''', [tagId, profileId]);
 
     return _mapMapsToExpenses(maps);
+  }
+
+  Future<List<String>> getAllTags() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'tags',
+      columns: ['tagName'],
+      orderBy: 'tagName',
+    );
+    return List.generate(maps.length, (i) => maps[i]['tagName'] as String);
   }
 }

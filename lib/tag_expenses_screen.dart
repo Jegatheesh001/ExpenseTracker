@@ -1,3 +1,4 @@
+import 'package:expense_tracker/all_tags_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'db/entity.dart';
@@ -130,6 +131,16 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AllTagsScreen()),
+          );
+        },
+        tooltip: 'All Tags',
+        child: const Icon(Icons.list),
       ),
     );
   }
