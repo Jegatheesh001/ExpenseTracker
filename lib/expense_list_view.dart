@@ -1,5 +1,7 @@
+import 'package:expense_tracker/attach_image_screen.dart';
 import 'package:expense_tracker/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'db/entity.dart';
 
@@ -52,57 +54,102 @@ class ExpenseListView extends StatelessWidget {
           final formattedDate =
               DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
 
-          return GestureDetector(
-            onLongPress: () => _showDeleteConfirmation(context, expense),
-            child: Card(
-              margin: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Stack(
-                children: [
-                  ListTile(
-                    title: Text(expense.remarks),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
-                        ),
-                        if (expense.tags.isNotEmpty)
-                          Wrap(
-                            spacing: 4.0,
-                            runSpacing: 0.0,
-                            children: expense.tags
-                                .map((tag) => ActionChip(
-                                      label: Text(tag),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                TagExpensesScreen(tag: tag),
-                                          ),
-                                        );
-                                      },
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 4.0, vertical: 0.0),
-                                      labelStyle:
-                                          const TextStyle(fontSize: 12.0),
-                                    ))
-                                .toList(),
+          return Slidable(
+            key: ValueKey(expense.id),
+            endActionPane: ActionPane(
+              motion: const ScrollMotion(),
+              children: [
+                SlidableAction(
+                  onPressed: (context) {
+                    _showDeleteConfirmation(context, expense);
+                  },
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  icon: Icons.delete,
+                  label: 'Delete',
+                ),
+              ],
+            ),
+            child: GestureDetector(
+              child: Card(
+                margin: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Stack(
+                  children: [
+                    ListTile(
+                      title: Text(expense.remarks),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
                           ),
-                      ],
+                          if (expense.tags.isNotEmpty)
+                            Wrap(
+                              spacing: 4.0,
+                              runSpacing: 0.0,
+                              children: expense.tags
+                                  .map((tag) => ActionChip(
+                                        label: Text(tag),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  TagExpensesScreen(tag: tag),
+                                            ),
+                                          );
+                                        },
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4.0, vertical: 0.0),
+                                        labelStyle:
+                                            const TextStyle(fontSize: 12.0),
+                                      ))
+                                  .toList(),
+                            ),
+                        ],
+                      ),
+                      contentPadding: const EdgeInsets.only(
+                          left: 16, right: 56, top: 8, bottom: 8),
                     ),
-                    contentPadding: const EdgeInsets.only(left: 16, right: 56, top: 8, bottom: 8),
-                  ),
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    right: 8,
-                    child: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => onEdit(expense),
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 8,
+                      child: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            onEdit(expense);
+                          } else if (value == 'delete') {
+                            _showDeleteConfirmation(context, expense);
+                          } else if (value == 'attachments') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    AttachImageScreen(expenseId: expense.id!),
+                              ),
+                            );
+                          }
+                        },
+                        itemBuilder: (BuildContext context) =>
+                            <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Text('Edit'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'attachments',
+                            child: Text('Attachments'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
