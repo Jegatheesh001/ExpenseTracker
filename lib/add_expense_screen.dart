@@ -1,3 +1,4 @@
+import 'package:expense_tracker/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -400,6 +401,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   child: const Text('Delete Expense'),
                 ),
               ],
+              const SizedBox(height: 16.0),
+              if (expenseToEdit != null)
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _tagsController,
+                builder: (context, value, child) {
+                  final tags = value.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                  return Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    children: tags.map((tag) {
+                      return ActionChip(
+                        label: Text(tag),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  TagExpensesScreen(tag: tag),
+                            ),
+                          );
+                        },
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
             ],
           ),
         ),

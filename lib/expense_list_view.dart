@@ -44,6 +44,42 @@ class ExpenseListView extends StatelessWidget {
     );
   }
 
+  void _showTagsDialog(BuildContext context, List<String> tags) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Tags'),
+          content: Wrap(
+            spacing: 4.0,
+            runSpacing: 0.0,
+            children: tags
+                .map((tag) => ActionChip(
+                      label: Text(tag),
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close the dialog
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                TagExpensesScreen(tag: tag),
+                          ),
+                        );
+                      },
+                    ))
+                .toList(),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Expanded(
@@ -71,6 +107,7 @@ class ExpenseListView extends StatelessWidget {
               ],
             ),
             child: GestureDetector(
+              onDoubleTap: () => onEdit(expense),
               child: Card(
                 margin: const EdgeInsets.symmetric(vertical: 4.0),
                 child: Stack(
@@ -84,27 +121,14 @@ class ExpenseListView extends StatelessWidget {
                             'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
                           ),
                           if (expense.tags.isNotEmpty)
-                            Wrap(
-                              spacing: 4.0,
-                              runSpacing: 0.0,
-                              children: expense.tags
-                                  .map((tag) => ActionChip(
-                                        label: Text(tag),
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  TagExpensesScreen(tag: tag),
-                                            ),
-                                          );
-                                        },
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 4.0, vertical: 0.0),
-                                        labelStyle:
-                                            const TextStyle(fontSize: 12.0),
-                                      ))
-                                  .toList(),
+                            InkWell(
+                              onTap: () {
+                                _showTagsDialog(context, expense.tags);
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.only(top: 8.0),
+                                child: Icon(Icons.label_outline, size: 20),
+                              ),
                             ),
                         ],
                       ),
