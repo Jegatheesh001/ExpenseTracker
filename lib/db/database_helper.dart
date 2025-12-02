@@ -375,4 +375,37 @@ class DatabaseHelper {
     );
     return List.generate(maps.length, (i) => maps[i]['tagName'] as String);
   }
+
+  Future<List<String>> getTagsForRemark(String remarkQuery) async {
+    final Database db = await database;
+    if (remarkQuery.isEmpty) {
+      return [];
+    }
+
+    // Find expenses with similar remarks
+    final List<Map<String, dynamic>> expenseResult = await db.query(
+      'expenses',
+      columns: ['id'],
+      where: 'remarks LIKE ?',
+      whereArgs: ['%$remarkQuery%'],
+      orderBy: 'id DESC', // Order by most recent
+      limit: 10, // Limit to avoid too many results
+    );
+
+    if (expenseResult.isEmpty) {
+      return [];
+    }
+
+    final List<int> expenseIds = expenseResult.map((e) => e['id'] as int).toList();
+
+    // Get all tags for these expenses
+    final List<Map<String, dynamic>> tagsResult = await db.rawQuery('''
+      SELECT DISTINCT T.tagName
+      FROM tags T
+      JOIN expense_tags ET ON T.tagId = ET.tagId
+      WHERE ET.expenseId IN (${expenseIds.map((_) => '?').join(',')})
+    ''', expenseIds);
+
+    return List.generate(tagsResult.length, (i) => tagsResult[i]['tagName'] as String);
+  }
 }

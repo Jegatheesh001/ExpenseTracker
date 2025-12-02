@@ -31,6 +31,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _deductFromWallent = true;
   int _profileId = 0;
   String _previousTagText = '';
+  List<String> _suggestedTags = [];
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     });
     _loadSelectedProfile();
+    _remarksController.addListener(_updateSuggestedTags);
   }
 
   // Loads categories from the persistence context.
@@ -80,6 +82,39 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() {
       _selectedCategory = selectedCategory;
     });
+  }
+
+  void _updateSuggestedTags() async {
+    final remarks = _remarksController.text;
+    if (remarks.length < 3) {
+      setState(() {
+        _suggestedTags = [];
+      });
+      return;
+    }
+
+    final suggestions = await PersistenceContext().getTagsForRemark(remarks);
+    final currentTags = _tagsController.text.split(',').map((t) => t.trim().toLowerCase()).toSet();
+
+    final filteredSuggestions = suggestions.where((tag) => !currentTags.contains(tag.toLowerCase())).toList();
+
+    setState(() {
+      _suggestedTags = filteredSuggestions;
+    });
+  }
+
+  void _addTagToController(String tag) {
+    final currentTags = _tagsController.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    if (!currentTags.map((t) => t.toLowerCase()).contains(tag.toLowerCase())) {
+      currentTags.add(tag);
+      final newText = '${currentTags.join(', ')}, ';
+      _tagsController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length),
+      );
+      // After adding a tag, we might want to re-evaluate suggestions
+      _updateSuggestedTags();
+    }
   }
 
   // Adds or updates an expense.
@@ -196,6 +231,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void dispose() {
     _categoryController.dispose();
     _amountController.dispose();
+    _remarksController.removeListener(_updateSuggestedTags);
     _remarksController.dispose();
     _tagsController.dispose();
     _tagsFocusNode.dispose();
@@ -306,6 +342,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 decoration: const InputDecoration(labelText: 'Remarks'),
                 keyboardType: TextInputType.text,
               ),
+              if (_suggestedTags.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Wrap(
+                    spacing: 8.0,
+                    runSpacing: 4.0,
+                    children: _suggestedTags.map((tag) {
+                      return ActionChip(
+                        label: Text(tag),
+                        onPressed: () {
+                          _addTagToController(tag);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
               const SizedBox(height: 16.0),
               RawAutocomplete<String>(
                 textEditingController: _tagsController,
