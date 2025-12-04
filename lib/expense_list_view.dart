@@ -48,32 +48,37 @@ class ExpenseListView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
+        return SimpleDialog(
           title: const Text('Tags'),
-          content: Wrap(
-            spacing: 4.0,
-            runSpacing: 0.0,
-            children: tags
-                .map((tag) => ActionChip(
-                      label: Text(tag),
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Close the dialog
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TagExpensesScreen(tag: tag),
-                          ),
-                        );
-                      },
-                    ))
-                .toList(),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+          contentPadding: const EdgeInsets.all(12.0),
+          children: [
+            Wrap(
+              spacing: 2.0,
+              runSpacing: 0.0,
+              children: tags
+                  .map((tag) => RawChip(
+                label: Text(tag),
+                labelStyle: const TextStyle(fontSize: 12),
+                onPressed: () {
+                  Navigator.of(context).pop(); // Close the dialog
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          TagExpensesScreen(tag: tag),
+                    ),
+                  );
+                },
+              ))
+                  .toList(),
             ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            )
           ],
         );
       },
