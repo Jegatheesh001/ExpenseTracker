@@ -437,35 +437,28 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                             ),
                             if (!_isMonthView) ...[
                               const SizedBox(width: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    _percentageChange > 0
-                                        ? Icons.arrow_upward
-                                        : _percentageChange < 0
-                                            ? Icons.arrow_downward
-                                            : Icons.remove, // Neutral icon
-                                    color: _percentageChange > 0
-                                        ? Colors.red
-                                        : _percentageChange < 0
-                                            ? Colors.green
-                                            : Colors.grey,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${_percentageChange.abs().toStringAsFixed(1)}%',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: _percentageChange > 0
-                                          ? Colors.red
-                                          : _percentageChange < 0
-                                              ? Colors.green
-                                              : Colors.grey,
+                              GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${_percentageChange.abs().toStringAsFixed(1)}%'),
+                                      duration: Duration(seconds: 1),
                                     ),
-                                  ),
-                                ],
+                                  );
+                                },
+                                child: Icon(
+                                  _percentageChange > 0
+                                      ? Icons.arrow_upward
+                                      : _percentageChange < 0
+                                          ? Icons.arrow_downward
+                                          : Icons.remove,
+                                  color: _percentageChange > 0
+                                      ? Colors.red
+                                      : _percentageChange < 0
+                                          ? Colors.green
+                                          : Colors.grey,
+                                  size: 18,
+                                ),
                               )
                             ],
                           ],
