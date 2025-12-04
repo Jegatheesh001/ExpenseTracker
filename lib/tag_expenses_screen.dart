@@ -1,5 +1,7 @@
 import 'package:expense_tracker/all_tags_screen.dart';
+import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 import 'db/entity.dart';
 import 'db/persistence_context.dart';
@@ -110,37 +112,79 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
           double total = _monthlyTotals[month]!;
 
           return Card(
-            margin: const EdgeInsets.all(8.0),
+            elevation: 0,
+            margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+            clipBehavior: Clip.antiAlias,
+            color: Theme.of(context).colorScheme.surfaceContainerHigh,
             child: ExpansionTile(
+              collapsedBackgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(DateFormat('MMMM yyyy').format(DateTime.parse('$month-01'))),
-                  Text('$_currencySymbol${total.toStringAsFixed(2)}'),
+                  Text(
+                    DateFormat('MMMM yyyy').format(DateTime.parse('$month-01')),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    '$_currencySymbol${total.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
               children: expenses.map((expense) {
-                return ListTile(
-                  title: Text(expense.remarks),
-                  subtitle: Text(DateFormat('dd-MM-yyyy').format(expense.expenseDate)),
-                  trailing: Text('$_currencySymbol${expense.amount.toStringAsFixed(2)}'),
-                  onTap: () => _editExpense(expense),
-                  onLongPress: () => _showDeleteConfirmation(context, expense),
+                return Slidable(
+                  key: ValueKey(expense.id),
+                  endActionPane: ActionPane(
+                    motion: const ScrollMotion(),
+                    children: [
+                      SlidableAction(
+                        onPressed: (context) => _editExpense(expense),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        icon: Icons.edit,
+                        label: 'Edit',
+                      ),
+                      // You can add an Attach action here if desired
+                      SlidableAction(
+                        onPressed: (context) => _showDeleteConfirmation(context, expense),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.onError,
+                        icon: Icons.delete,
+                        label: 'Delete',
+                      ),
+                    ],
+                  ),
+                  child: GestureDetector(
+                    onDoubleTap: () => _editExpense(expense),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(getIconForCategory(expense.category)),
+                      ),
+                      title: Text(expense.remarks, style: Theme.of(context).textTheme.titleMedium),
+                      subtitle: Text('${expense.category} • ${DateFormat('dd MMM').format(expense.expenseDate)}'),
+                      trailing: Text(
+                        '$_currencySymbol${expense.amount.toStringAsFixed(2)}',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                  ),
                 );
               }).toList(),
             ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AllTagsScreen()),
           );
         },
-        tooltip: 'All Tags',
-        child: const Icon(Icons.list),
+        label: const Text('All Tags'),
+        icon: const Icon(Icons.list),
       ),
     );
   }

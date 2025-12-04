@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 import 'categories_screen.dart'; // Import the new categories screen
+import 'all_tags_screen.dart';
 import 'expense_limit_screen.dart';
 import 'pref_keys.dart';
 import 'currency_symbol.dart';
@@ -193,6 +194,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _showDeleteConfirmationDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Confirm Data Deletion'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This action will permanently delete ALL your expense and category data. This cannot be undone.',
+                  ),
+                  const SizedBox(height: 16.0),
+                  const Text('To confirm, type "delete" below:'),
+                  TextField(
+                    controller: _deleteConfirmationController,
+                    onChanged: (value) {
+                      setState(() {});
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'type "delete" here',
+                    ),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    _deleteConfirmationController.clear();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: _deleteConfirmationController.text == 'delete'
+                      ? () async {
+                          await PersistenceContext().deleteAllExpenseData();
+                          widget.onDeleteAllData();
+                          Navigator.of(context).pop();
+                          Navigator.of(context).pop();
+                        }
+                      : null,
+                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      _deleteConfirmationController.clear();
+    });
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,48 +270,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Dark Mode'),
-              Switch(
-                value: _isDarkMode,
-                onChanged: (value) {
-                  setState(() {
-                    _isDarkMode = value;
-                  });
-                  widget.onThemeToggle();
-                  _saveThemeMode(value);
-                },
-              ),
-            ],
+          _buildSectionTitle(context, 'Appearance'),
+          ListTile(
+            title: const Text('Dark Mode'),
+            trailing: Switch(
+              value: _isDarkMode,
+              onChanged: (value) {
+                setState(() => _isDarkMode = value);
+                widget.onThemeToggle();
+                _saveThemeMode(value);
+              },
+            ),
           ),
-           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Currency'),
-              DropdownButton<String>(
-                value: _currentCurrency,
-                items: _currencies.map((String currency) {
-                  return DropdownMenuItem<String>(
-                    value: currency,
-                    child: Text(currency),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    _saveCurrency(newValue);
-                  }
-                },
-              ),
-            ],
+          ListTile(
+            title: const Text('Currency'),
+            trailing: DropdownButton<String>(
+              value: _currentCurrency,
+              items: _currencies
+                  .map((String currency) => DropdownMenuItem<String>(
+                        value: currency,
+                        child: Text(currency),
+                      ))
+                  .toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) _saveCurrency(newValue);
+              },
+            ),
           ),
-           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0), // Reduce horizontal padding
+          _buildSectionTitle(context, 'Management'),
+          ListTile(
             title: const Text('Categories'),
-            trailing: const Icon(Icons.arrow_forward_ios),
+            trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
                 context,
@@ -250,129 +310,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0), // Reduce horizontal padding
-            title: const Text('Expense Limit'),
-            trailing: const Icon(Icons.arrow_forward_ios),
+            title: const Text('Tags'),
+            trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => ExpenseLimitScreen(
-                  onStatusBarToggle: widget.onStatusBarToggle, // Pass callback
-                  onMonthlyLimitSaved: widget.onMonthlyLimitSaved, // Pass down the new callback
-                )),
+                MaterialPageRoute(builder: (context) => const AllTagsScreen()),
               );
             },
           ),
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+            title: const Text('Expense Limit'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => ExpenseLimitScreen(
+                          onStatusBarToggle: widget.onStatusBarToggle,
+                          onMonthlyLimitSaved: widget.onMonthlyLimitSaved,
+                        )),
+              );
+            },
+          ),
+          ListTile(
             title: const Text('Wallet Balance'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  NumberFormat.currency(
-                    symbol: CurrencySymbol().getSymbol(_currentCurrency),
-                    decimalDigits: 2,
-                  ).format(_currentWalletAmount),
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
-                ),
-              ],
+            trailing: Text(
+              NumberFormat.currency(
+                symbol: CurrencySymbol().getSymbol(_currentCurrency),
+                decimalDigits: 2,
+              ).format(_currentWalletAmount),
             ),
             onTap: _showSetWalletAmountDialog,
           ),
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+            title: const Text('Export Data'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => DataBackup().exportData(context),
+          ),
+          ListTile(
+            title: const Text('Import Data'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => DataBackup().importData(context, widget.onDeleteAllData),
+          ),
+          _buildSectionTitle(context, 'Profile'),
+          ListTile(
             title: const Text('Switch Profile'),
             trailing: Text(
               CurrencySymbol().getLabel(_currentCurrency),
-              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             onTap: _showProfileSwitchConfirmationDialog,
           ),
+          _buildSectionTitle(context, 'Danger Zone'),
           ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-            title: const Text('Export Data'),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-             DataBackup().exportData(context);
-            },
-          ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-            title: const Text('Import Data'),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              DataBackup().importData(context, widget.onDeleteAllData);
-            },
-          ),
-          // New ListTile for deleting all data
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 0),
-            title: const Text(
-              'Delete All Data',
-              style: TextStyle(color: Colors.red), // Mark as danger
-            ),
-            trailing: const Icon(Icons.warning, color: Colors.red), // Danger icon
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  // Use StatefulBuilder to manage the state of the text field and button
-                  return StatefulBuilder(
-                    builder: (context, setState) {
-                      return AlertDialog(
-                        title: const Text('Confirm Data Deletion'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'This action will permanently delete ALL your expense and category data. This cannot be undone.',
-                            ),
-                            const SizedBox(height: 16.0),
-                            const Text('To confirm, type "delete" below:'),
-                            TextField(
-                              controller: _deleteConfirmationController,
-                              onChanged: (value) {
-                                // Trigger a rebuild of the dialog to update button state
-                                setState(() {});
-                              },
-                              decoration: const InputDecoration(
-                                hintText: 'type "delete" here',
-                              ),
-                            ),
-                          ],
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                            onPressed: () {
-                              _deleteConfirmationController.clear(); // Clear text field on cancel
-                              Navigator.of(context).pop(); // Close the dialog
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            // Enable only if the text matches 'delete'
-                            onPressed: _deleteConfirmationController.text == 'delete'
-                                ? () async {
-                                    await PersistenceContext().deleteAllExpenseData(); // Delete data
-                                    widget.onDeleteAllData(); // Call the callback
-                                    Navigator.of(context).pop(); // Close the dialog
-                                    Navigator.of(context).pop(); // Pop the settings screen
-                                  }
-                                : null, // Disable the button
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              ).then((_) {
-                 // Clear the text field after the dialog is dismissed (either by cancel or delete)
-                 _deleteConfirmationController.clear();
-              });
-            },
+            title: const Text('Delete All Data', style: TextStyle(color: Colors.red)),
+            trailing: const Icon(Icons.warning, color: Colors.red),
+            onTap: _showDeleteConfirmationDialog,
           ),
         ],
       ),

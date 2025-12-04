@@ -57,14 +57,18 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'Expense Tracker',
       theme: ThemeData(
-        brightness: Brightness.light,
-        primarySwatch: Colors.teal, // Light theme color
-        // Define other light theme properties
+        useMaterial3: true, // Enable Material 3
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.teal,
+          brightness: Brightness.light,
+        ),
       ),
       darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.blueGrey, // Dark theme color
-        // Define other dark theme properties
+        useMaterial3: true, // Enable Material 3
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueGrey,
+          brightness: Brightness.dark,
+        ),
       ),
       debugShowCheckedModeBanner: false,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
@@ -405,48 +409,93 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Display Total Expenses and Wallet Amount on a single line
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Left side: Total and Percentage Change
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Total: $_currencySymbol${_expensesTotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      const SizedBox(width: 8.0),
-                      if (!_isMonthView)
+            Card(
+              elevation: 2,
+              margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          '${_percentageChange > 0 ? '+' : ''}${_percentageChange.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: _percentageChange > 0 ? Colors.red : Colors.green,
-                          ),
+                          'Total Expenses',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                    ],
-                  ),
-                  // Right side: Wallet Icon and Amount
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.account_balance_wallet, color: Colors.green, size: 24),
-                      const SizedBox(width: 8.0),
-                      Text(
-                        '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.green),
-                      ),
-                    ],
-                  ),
-                ],
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '$_currencySymbol${_expensesTotal.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                            if (!_isMonthView) ...[
+                              const SizedBox(width: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    _percentageChange > 0
+                                        ? Icons.arrow_upward
+                                        : _percentageChange < 0
+                                            ? Icons.arrow_downward
+                                            : Icons.remove, // Neutral icon
+                                    color: _percentageChange > 0
+                                        ? Colors.red
+                                        : _percentageChange < 0
+                                            ? Colors.green
+                                            : Colors.grey,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${_percentageChange.abs().toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: _percentageChange > 0
+                                          ? Colors.red
+                                          : _percentageChange < 0
+                                              ? Colors.green
+                                              : Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Wallet',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.account_balance_wallet, color: Colors.green, size: 20),
+                            const SizedBox(width: 8.0),
+                            Text(
+                              '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.green,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 5.0), // Add some spacing
@@ -501,15 +550,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
+                    icon: const Icon(Icons.chevron_left),
                     onPressed: () => _addMonthToCurrent(-1),
                   ),
-                  Text(
-                    DateFormat('MMMM yyyy').format(_selectedDate),
-                    style: const TextStyle(fontSize: 16),
+                  TextButton(
+                    onPressed: () => _selectDate(context),
+                    child: Text(
+                      DateFormat('MMMM yyyy').format(_selectedDate),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios),
+                    icon: const Icon(Icons.chevron_right),
                     onPressed: () => _addMonthToCurrent(1),
                   ),
                 ],
@@ -519,18 +571,18 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
+                    icon: const Icon(Icons.chevron_left),
                     onPressed: () => _addDayToCurrent(-1),
                   ),
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
+                  TextButton(
+                    onPressed: () => _selectDate(context),
                     child: Text(
-                      DateFormat('dd-MM-yyyy').format(_selectedDate),
-                      style: const TextStyle(fontSize: 16),
+                      DateFormat('dd MMMM yyyy').format(_selectedDate),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios),
+                    icon: const Icon(Icons.chevron_right),
                     onPressed: () => _addDayToCurrent(1),
                   ),
                 ],

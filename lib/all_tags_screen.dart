@@ -29,24 +29,30 @@ class _AllTagsScreenState extends State<AllTagsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('All Tags'),
+        title: const Text('Tags'),
       ),
-      body: ListView.builder(
-        itemCount: _tags.length,
-        itemBuilder: (context, index) {
-          final tag = _tags[index];
-          return ListTile(
-            title: Text(tag),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TagExpensesScreen(tag: tag),
-                ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Wrap(
+            spacing: 8.0,
+            runSpacing: 4.0,
+            children: _tags.map((tag) {
+              return ChoiceChip(
+                label: Text(tag),
+                selected: false,
+                onSelected: (selected) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TagExpensesScreen(tag: tag),
+                    ),
+                  );
+                },
               );
-            },
-          );
-        },
+            }).toList(),
+          ),
+        ),
       ),
     );
   }

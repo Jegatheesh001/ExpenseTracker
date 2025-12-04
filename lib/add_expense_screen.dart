@@ -1,6 +1,7 @@
 import 'package:expense_tracker/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'db/entity.dart';
 import 'db/persistence_context.dart';
@@ -240,125 +241,134 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const currencySymbol = '₹'; // Example symbol, you might get this from your state
+
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min, // To keep the Row compact around its children
-          children: <Widget>[
-            Text((expenseToEdit != null && expenseToEdit!.id != null) ? 'Edit Expense' : 'Add New Expense'),
-            if (expenseToEdit != null && expenseToEdit!.id != null) // Show icon only in edit mode and if id exists
-              Padding(
-                padding: const EdgeInsets.only(left: 4.0), // Reduced padding slightly for IconButton
-                child: IconButton(
-                  icon: const Icon(Icons.attach_file),
-                  tooltip: 'Attach Image',
-                  // Constraints can be added to control tap target size if needed
-                  // constraints: const BoxConstraints(), 
-                  // padding: EdgeInsets.zero, // If you want to remove default IconButton padding
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AttachImageScreen(
-                          expenseId: widget.expenseToEdit!.id!,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+        title: Text((expenseToEdit != null) ? 'Edit Expense' : 'Add Expense'),
+        actions: [
+          if (expenseToEdit != null)
+            IconButton(
+              icon: const Icon(Icons.attach_file),
+              tooltip: 'Attachments',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AttachImageScreen(
+                      expenseId: widget.expenseToEdit!.id!,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
+        child: Form(
+          // Using a Form widget is good practice for validation
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(labelText: 'Category'),
-                value: _selectedCategory?.categoryId,
-                items:
-                    _categories.map((Category category) {
-                      return DropdownMenuItem<int>(
-                        value: category.categoryId,
-                        child: Text(category.category),
-                      );
-                    }).toList(),
-                onChanged: (int? newValue) {
-                  final Category selectedCat = _categories.firstWhere(
-                    (category) => category.categoryId == newValue,
-                  );
-                  setState(() {
-                    _selectedCategory = selectedCat;
-                  });
-                },
-                validator: (value) {
-                  if (value == null) {
-                    return 'Please select a category';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16.0),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Date: ${_selectedDate.toLocal().toString().split(' ')[0]}',
-                    ),
+              // --- Category and Date Card ---
+              Card(
+                elevation: 0,
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      DropdownButtonFormField<int>(
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          border: InputBorder.none, // Cleaner look inside a card
+                        ),
+                        value: _selectedCategory?.categoryId,
+                        items: _categories
+                            .map((Category category) => DropdownMenuItem<int>(
+                                  value: category.categoryId,
+                                  child: Text(category.category),
+                                ))
+                            .toList(),
+                        onChanged: (int? newValue) {
+                          setState(() {
+                            _selectedCategory = _categories.firstWhere(
+                                (cat) => cat.categoryId == newValue);
+                          });
+                        },
+                      ),
+                      const Divider(height: 16),
+                      TextFormField(
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Date',
+                          suffixIcon: Icon(Icons.calendar_today),
+                          border: InputBorder.none,
+                        ),
+                        controller: TextEditingController(
+                            text: DateFormat('dd MMMM yyyy').format(_selectedDate)),
+                        onTap: () async {
+                          final pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDate != null) {
+                            setState(() => _selectedDate = pickedDate);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (pickedDate != null && pickedDate != _selectedDate) {
-                        setState(() {
-                          _selectedDate = pickedDate;
-                        });
-                      }
-                    },
-                    child: const Text('Select Date'),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 16.0),
-              TextField(
+              const SizedBox(height: 24.0),
+
+              // --- Amount Field ---
+              TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                inputFormatters: <TextInputFormatter>[
+                style: Theme.of(context).textTheme.headlineMedium,
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  prefixText: '$currencySymbol ',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
+                textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 16.0),
-              TextField(
+
+              // --- Remarks Field ---
+              TextFormField(
                 controller: _remarksController,
-                decoration: const InputDecoration(labelText: 'Remarks'),
+                decoration: const InputDecoration(
+                  labelText: 'Remarks',
+                  border: OutlineInputBorder(),
+                ),
                 keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.next,
               ),
-              if (_suggestedTags.isNotEmpty)
+              if (_suggestedTags.isNotEmpty) // Keep the tag suggestions
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Wrap(
                     spacing: 8.0,
-                    runSpacing: 4.0,
-                    children: _suggestedTags.map((tag) {
-                      return ActionChip(
-                        label: Text(tag),
-                        onPressed: () {
-                          _addTagToController(tag);
-                        },
-                      );
-                    }).toList(),
+                    children: _suggestedTags
+                        .map((tag) => ActionChip(
+                              label: Text(tag),
+                              onPressed: () => _addTagToController(tag),
+                            ))
+                        .toList(),
                   ),
                 ),
               const SizedBox(height: 16.0),
+              
+              // --- Tags Field (using RawAutocomplete as before) ---
               RawAutocomplete<String>(
                 textEditingController: _tagsController,
                 focusNode: _tagsFocusNode,
@@ -389,11 +399,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 },
                 fieldViewBuilder: (BuildContext context, TextEditingController textEditingController,
                     FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                  return TextField(
+                  return TextFormField(
                     controller: textEditingController,
                     focusNode: focusNode,
                     decoration: const InputDecoration(
                       labelText: 'Tags (comma-separated)',
+                      border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.text,
                   );
@@ -426,71 +437,48 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   );
                 },
               ),
-              const SizedBox(
-                height: 20.0,
-              ), // Add some spacing if the attach button is shown
+              const SizedBox(height: 16.0),
+
+              // --- Deduct from Wallet Checkbox ---
               CheckboxListTile(
                 title: const Text("Deduct from wallet"),
                 value: _deductFromWallent,
-                onChanged: (bool? value) => deductFromWalletState(value),
-                controlAffinity: ListTileControlAffinity.leading, // Checkbox on the left
-                contentPadding: EdgeInsets.zero, // Remove default padding
+                onChanged: (bool? value) => setState(() => _deductFromWallent = value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
+
+              // --- Action Buttons ---
+              FilledButton(
                 onPressed: () => _addExpense(context),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: Text(
-                  (expenseToEdit != null && expenseToEdit!.id != null) ? 'Update Expense' : 'Add Expense',
+                  (expenseToEdit != null) ? 'Update Expense' : 'Add Expense',
+                  style: const TextStyle(fontSize: 16),
                 ),
               ),
-              if (expenseToEdit != null && expenseToEdit!.id != null) ...[
+              if (expenseToEdit != null) ...[
                 const SizedBox(height: 16),
-                ElevatedButton(
+                OutlinedButton(
                   onPressed: () => _deleteCurrentExpense(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red, // Set button color to red
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Delete Expense'),
+                  child: const Text('Delete Expense', style: TextStyle(fontSize: 16)),
                 ),
               ],
-              const SizedBox(height: 16.0),
-              if (expenseToEdit != null)
-              ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _tagsController,
-                builder: (context, value, child) {
-                  final tags = value.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                  return Wrap(
-                    spacing: 8.0,
-                    runSpacing: 4.0,
-                    children: tags.map((tag) {
-                      return ActionChip(
-                        label: Text(tag),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  TagExpensesScreen(tag: tag),
-                            ),
-                          );
-                        },
-                      );
-                    }).toList(),
-                  );
-                },
-              ),
             ],
           ),
         ),
       ),
     );
   }
-  
-  void deductFromWalletState(bool? value) {
-    setState(() {
-      _deductFromWallent = value ?? false;
-    });
-  }
+
   void deductFromWallet(double amount) async {
     if(_deductFromWallent) {
       final prefs = await SharedPreferences.getInstance();

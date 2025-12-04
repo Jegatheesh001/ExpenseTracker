@@ -1,4 +1,5 @@
 import 'package:expense_tracker/attach_image_screen.dart';
+import 'package:expense_tracker/common/widgets.dart';
 import 'package:expense_tracker/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -92,14 +93,35 @@ class ExpenseListView extends StatelessWidget {
         itemCount: expenses.length,
         itemBuilder: (context, index) {
           final expense = expenses[index];
-          final formattedDate =
-              DateFormat('dd-MM-yyyy HH:mm:ss').format(expense.entryDate);
+          final formattedDate = DateFormat('dd MMM').format(expense.expenseDate);
 
           return Slidable(
             key: ValueKey(expense.id),
             endActionPane: ActionPane(
               motion: const ScrollMotion(),
               children: [
+                SlidableAction(
+                  onPressed: (context) => onEdit(expense),
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  icon: Icons.edit,
+                  label: 'Edit',
+                ),
+                SlidableAction(
+                  onPressed: (context) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            AttachImageScreen(expenseId: expense.id!),
+                      ),
+                    );
+                  },
+                  backgroundColor: Colors.grey,
+                  foregroundColor: Colors.white,
+                  icon: Icons.attach_file,
+                  label: 'Attach',
+                ),
                 SlidableAction(
                   onPressed: (context) {
                     _showDeleteConfirmation(context, expense);
@@ -114,70 +136,33 @@ class ExpenseListView extends StatelessWidget {
             child: GestureDetector(
               onDoubleTap: () => onEdit(expense),
               child: Card(
-                margin: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Stack(
-                  children: [
-                    ListTile(
-                      title: Text(expense.remarks),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Amount: $currencySymbol${expense.amount.toStringAsFixed(2)}\nCategory: ${expense.category}\nDate: $formattedDate',
-                          ),
-                          if (expense.tags.isNotEmpty)
-                            InkWell(
-                              onTap: () {
-                                _showTagsDialog(context, expense.tags);
-                              },
-                              child: const Padding(
-                                padding: EdgeInsets.only(top: 8.0),
-                                child: Icon(Icons.label_outline, size: 20),
-                              ),
-                            ),
-                        ],
-                      ),
-                      contentPadding: const EdgeInsets.only(
-                          left: 16, right: 56, top: 8, bottom: 8),
-                    ),
-                    Positioned(
-                      top: 0,
-                      bottom: 0,
-                      right: 8,
-                      child: PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            onEdit(expense);
-                          } else if (value == 'delete') {
-                            _showDeleteConfirmation(context, expense);
-                          } else if (value == 'attachments') {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    AttachImageScreen(expenseId: expense.id!),
-                              ),
-                            );
-                          }
-                        },
-                        itemBuilder: (BuildContext context) =>
-                            <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'edit',
-                            child: Text('Edit'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'attachments',
-                            child: Text('Attachments'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
-                      ),
+                elevation: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child: Icon(getIconForCategory(expense.category)),
+                  ),
+                  title: Text(expense.remarks, style: Theme.of(context).textTheme.titleMedium),
+                  subtitle: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${expense.category} • $formattedDate'),
+                  if (expense.tags.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () => _showTagsDialog(context, expense.tags),
+                      child: Icon(Icons.label_outline, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                     ),
                   ],
+                ],
+              ),
+                  trailing: Text(
+                    '$currencySymbol${expense.amount.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
                 ),
               ),
             ),
