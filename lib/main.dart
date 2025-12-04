@@ -411,7 +411,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           children: [
             Card(
               elevation: 2,
-              margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+              margin: const EdgeInsets.symmetric(vertical: 0.0, horizontal: 4.0),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(

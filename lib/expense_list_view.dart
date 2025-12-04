@@ -93,7 +93,7 @@ class ExpenseListView extends StatelessWidget {
         itemCount: expenses.length,
         itemBuilder: (context, index) {
           final expense = expenses[index];
-          final formattedDate = DateFormat('dd MMM').format(expense.expenseDate);
+          final formattedDate = DateFormat('hh:mm a').format(expense.expenseDate);
 
           return Slidable(
             key: ValueKey(expense.id),

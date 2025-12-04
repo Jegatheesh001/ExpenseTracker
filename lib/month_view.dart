@@ -93,7 +93,7 @@ class _MonthViewState extends State<MonthView> {
             final totalForDay = expensesForDay.fold(0.0, (sum, item) => sum + item.amount);
 
             return Card(
-              margin: const EdgeInsets.all(8.0),
+              margin: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 6.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
