@@ -419,13 +419,13 @@ class DatabaseHelper {
               FROM expense_tags ET
               JOIN expenses E ON ET.expenseId = E.id
               WHERE ET.tagId = T.tagId 
-              AND E.expenseDate >= ?
+              AND E.expenseDate >= ? AND E.profileId = ?
             ) THEN 1 
             ELSE 0 
           END as isRecent
         FROM tags T
         ORDER BY isRecent DESC, T.tagName ASC
-      ''', [ninetyDaysAgoStr]);
+      ''', [ninetyDaysAgoStr, profileId]);
 
     return maps;
   }
