@@ -403,6 +403,33 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => maps[i]['tagName'] as String);
   }
 
+  // Method to get all tags with recent usage flag (last 90 days) by profile
+  Future<List<Map<String, dynamic>>> getAllTagsByProfile(int profileId) async {
+    final Database db = await database;
+    final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
+    final ninetyDaysAgoStr = ninetyDaysAgo.toIso8601String().substring(0, 10);
+
+    final List<Map<String, dynamic>> maps =  await db.rawQuery(
+      '''
+        SELECT 
+          T.tagName,
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 
+              FROM expense_tags ET
+              JOIN expenses E ON ET.expenseId = E.id
+              WHERE ET.tagId = T.tagId 
+              AND E.expenseDate >= ?
+            ) THEN 1 
+            ELSE 0 
+          END as isRecent
+        FROM tags T
+        ORDER BY isRecent DESC, T.tagName ASC
+      ''', [ninetyDaysAgoStr]);
+
+    return maps;
+  }
+
   Future<List<String>> getTagsForRemark(String remarkQuery) async {
     final Database db = await database;
     if (remarkQuery.isEmpty) {

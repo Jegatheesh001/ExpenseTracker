@@ -1,6 +1,15 @@
+import 'package:expense_tracker/pref_keys.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'db/persistence_context.dart';
 import 'tag_expenses_screen.dart';
+
+class TagInfo {
+  final String tagName;
+  final bool isRecent;
+
+  TagInfo(this.tagName, this.isRecent);
+}
 
 class AllTagsScreen extends StatefulWidget {
   const AllTagsScreen({Key? key}) : super(key: key);
@@ -10,7 +19,8 @@ class AllTagsScreen extends StatefulWidget {
 }
 
 class _AllTagsScreenState extends State<AllTagsScreen> {
-  List<String> _tags = [];
+  List<TagInfo> _tags = [];
+  int _profileId = 0;
 
   @override
   void initState() {
@@ -19,9 +29,16 @@ class _AllTagsScreenState extends State<AllTagsScreen> {
   }
 
   Future<void> _loadTags() async {
-    final loadedTags = await PersistenceContext().getAllTags();
+    final prefs = await SharedPreferences.getInstance();
+    _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
+    final List<Map<String, dynamic>> loadedTags = await PersistenceContext().getAllTagsByProfile(_profileId);
     setState(() {
-      _tags = loadedTags;
+      _tags = loadedTags.map((tagData) {
+        return TagInfo(
+          tagData['tagName'],
+          tagData['isRecent'] == 1,
+        );
+      }).toList();
     });
   }
 
@@ -37,15 +54,16 @@ class _AllTagsScreenState extends State<AllTagsScreen> {
           child: Wrap(
             spacing: 8.0,
             runSpacing: 4.0,
-            children: _tags.map((tag) {
+            children: _tags.map((tagInfo) {
               return ChoiceChip(
-                label: Text(tag),
+                label: Text(tagInfo.tagName),
                 selected: false,
+                backgroundColor: tagInfo.isRecent ? Colors.green.withOpacity(0.25) : null,
                 onSelected: (selected) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => TagExpensesScreen(tag: tag),
+                      builder: (context) => TagExpensesScreen(tag: tagInfo.tagName),
                     ),
                   );
                 },

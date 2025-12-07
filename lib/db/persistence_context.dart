@@ -80,6 +80,10 @@ class PersistenceContext {
     return await DatabaseHelper().getAllTags();
   }
 
+  Future<List<Map<String, dynamic>>> getAllTagsByProfile(int profileId) async {
+    return await DatabaseHelper().getAllTagsByProfile(profileId);
+  }
+
   Future<List<String>> getTagsForRemark(String remarkQuery) async {
     return await DatabaseHelper().getTagsForRemark(remarkQuery);
   }
