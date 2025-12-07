@@ -315,6 +315,33 @@ class DatabaseHelper {
     return categorySpending;
   }
 
+  // Retrieves the total spending for each tag for a given month.
+  Future<Map<String, double>> getTagSpendingForMonth(DateTime date, int profileId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT
+        COALESCE(T.tagName, '#') AS tagName,
+        SUM(E.amount) AS total
+      FROM
+        expenses E
+      LEFT JOIN
+        expense_tags ET ON E.id = ET.expenseId
+      LEFT JOIN
+        tags T ON ET.tagId = T.tagId
+      WHERE
+        strftime('%Y-%m', E.expenseDate) = ? AND E.profileId = ?
+      GROUP BY
+        tagName
+    ''', [date.toIso8601String().substring(0, 7), profileId]);
+
+    final Map<String, double> tagSpending = {};
+    for (var row in result) {
+      tagSpending[row['tagName']] = row['total'];
+    }
+
+    return tagSpending;
+  }
+
   // Retrieves the total expenses for the last five months.
   Future<Map<String, double>> getExpensesForLastFiveMonths(int profileId) async {
     final Database db = await database;

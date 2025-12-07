@@ -44,8 +44,25 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
 *   **Data Management:**
         *   Option to delete all stored expense data.
         *   Data backup and restore options (local file export/import).
-*   **Attachments:**
-    *   Attach images to expenses.
+
+*   **Tagging System:**
+    *   Add one or more tags to each expense for granular filtering.
+    *   Get autocomplete suggestions for existing tags while typing.
+    *   Receive intelligent tag suggestions based on the text in the "Remarks" field.
+    *   View all unique tags in the settings.
+    *   Tap on a tag to see all associated expenses, conveniently grouped by month.
+
+*   **Expense Creation from Shared Content:**
+    *   Capture text shared from other apps (e.g., a transaction message from a banking app).
+    *   The app automatically parses the shared content to pre-fill the "Add Expense" screen, extracting the amount and remarks.
+
+*   **Enhanced Wallet Functionality:**
+    *   Optionally deduct expenses from the wallet balance directly from the "Add Expense" screen.
+    *   The wallet balance is automatically updated when expenses are added, edited, or deleted.
+
+*   **Image Attachment Details:**
+    *   Attach images from the camera or gallery.
+    *   Images are stored locally on the device's file system, organized by expense, ensuring the database remains lean and efficient.
 
 *   **Categories:**
     *   Categorize expenses for better tracking.
@@ -88,6 +105,9 @@ To get a local copy up and running, follow these simple steps.
 *   **`shared_preferences`:** For persisting simple data like theme settings, currency preferences, and monthly limits.
 *   **`intl`:** For date formatting.
 *   **Local Database (e.g., `sqflite`):** For storing expense data.
+*   **`fl_chart`:** For charts and reports.
+*   **`receive_sharing_intent`:** To enable sharing content from other apps.
+*   **`flutter_slidable`:** For swipe actions on list items.
 
 ## Data Persistence
 

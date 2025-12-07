@@ -468,22 +468,22 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          'Wallet',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
                         Row(
                           children: [
                             const Icon(Icons.account_balance_wallet, color: Colors.green, size: 20),
                             const SizedBox(width: 8.0),
                             Text(
-                              '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.green,
-                                  ),
+                              'Wallet',
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
+                        ),
+                        Text(
+                          '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green,
+                              ),
                         ),
                       ],
                     ),
