@@ -169,14 +169,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      Chip(
+                        label: Text(
+                          'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                       Card(
-                        margin: const EdgeInsets.all(16.0),
+                        margin: const EdgeInsets.all(8.0),
                         elevation: 4,
                         child: Padding(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.all(8.0),
                           child: Wrap(
-                            spacing: 16.0,
+                            spacing: 10.0,
                             runSpacing: 8.0,
                             children: spendingData.entries.map((entry) {
                               final index = spendingData.keys.toList().indexOf(entry.key);
@@ -192,13 +197,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               );
                             }).toList(),
                           ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
