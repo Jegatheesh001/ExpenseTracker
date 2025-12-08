@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:flutter/services.dart';
+import 'package:uni_links/uni_links.dart';
 
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
@@ -96,6 +97,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   int _profileId = 0;
   bool _isMonthView = false;
   Key _monthViewKey = UniqueKey();
+  StreamSubscription? _uriLinkSubscription;
 
 
   static const platform = MethodChannel('com.jegatheesh.expenseTracker/channel');
@@ -105,21 +107,50 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     super.initState();
     _loadPageContent();
     _handleCopiedTextFromSharing();
-
+    _initUniLinks();
     platform.setMethodCallHandler(_handleMethod);
+  }
+
+  Future<void> _initUniLinks() async {
+    // Handle incoming links when the app is already running
+    _uriLinkSubscription = uriLinkStream.listen((Uri? uri) {
+      if (!mounted) return;
+      _handleUri(uri);
+    }, onError: (err) {
+      debugPrint('uriLinkStream error: $err');
+    });
+
+    // Handle the initial link when the app is opened from a cold start
+    try {
+      final initialUri = await getInitialUri();
+      if (!mounted) return;
+      _handleUri(initialUri);
+    } on PlatformException {
+      debugPrint('Failed to get initial URI.');
+    } on FormatException catch (e) {
+      debugPrint('Malformed initial URI: ${e.message}');
+    }
+  }
+
+  void _handleUri(Uri? uri) {
+    if (uri != null && uri.scheme == 'app' && uri.host == 'com.jegatheesh.expenseTracker') {
+      if (uri.path == '/open' && uri.queryParameters['featureName'] == 'wallet') {
+        _showWalletBalance();
+      }
+    }
+  }
+
+  void _showWalletBalance() {
+    // This reuses the logic you already had for displaying the wallet amount
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Wallet Amount: $_currencySymbol${_walletAmount.toStringAsFixed(2)}')),
+    );
   }
 
   Future<dynamic> _handleMethod(MethodCall call) async {
     switch (call.method) {
       case 'getWalletAmount':
-        final prefs = await SharedPreferences.getInstance();
-        final profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
-        final walletAmount = prefs.getDouble('${PrefKeys.walletAmount}-$profileId') ?? 0.0;
-        debugPrint('Wallet Amount: $walletAmount');
-        // Here you could show a dialog or update the UI
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Wallet Amount: $_currencySymbol$walletAmount')),
-        );
+        _showWalletBalance();
         break;
       default:
         throw MissingPluginException();
@@ -342,6 +373,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   @override
   void dispose() {
     _intentSub.cancel();
+    _uriLinkSubscription?.cancel();
     super.dispose();
   }
 
