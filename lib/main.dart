@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:flutter/services.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
@@ -97,7 +97,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   int _profileId = 0;
   bool _isMonthView = false;
   Key _monthViewKey = UniqueKey();
-  StreamSubscription? _uriLinkSubscription;
+  final _appLinks = AppLinks();
+  StreamSubscription<Uri>? _uriLinkSubscription;
 
 
   static const platform = MethodChannel('com.jegatheesh.expenseTracker/channel');
@@ -107,13 +108,13 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     super.initState();
     _loadPageContent();
     _handleCopiedTextFromSharing();
-    _initUniLinks();
+    _initAppLinks();
     platform.setMethodCallHandler(_handleMethod);
   }
 
-  Future<void> _initUniLinks() async {
+  Future<void> _initAppLinks() async {
     // Handle incoming links when the app is already running
-    _uriLinkSubscription = uriLinkStream.listen((Uri? uri) {
+    _uriLinkSubscription = _appLinks.uriLinkStream.listen((uri) {
       if (!mounted) return;
       _handleUri(uri);
     }, onError: (err) {
@@ -122,7 +123,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
     // Handle the initial link when the app is opened from a cold start
     try {
-      final initialUri = await getInitialUri();
+      final initialUri = await _appLinks.getInitialLink();
       if (!mounted) return;
       _handleUri(initialUri);
     } on PlatformException {
