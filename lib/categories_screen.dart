@@ -1,3 +1,4 @@
+import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
 import 'db/entity.dart';
 import 'db/persistence_context.dart';
@@ -84,7 +85,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       } else {
         // show error msg
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to delete category')),
+          SnackBar(
+            content: const Text(
+              'Failed to delete category',
+              style: TextStyle(color: Colors.red),
+            )
+          ),
         );
       }
     }
@@ -148,6 +154,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               itemBuilder: (context, index) {
                 final category = _categories[index];
                 return ListTile(
+                  leading: Icon(getIconForCategory(category.category)),
                   title: Text(category.category),
                   // You can add more details or actions here later
                   trailing: IconButton(

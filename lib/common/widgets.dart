@@ -12,6 +12,18 @@ IconData getIconForCategory(String category) {
       return Icons.receipt;
     case 'health':
       return Icons.local_hospital;
+    case 'utilities':
+      return Icons.build;
+    case 'entertainment':
+      return Icons.movie;
+    case 'education':
+      return Icons.school;
+    case 'travel':
+      return Icons.flight;
+    case 'gift':
+      return Icons.card_giftcard;
+    case 'salary':
+      return Icons.attach_money;
     default:
       return Icons.category; // A default icon
   }

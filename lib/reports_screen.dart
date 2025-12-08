@@ -223,13 +223,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
         } else {
           final monthlyTotals = snapshot.data!;
           final sortedMonths = monthlyTotals.keys.toList()..sort();
+          final maxY = monthlyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2;
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: monthlyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2,
+                maxY: maxY,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
@@ -272,7 +273,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ),
                   ),
                   leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        if (value == meta.max || value == meta.min) {
+                          return Container();
+                        }
+
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          space: 4.0,
+                          child: Text(
+                            NumberFormat.compact().format(value),
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        );
+                      },
+                      reservedSize: 40,
+                      interval: maxY > 0 ? maxY / 10 : 1,
+                    ),
                   ),
                   topTitles: AxisTitles(
                     sideTitles: SideTitles(showTitles: false),

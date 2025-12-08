@@ -88,6 +88,13 @@ class ExpenseListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (expenses.isEmpty) {
+      return const Expanded(
+        child: Center(
+          child: Text('No expenses yet'),
+        ),
+      );
+    }
     return Expanded(
       child: ListView.builder(
         itemCount: expenses.length,
