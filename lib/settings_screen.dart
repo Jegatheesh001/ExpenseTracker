@@ -34,7 +34,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDarkMode = false;
-  final List<String> _currencies = ['Rupee', 'Dirham', 'Dollar'];
+  final List<String> _currencies = CurrencySymbol().getCurrencies();
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
 
   // Wallet settings
