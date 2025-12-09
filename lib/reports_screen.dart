@@ -18,10 +18,11 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen> {
   late Future<Map<String, double>> _spendingFuture;
   late Future<Map<String, double>> _lastFiveMonthsSpendingFuture;
+  late Future<Map<String, double>> _last15DaysSpendingFuture;
   late DateTime _selectedDate;
-  bool _showMonthlyReport = true;
   ReportType _reportType = ReportType.category;
   int _touchedIndex = -1;
+  bool _showMonthlyReport = true;
 
   final List<Color> _colors = [
     Colors.blue[400]!,
@@ -48,6 +49,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _spendingFuture = PersistenceContext().getTagSpendingForMonth(_selectedDate, widget.profileId);
     }
     _lastFiveMonthsSpendingFuture = PersistenceContext().getExpensesForLastFiveMonths(widget.profileId);
+    _last15DaysSpendingFuture = PersistenceContext().getExpensesForLast15Days(widget.profileId);
   }
 
   void _changeMonth(int month) {
@@ -61,20 +63,54 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showMonthlyReport ? 'Monthly Expense Chart' : 'Expense Trend'),
+        title: Text(_showMonthlyReport ? 'Expense Chart' : 'Expense Trend'),
         actions: [
           IconButton(
-            icon: Icon(_showMonthlyReport ? Icons.bar_chart : Icons.pie_chart),
+            style: IconButton.styleFrom(
+              backgroundColor: _showMonthlyReport ? Theme.of(context).highlightColor : Colors.transparent,
+            ),
+            icon: Icon(Icons.pie_chart, color: _showMonthlyReport ? Colors.white : Colors.grey),
             onPressed: () {
               setState(() {
-                _showMonthlyReport = !_showMonthlyReport;
-                _updateFutures();
+                _showMonthlyReport = true;
+              });
+            },
+          ),
+          IconButton(
+            style: IconButton.styleFrom(
+              backgroundColor: !_showMonthlyReport ? Theme.of(context).highlightColor : Colors.transparent,
+            ),
+            icon: Icon(Icons.bar_chart, color: !_showMonthlyReport ? Colors.white : Colors.grey),
+            onPressed: () {
+              setState(() {
+                _showMonthlyReport = false;
               });
             },
           ),
         ],
       ),
-      body: _showMonthlyReport ? _buildMonthlyReport() : _buildLastFiveMonthsReport(),
+      body: _showMonthlyReport
+          ? _buildMonthlyReport()
+          : Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Card(
+                      elevation: 4,
+                      child: _buildLast15DaysReport(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Card(
+                      elevation: 4,
+                      child: _buildMonthWiseTrendReport(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -210,136 +246,285 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildLastFiveMonthsReport() {
-    return FutureBuilder<Map<String, double>>(
-      future: _lastFiveMonthsSpendingFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No data for the last five months.'));
-        } else {
-          final monthlyTotals = snapshot.data!;
-          final sortedMonths = monthlyTotals.keys.toList()..sort();
-          final maxY = monthlyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2;
+  Widget _buildLast15DaysReport() {
+    return Column(
+      children: [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Last 15 Days Expense Trend',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<Map<String, double>>(
+            future: _last15DaysSpendingFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No data for the last 15 days.'));
+              } else {
+                final dailyTotals = snapshot.data!;
+                final sortedDays = dailyTotals.keys.toList()..sort();
+                final spots = sortedDays.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final day = entry.value;
+                  final total = dailyTotals[day]!;
+                  return FlSpot(index.toDouble(), total);
+                }).toList();
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxY,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final month = sortedMonths[group.x.toInt()];
-                      final total = rod.toY;
-                      return BarTooltipItem(
-                        '${DateFormat('MMM yyyy').format(DateTime.parse('$month-01'))}\n',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                final maxY = dailyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2;
+
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: LineChart(
+                    LineChartData(
+                      maxY: maxY,
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value.toInt() % 2 == 1) {
+                                return Container();
+                              }
+                              final day = sortedDays[value.toInt()];
+                              return SideTitleWidget(
+                                axisSide: meta.axisSide,
+                                child: Text(DateFormat('dd').format(DateTime.parse(day))),
+                              );
+                            },
+                            reservedSize: 38,
+                          ),
                         ),
-                        children: <TextSpan>[
-                          TextSpan(
-                            text: '${widget.currencySymbol}${total.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.yellow,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value == meta.max || value == meta.min) {
+                                return Container();
+                              }
+                              return SideTitleWidget(
+                                axisSide: meta.axisSide,
+                                space: 4.0,
+                                child: Text(
+                                  NumberFormat.compact().format(value),
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              );
+                            },
+                            reservedSize: 40,
+                            interval: maxY > 0 ? maxY / 4 : 1,
+                          ),
+                        ),
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (value) {
+                          return const FlLine(
+                            color: Colors.grey,
+                            strokeWidth: 0.5,
+                          );
+                        },
+                      ),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              _colors[0].withOpacity(0.8),
+                              _colors[0],
+                            ],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                          ),
+                          barWidth: 4,
+                          isStrokeCapRound: true,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                _colors[0].withOpacity(0.3),
+                                _colors[0].withOpacity(0.0),
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final month = sortedMonths[value.toInt()];
-                        return SideTitleWidget(
-                          axisSide: meta.axisSide,
-                          child: Text(DateFormat('MMM').format(DateTime.parse('$month-01'))),
-                        );
-                      },
-                      reservedSize: 38,
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        if (value == meta.max || value == meta.min) {
-                          return Container();
-                        }
-
-                        return SideTitleWidget(
-                          axisSide: meta.axisSide,
-                          space: 4.0,
-                          child: Text(
-                            NumberFormat.compact().format(value),
-                            style: const TextStyle(fontSize: 10),
-                          ),
-                        );
-                      },
-                      reservedSize: 40,
-                      interval: maxY > 0 ? maxY / 10 : 1,
-                    ),
-                  ),
-                  topTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) {
-                    return const FlLine(
-                      color: Colors.grey,
-                      strokeWidth: 0.5,
-                    );
-                  },
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: sortedMonths.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final month = entry.value;
-                  final total = monthlyTotals[month]!;
-
-                  return BarChartGroupData(
-                    x: index,
-                    barRods: [
-                      BarChartRodData(
-                        toY: total,
-                        gradient: LinearGradient(
-                          colors: [
-                            _colors[index % _colors.length].withOpacity(0.8),
-                            _colors[index % _colors.length],
-                          ],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
                         ),
-                        width: 22,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMonthWiseTrendReport() {
+    return Column(
+      children: [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Last 5 Months Expense Trend',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          );
-        }
-      },
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<Map<String, double>>(
+            future: _lastFiveMonthsSpendingFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No data for the last five months.'));
+              } else {
+                final monthlyTotals = snapshot.data!;
+                final sortedMonths = monthlyTotals.keys.toList()..sort();
+                final maxY = monthlyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2;
+
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: maxY,
+                      barTouchData: BarTouchData(
+                        touchTooltipData: BarTouchTooltipData(
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final month = sortedMonths[group.x.toInt()];
+                            final total = rod.toY;
+                            return BarTooltipItem(
+                              '${DateFormat('MMM yyyy').format(DateTime.parse('$month-01'))}\n',
+                              const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                              children: <TextSpan>[
+                                TextSpan(
+                                  text: '${widget.currencySymbol}${total.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.yellow,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              final month = sortedMonths[value.toInt()];
+                              return SideTitleWidget(
+                                axisSide: meta.axisSide,
+                                child: Text(DateFormat('MMM').format(DateTime.parse('$month-01'))),
+                              );
+                            },
+                            reservedSize: 38,
+                          ),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value == meta.max || value == meta.min) {
+                                return Container();
+                              }
+
+                              return SideTitleWidget(
+                                axisSide: meta.axisSide,
+                                space: 4.0,
+                                child: Text(
+                                  NumberFormat.compact().format(value),
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              );
+                            },
+                            reservedSize: 40,
+                            interval: maxY > 0 ? maxY / 4 : 1,
+                          ),
+                        ),
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                      ),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (value) {
+                          return const FlLine(
+                            color: Colors.grey,
+                            strokeWidth: 0.5,
+                          );
+                        },
+                      ),
+                      borderData: FlBorderData(show: false),
+                      barGroups: sortedMonths.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final month = entry.value;
+                        final total = monthlyTotals[month]!;
+
+                        return BarChartGroupData(
+                          x: index,
+                          barRods: [
+                            BarChartRodData(
+                              toY: total,
+                              gradient: LinearGradient(
+                                colors: [
+                                  _colors[index % _colors.length].withOpacity(0.8),
+                                  _colors[index % _colors.length],
+                                ],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                              ),
+                              width: 22,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 }

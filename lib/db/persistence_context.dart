@@ -91,4 +91,8 @@ class PersistenceContext {
   Future<Category?> getCategoryForRemark(String remarks) async {
     return await DatabaseHelper().getCategoryForRemark(remarks);
   }
+
+  Future<Map<String, double>> getExpensesForLast15Days(int profileId) async {
+    return await DatabaseHelper().getExpensesForLast15Days(profileId);
+  }
 }

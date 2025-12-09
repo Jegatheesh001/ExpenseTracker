@@ -487,4 +487,26 @@ class DatabaseHelper {
     final String category = expenseResult.first['category'] as String;
     return Category(categoryId, category);
   }
+
+  // Retrieves the total expenses for the last 15 days.
+  Future<Map<String, double>> getExpensesForLast15Days(int profileId) async {
+    final Database db = await database;
+    final Map<String, double> dailyTotals = {};
+    final now = DateTime.now();
+
+    for (int i = 0; i < 15; i++) {
+      final day = DateTime(now.year, now.month, now.day - i);
+      final dayKey = day.toIso8601String().substring(0, 10);
+      final List<Map<String, dynamic>> result = await db.query(
+        'expenses',
+        columns: ['SUM(amount) as total'],
+        where: "date(expenseDate) = ? AND profileId = ?",
+        whereArgs: [dayKey, profileId],
+      );
+      final double sum = result.first['total'] ?? 0.0;
+      dailyTotals[dayKey] = sum;
+    }
+
+    return dailyTotals;
+  }
 }
