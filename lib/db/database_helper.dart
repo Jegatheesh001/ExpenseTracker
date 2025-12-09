@@ -462,4 +462,29 @@ class DatabaseHelper {
 
     return List.generate(tagsResult.length, (i) => tagsResult[i]['tagName'] as String);
   }
+
+  Future<Category?> getCategoryForRemark(String remarks) async {
+    final Database db = await database;
+    if (remarks.isEmpty) {
+      return null;
+    }
+
+    // Find expenses with similar remarks
+    final List<Map<String, dynamic>> expenseResult = await db.query(
+      'expenses',
+      columns: ['categoryId', 'category'],
+      where: 'remarks LIKE ?',
+      whereArgs: [remarks.trim()],
+      orderBy: 'id DESC', // Order by most recent
+      limit: 1, // Limit to one result
+    );
+
+    if (expenseResult.isEmpty) {
+      return null;
+    }
+
+    final int categoryId = expenseResult.first['categoryId'] as int;
+    final String category = expenseResult.first['category'] as String;
+    return Category(categoryId, category);
+  }
 }

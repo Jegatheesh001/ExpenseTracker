@@ -1,4 +1,4 @@
-import 'package:expense_tracker/tag_expenses_screen.dart';
+import 'package:expense_tracker/currency_symbol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -33,6 +33,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   int _profileId = 0;
   String _previousTagText = '';
   List<String> _suggestedTags = [];
+  bool _userManuallySelectedCategory = false;
+  String _currencySymbol = '';
 
   @override
   void initState() {
@@ -46,8 +48,42 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _loadExpense(expenseToEdit!);
       }
     });
-    _loadSelectedProfile();
+    _loadSelectedProfile().then((_) {
+      _loadCurrencySymbol();
+    });
     _remarksController.addListener(_updateSuggestedTags);
+  }
+
+  void _updateCategoryFromRemarks() {
+    // If the user has manually selected a category, don't auto-update it
+    if (!_userManuallySelectedCategory) {
+      if (_remarksController.text.isEmpty) {
+        setState(() {
+          _selectedCategory = null;
+        });
+        return;
+      }
+    }
+    autoSuggestCategoryBasedOnRemarks();
+  }
+  Future<void> autoSuggestCategoryBasedOnRemarks() async {
+    // If no category is selected, suggest one based on remarks
+    if (_remarksController.text.isNotEmpty && _selectedCategory == null) {
+      final category = await PersistenceContext().getCategoryForRemark(_remarksController.text);
+      if (mounted) {
+        setState(() {
+          _selectedCategory = category;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadCurrencySymbol() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentCurrency = prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
+    setState(() {
+      _currencySymbol = CurrencySymbol().getSymbol(currentCurrency);
+    });
   }
 
   // Loads categories from the persistence context.
@@ -71,11 +107,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _remarksController.text = expense.remarks;
     _tagsController.text = expense.tags.join(', ');
     Category selectedCategory;
-    if (expense.categoryId != null) {
+    if (expense.categoryId != null && expense.categoryId != 0) {
       selectedCategory = _categories.firstWhere(
         (category) => category.categoryId == expense.categoryId,
       );
+      _userManuallySelectedCategory = true;
     } else {
+      _updateCategoryFromRemarks();
       selectedCategory = _categories.firstWhere(
         (category) => category.category == expense.category,
       );
@@ -122,9 +160,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _addExpense(BuildContext context) async {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
-    final category = _selectedCategory?.category;
     final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
+    await autoSuggestCategoryBasedOnRemarks();
+    final category = _selectedCategory?.category;
     if (category == null || category.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -241,11 +280,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const currencySymbol = '₹'; // Example symbol, you might get this from your state
-
     return Scaffold(
       appBar: AppBar(
-        title: Text((expenseToEdit != null) ? 'Edit Expense' : 'Add Expense'),
+        title: Text((expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) 
+                        ? 'Edit Expense' : 'Add Expense'),
         actions: [
           if (expenseToEdit != null)
             IconButton(
@@ -293,8 +331,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             .toList(),
                         onChanged: (int? newValue) {
                           setState(() {
-                            _selectedCategory = _categories.firstWhere(
-                                (cat) => cat.categoryId == newValue);
+                            _userManuallySelectedCategory = true;
+                            _selectedCategory = _categories.firstWhere((cat) => cat.categoryId == newValue);
                           });
                         },
                       ),
@@ -330,10 +368,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               TextFormField(
                 controller: _amountController,
                 style: Theme.of(context).textTheme.headlineMedium,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '$currencySymbol ',
-                  border: OutlineInputBorder(),
+                  prefixText: '$_currencySymbol ',
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
@@ -344,14 +382,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 16.0),
 
               // --- Remarks Field ---
-              TextFormField(
-                controller: _remarksController,
-                decoration: const InputDecoration(
-                  labelText: 'Remarks',
-                  border: OutlineInputBorder(),
+              Focus(
+                onFocusChange: (hasFocus) {
+                  if (!hasFocus) {
+                    _updateCategoryFromRemarks();
+                  }
+                },
+                child: TextFormField(
+                  controller: _remarksController,
+                  decoration: const InputDecoration(
+                    labelText: 'Remarks',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
                 ),
-                keyboardType: TextInputType.text,
-                textInputAction: TextInputAction.next,
               ),
               if (_suggestedTags.isNotEmpty) // Keep the tag suggestions
                 Padding(

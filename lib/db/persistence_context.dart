@@ -87,4 +87,8 @@ class PersistenceContext {
   Future<List<String>> getTagsForRemark(String remarkQuery) async {
     return await DatabaseHelper().getTagsForRemark(remarkQuery);
   }
+
+  Future<Category?> getCategoryForRemark(String remarks) async {
+    return await DatabaseHelper().getCategoryForRemark(remarks);
+  }
 }
