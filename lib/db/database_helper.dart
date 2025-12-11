@@ -28,7 +28,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -38,7 +38,7 @@ class DatabaseHelper {
   Future<void> _onCreate(Database db, int version) async {
     // Create expenses table
     await db.execute(
-      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, expenseDate TEXT, profileId INTEGER, entryDate TEXT)',
+      'CREATE TABLE expenses(id INTEGER PRIMARY KEY AUTOINCREMENT, remarks TEXT, amount REAL, categoryId INTEGER, category TEXT, expenseDate TEXT, profileId INTEGER, entryDate TEXT, paymentMethod TEXT)',
     );
 
     await version2DbChanges(db);
@@ -91,6 +91,10 @@ class DatabaseHelper {
     // Version 5 changes
     if (oldVersion < 5) {
       await version5DbChanges(db);
+    }
+    // Version 6 changes
+    if (oldVersion < 6) {
+      await db.execute('ALTER TABLE expenses ADD COLUMN paymentMethod TEXT');
     }
   }
 

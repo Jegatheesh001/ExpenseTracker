@@ -39,10 +39,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Wallet settings
   double _currentWalletAmount = 0.0;
+  double _cashAmount = 0.0;
+  double _bankAmount = 0.0;
+
   int _profileId = 0;
   late SharedPreferences _prefs;
 
   final TextEditingController _walletAmountController = TextEditingController();
+  final TextEditingController _cashAmountController = TextEditingController();
+  final TextEditingController _bankAmountController = TextEditingController();
   final TextEditingController _deleteConfirmationController = TextEditingController(); // Controller for the delete confirmation text field
 
   @override
@@ -58,7 +63,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
       _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
       _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
-      _currentWalletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
+      _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+      _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+
+      double walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
+
+      if (_cashAmount == 0.0 && _bankAmount == 0.0 && walletAmount > 0.0) {
+        _cashAmount = walletAmount;
+        _saveAmounts();
+      }
+
+      _currentWalletAmount = _cashAmount + _bankAmount;
     });
   }
 
@@ -77,10 +92,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Saves the wallet amount to shared preferences.
-  Future<void> _saveWalletAmount(double amount) async {
-    await _prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', amount);
+  Future<void> _saveAmounts() async {
+    await _prefs.setDouble('${PrefKeys.cashAmount}-$_profileId', _cashAmount);
+    await _prefs.setDouble('${PrefKeys.bankAmount}-$_profileId', _bankAmount);
+    await _prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', _cashAmount + _bankAmount);
     setState(() {
-      _currentWalletAmount = amount;
+      _currentWalletAmount = _cashAmount + _bankAmount;
     });
     widget.onWalletAmountUpdated.call();
   }
@@ -89,57 +106,184 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _deleteConfirmationController.dispose(); // Dispose the controller
     _walletAmountController.dispose(); // Dispose wallet controller
+    _cashAmountController.dispose();
+    _bankAmountController.dispose();
     super.dispose();
   }
 
   Future<void> _showSetWalletAmountDialog() async {
-    _walletAmountController.text = _currentWalletAmount.toStringAsFixed(2); // Pre-fill with current amount
+    _cashAmountController.text = _cashAmount.toStringAsFixed(2);
+    _bankAmountController.text = _bankAmount.toStringAsFixed(2);
+
+    double tempCashAmount = _cashAmount;
+    double tempBankAmount = _bankAmount;
+
     return showDialog<void>(
       context: context,
-      barrierDismissible: false, // User must tap button!
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Set Wallet Balance'),
-          content: SingleChildScrollView(
-            child: ListBody(
-              children: <Widget>[
-                const Text('Enter your current wallet balance.'),
-                TextField(
-                  controller: _walletAmountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    hintText: '0.00',
-                    prefixText: '${CurrencySymbol().getSymbol(_currentCurrency)} ',
+        // We get the theme once to keep code clean
+        final theme = Theme.of(context);
+        final currency = CurrencySymbol().getSymbol(_currentCurrency);
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Calculate total for the display
+            final total = (tempCashAmount + tempBankAmount).toStringAsFixed(2);
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.0), // Softer corners
+              ),
+              titlePadding: EdgeInsets.zero, // We will handle our own padding
+              title: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 15,
+                  horizontal: 24,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.3,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
                   ),
                 ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Save'),
-              onPressed: () {
-                final double? newAmount = double.tryParse(_walletAmountController.text);
-                if (newAmount != null && newAmount >= 0) {
-                  _saveWalletAmount(newAmount);
-                  Navigator.of(dialogContext).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid non-negative amount.'),
-                      backgroundColor: Colors.red,
+                child: Column(
+                  children: [
+                    Text(
+                      'Total Balance',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  );
-                }
-              },
-            ),
-          ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '$currency $total',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const SizedBox(height: 10),
+                    // CASH INPUT
+                    TextField(
+                      controller: _cashAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Cash Amount',
+                        prefixText: '$currency ',
+                        prefixIcon: const Icon(Icons.money_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          tempCashAmount = double.tryParse(value) ?? 0.0;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    // BANK INPUT
+                    TextField(
+                      controller: _bankAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Bank Amount',
+                        prefixText: '$currency ',
+                        prefixIcon: const Icon(Icons.account_balance_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          tempBankAmount = double.tryParse(value) ?? 0.0;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              actions: <Widget>[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(
+                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Update'),
+                        onPressed: () {
+                          final double? newCashAmount = double.tryParse(
+                            _cashAmountController.text,
+                          );
+                          final double? newBankAmount = double.tryParse(
+                            _bankAmountController.text,
+                          );
+
+                          if (newCashAmount != null &&
+                              newCashAmount >= 0 &&
+                              newBankAmount != null &&
+                              newBankAmount >= 0) {
+                            _cashAmount = newCashAmount;
+                            _bankAmount = newBankAmount;
+                            _saveAmounts();
+                            Navigator.of(dialogContext).pop();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Please enter valid non-negative amounts.',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: theme.colorScheme.error,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            );
+          },
         );
       },
     );

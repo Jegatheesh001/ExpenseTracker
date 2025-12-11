@@ -158,6 +158,98 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
+  Future<void> _showWalletDetailsDialog() async {
+    final double cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+    final double bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+    final double totalAmount = cashAmount + bankAmount;
+    final theme = Theme.of(context);
+
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          titlePadding: EdgeInsets.zero,
+          title: Container(
+            padding: const EdgeInsets.symmetric(
+              vertical: 15,
+              horizontal: 24,
+            ),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Column(
+                  children: [
+                    Text(
+                      'Total Balance',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$_currencySymbol ${totalAmount.toStringAsFixed(2)}',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: -10,
+                  right: -10,
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.money_outlined),
+                    const SizedBox(width: 10),
+                    const Text('Cash'),
+                    const Spacer(),
+                    Text('$_currencySymbol${cashAmount.toStringAsFixed(2)}'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.account_balance_outlined),
+                    const SizedBox(width: 10),
+                    const Text('Bank'),
+                    const Spacer(),
+                    Text('$_currencySymbol${bankAmount.toStringAsFixed(2)}'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Initializes all the necessary data for the home page.
   void _loadPageContent() async {
     _prefs = await SharedPreferences.getInstance();
@@ -498,27 +590,30 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         ),
                       ],
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.account_balance_wallet, color: Colors.green, size: 20),
-                            const SizedBox(width: 8.0),
-                            Text(
-                              'Wallet',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                color: Colors.green,
+                    GestureDetector(
+                      onTap: _showWalletDetailsDialog,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.account_balance_wallet, color: Colors.green, size: 20),
+                              const SizedBox(width: 8.0),
+                              Text(
+                                'Wallet',
+                                style: Theme.of(context).textTheme.titleMedium,
                               ),
-                        ),
-                      ],
+                            ],
+                          ),
+                          Text(
+                            '$_currencySymbol${_walletAmount.toStringAsFixed(2)}',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.green,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -688,6 +783,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         expenseDate: _selectedDate,
         entryDate: DateTime.now(),
         profileId: _profileId,
+        paymentMethod: PaymentMethod.bank.name,
       );
       _editExpense(expense);
     } else {
@@ -702,6 +798,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           expenseDate: _selectedDate,
           entryDate: DateTime.now(),
           profileId: _profileId,
+          paymentMethod: PaymentMethod.bank.name,
         );
         _editExpense(expense);
       }

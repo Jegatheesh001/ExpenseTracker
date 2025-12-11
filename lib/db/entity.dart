@@ -8,6 +8,7 @@ class Expense {
   final DateTime expenseDate;
   final DateTime entryDate;
   final List<String> tags;
+  final String? paymentMethod;
 
   // Factory constructor to create an Expense from a Map
   factory Expense.fromMap(Map<String, dynamic> map, {List<String>? tags}) {
@@ -25,6 +26,7 @@ class Expense {
         map['entryDate'],
       ),
       tags: tags ?? [],
+      paymentMethod: map['paymentMethod'],
     );
   }
 
@@ -38,6 +40,7 @@ class Expense {
       'remarks': remarks,
       'expenseDate': expenseDate.toIso8601String(),
       'entryDate': entryDate.toIso8601String(),
+      'paymentMethod': paymentMethod,
     };
   }
 
@@ -52,6 +55,7 @@ class Expense {
     required this.expenseDate,
     required this.entryDate,
     this.tags = const [],
+    this.paymentMethod,
   });
 }
 

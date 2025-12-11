@@ -8,6 +8,8 @@ import 'db/persistence_context.dart';
 import 'attach_image_screen.dart';
 import 'pref_keys.dart';
 
+enum PaymentMethod { cash, bank, none }
+
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({Key? key, this.expenseToEdit, required this.onWalletAmountChange,}) : super(key: key);
 
@@ -29,7 +31,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final TextEditingController _tagsController = TextEditingController();
   final FocusNode _tagsFocusNode = FocusNode();
   DateTime _selectedDate = DateTime.now();
-  bool _deductFromWallent = true;
+  PaymentMethod? _selectedPaymentMethod;
   int _profileId = 0;
   String _previousTagText = '';
   List<String> _suggestedTags = [];
@@ -44,8 +46,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (expenseToEdit != null) {
         setState(() {
           _selectedDate = expenseToEdit!.expenseDate;
+          if (expenseToEdit!.paymentMethod != null) {
+            try {
+              _selectedPaymentMethod = PaymentMethod.values.firstWhere((e) => e.toString() == 'PaymentMethod.${expenseToEdit!.paymentMethod}');
+            } catch (e) {
+              _selectedPaymentMethod = null;
+            }
+          } else if (expenseToEdit != null && expenseToEdit!.paymentMethod == null) {
+            _selectedPaymentMethod = PaymentMethod.none;
+          }
         });
         _loadExpense(expenseToEdit!);
+      } else {
+        _selectedPaymentMethod = PaymentMethod.cash;
       }
     });
     _loadSelectedProfile().then((_) {
@@ -106,6 +119,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _amountController.text = expense.amount.toString();
     _remarksController.text = expense.remarks;
     _tagsController.text = expense.tags.join(', ');
+    if (expense.paymentMethod != null) {
+      try {
+        _selectedPaymentMethod = PaymentMethod.values.firstWhere((e) => e.toString() == 'PaymentMethod.${expense.paymentMethod}');
+      } catch (e) {
+        _selectedPaymentMethod = null;
+      }
+    }
     Category selectedCategory;
     if (expense.categoryId != null && expense.categoryId != 0) {
       selectedCategory = _categories.firstWhere(
@@ -187,6 +207,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         entryDate: DateTime.now(), // Current date/time for entry
         profileId: _profileId, // Current profile ID
         tags: tags,
+        paymentMethod: _selectedPaymentMethod?.name,
       );
 
       // Show confirmation dialog only if it's an update (expenseToEdit is not null)
@@ -219,7 +240,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       if (confirmUpdate) {
         await PersistenceContext().saveOrUpdateExpense(newExpense);
-        deductFromWallet(amount);
+        _updateBalances(amount);
         Navigator.pop(context, true);
       }
     }
@@ -254,14 +275,36 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
 
     if (confirmDelete == true) {
-      if (_deductFromWallent) { // If the checkbox is currently checked
-        final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
+      final amountToRefund = widget.expenseToEdit!.amount;
+      final paymentMethod = widget.expenseToEdit!.paymentMethod;
+
+      if (paymentMethod != null) {
+        String amountKey;
+        if (paymentMethod == PaymentMethod.cash.name) {
+          amountKey = '${PrefKeys.cashAmount}-$_profileId';
+        } else if (paymentMethod == PaymentMethod.bank.name) {
+          amountKey = '${PrefKeys.bankAmount}-$_profileId';
+        } else {
+          amountKey = '${PrefKeys.walletAmount}-$_profileId';
+        }
+        
+        double currentAmount = prefs.getDouble(amountKey) ?? 0.0;
+        await prefs.setDouble(amountKey, currentAmount + amountToRefund);
+
+      } else {
+        // Fallback for old expenses without payment method
         String walletAmountKey = '${PrefKeys.walletAmount}-$_profileId';
         double walletAmount = prefs.getDouble(walletAmountKey) ?? 0.0;
-        walletAmount += widget.expenseToEdit!.amount; // Add back the amount
-        await prefs.setDouble(walletAmountKey, walletAmount);
-        widget.onWalletAmountChange(); // Update wallet display on home screen
+        await prefs.setDouble(walletAmountKey, walletAmount + amountToRefund);
       }
+      
+      // also update the combined wallet amount
+      double cashAmount = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+      double bankAmount = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+      await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
+
+      widget.onWalletAmountChange(); // Update wallet display on home screen
       await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
       Navigator.pop(context, true); // Signal deletion
     }
@@ -322,7 +365,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           labelText: 'Category',
                           border: InputBorder.none, // Cleaner look inside a card
                         ),
-                        value: _selectedCategory?.categoryId,
+                        initialValue: _selectedCategory?.categoryId,
                         items: _categories
                             .map((Category category) => DropdownMenuItem<int>(
                                   value: category.categoryId,
@@ -484,13 +527,38 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 16.0),
 
-              // --- Deduct from Wallet Checkbox ---
-              CheckboxListTile(
-                title: const Text("Deduct from wallet"),
-                value: _deductFromWallent,
-                onChanged: (bool? value) => setState(() => _deductFromWallent = value ?? false),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
+              // --- Payment Method ---
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ToggleButtons(
+                    isSelected: [
+                      _selectedPaymentMethod == PaymentMethod.cash,
+                      _selectedPaymentMethod == PaymentMethod.bank,
+                      _selectedPaymentMethod == PaymentMethod.none,
+                    ],
+                    onPressed: (int index) {
+                      setState(() {
+                        _selectedPaymentMethod = PaymentMethod.values[index];
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8.0),
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('Cash'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('Wallet'),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text('None'),
+                      )
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
@@ -501,11 +569,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: Text(
-                  (expenseToEdit != null) ? 'Update Expense' : 'Add Expense',
+                  (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) ? 'Update Expense' : 'Add Expense',
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
-              if (expenseToEdit != null) ...[
+              if (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) ...[
                 const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: () => _deleteCurrentExpense(context),
@@ -524,25 +592,42 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  void deductFromWallet(double amount) async {
-    if(_deductFromWallent) {
-      final prefs = await SharedPreferences.getInstance();
-      String walletAmountKey = '${PrefKeys.walletAmount}-$_profileId';
-      double walletAmount = prefs.getDouble(walletAmountKey) ?? 0.0;
-      if(expenseToEdit == null) {
-        if(walletAmount > 0) {
-          walletAmount -= amount;
-          prefs.setDouble(walletAmountKey, walletAmount);
-          widget.onWalletAmountChange();
-        }
-      } else {
-        double oldExpAmt = expenseToEdit!.amount;
-        if(oldExpAmt != amount) {
-          walletAmount -= amount - oldExpAmt;
-          prefs.setDouble(walletAmountKey, walletAmount);
-          widget.onWalletAmountChange();
+  void _updateBalances(double amount) async {
+    if (_selectedPaymentMethod == null) return;
+    
+    final prefs = await SharedPreferences.getInstance();
+    String cashAmountKey = '${PrefKeys.cashAmount}-$_profileId';
+    String bankAmountKey = '${PrefKeys.bankAmount}-$_profileId';
+
+    double cashAmount = prefs.getDouble(cashAmountKey) ?? 0.0;
+    double bankAmount = prefs.getDouble(bankAmountKey) ?? 0.0;
+
+    if (expenseToEdit != null) {
+      // This is an edit. Refund the old amount first.
+      final oldAmount = expenseToEdit!.amount;
+      final oldPaymentMethod = expenseToEdit!.paymentMethod;
+
+      if (oldPaymentMethod != null) {
+        if (oldPaymentMethod == PaymentMethod.cash.name) {
+          cashAmount += oldAmount;
+        } else if (oldPaymentMethod == PaymentMethod.bank.name) {
+          bankAmount += oldAmount;
         }
       }
     }
+
+    // Deduct the new amount from the selected source
+    if (_selectedPaymentMethod == PaymentMethod.cash) {
+      cashAmount -= amount;
+    } else if (_selectedPaymentMethod == PaymentMethod.bank) {
+      bankAmount -= amount;
+    }
+
+    // Save the updated amounts
+    await prefs.setDouble(cashAmountKey, cashAmount);
+    await prefs.setDouble(bankAmountKey, bankAmount);
+    await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
+    
+    widget.onWalletAmountChange();
   }
 }
