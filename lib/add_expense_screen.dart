@@ -280,31 +280,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final paymentMethod = widget.expenseToEdit!.paymentMethod;
 
       if (paymentMethod != null) {
-        String amountKey;
+        String? amountKey;
         if (paymentMethod == PaymentMethod.cash.name) {
           amountKey = '${PrefKeys.cashAmount}-$_profileId';
         } else if (paymentMethod == PaymentMethod.bank.name) {
           amountKey = '${PrefKeys.bankAmount}-$_profileId';
-        } else {
-          amountKey = '${PrefKeys.walletAmount}-$_profileId';
         }
-        
-        double currentAmount = prefs.getDouble(amountKey) ?? 0.0;
-        await prefs.setDouble(amountKey, currentAmount + amountToRefund);
+        if (amountKey != null) {
+          double currentAmount = prefs.getDouble(amountKey) ?? 0.0;
+          await prefs.setDouble(amountKey, currentAmount + amountToRefund);
 
-      } else {
-        // Fallback for old expenses without payment method
-        String walletAmountKey = '${PrefKeys.walletAmount}-$_profileId';
-        double walletAmount = prefs.getDouble(walletAmountKey) ?? 0.0;
-        await prefs.setDouble(walletAmountKey, walletAmount + amountToRefund);
+          // also update the combined wallet amount
+          double cashAmount = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+          double bankAmount = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+          await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
+
+          widget.onWalletAmountChange(); // Update wallet display on home screen
+        }
       }
       
-      // also update the combined wallet amount
-      double cashAmount = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-      double bankAmount = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
-      await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
-
-      widget.onWalletAmountChange(); // Update wallet display on home screen
       await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
       Navigator.pop(context, true); // Signal deletion
     }
@@ -602,7 +596,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     double cashAmount = prefs.getDouble(cashAmountKey) ?? 0.0;
     double bankAmount = prefs.getDouble(bankAmountKey) ?? 0.0;
 
-    if (expenseToEdit != null) {
+    if (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) {
       // This is an edit. Refund the old amount first.
       final oldAmount = expenseToEdit!.amount;
       final oldPaymentMethod = expenseToEdit!.paymentMethod;

@@ -9,7 +9,7 @@ import 'db/entity.dart';
 class ExpenseListView extends StatelessWidget {
   final List<Expense> expenses;
   final String currencySymbol;
-  final Future<void> Function(int) onDelete;
+  final Future<void> Function(Expense) onDelete;
   final Future<void> Function(Expense) onEdit;
 
   const ExpenseListView({
@@ -34,7 +34,7 @@ class ExpenseListView extends StatelessWidget {
             ),
             TextButton(
               onPressed: () {
-                onDelete(expense.id!);
+                onDelete(expense);
                 Navigator.of(context).pop();
               },
               child: const Text('Delete'),

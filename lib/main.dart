@@ -403,9 +403,28 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
 
   // Deletes an expense from the database and refreshes the list.
-  Future<void> _deleteExpense(int id) async {
-    await PersistenceContext().deleteExpense(id);
+  Future<void> _deleteExpense(Expense expense) async {
+    await PersistenceContext().deleteExpense(expense.id!);
+    _updateWalletOnExpenseDeletion(expense);
     _loadTodaysExpenses(); // Refresh the list after deleting
+  }
+
+  Future<void> _updateWalletOnExpenseDeletion(Expense expense) async {
+    if (expense.paymentMethod != null && expense.paymentMethod != PaymentMethod.none.name) {
+      String prefKey = expense.paymentMethod == PaymentMethod.cash.name
+          ? PrefKeys.cashAmount
+          : PrefKeys.bankAmount;
+      double currentAmount = _prefs.getDouble('$prefKey-$_profileId') ?? 0.0;
+      double newAmount = currentAmount + expense.amount;
+      await _prefs.setDouble('$prefKey-$_profileId', newAmount);
+
+      // also update the total wallet amount
+      double totalWalletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
+      double newTotalWalletAmount = totalWalletAmount + expense.amount;
+      await _prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', newTotalWalletAmount);
+      
+      _loadWalletAmount();
+    }
   }
 
   // Updates the state of the expense list.
@@ -718,6 +737,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                   profileId: _profileId,
                   onEdit: _editExpense,
                   onTotalChanged: _updateMonthlyTotal,
+                  updateWalletOnExpenseDeletion: _updateWalletOnExpenseDeletion,
                 ),
               )
             else

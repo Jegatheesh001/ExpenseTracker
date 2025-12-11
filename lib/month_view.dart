@@ -9,6 +9,7 @@ class MonthView extends StatefulWidget {
   final int profileId;
   final Future<void> Function(Expense) onEdit;
   final void Function(double) onTotalChanged;
+  final Future<void> Function(Expense) updateWalletOnExpenseDeletion;
 
   const MonthView({
     Key? key,
@@ -17,6 +18,7 @@ class MonthView extends StatefulWidget {
     required this.profileId,
     required this.onEdit,
     required this.onTotalChanged,
+    required this.updateWalletOnExpenseDeletion,
   }) : super(key: key);
 
   @override
@@ -171,6 +173,7 @@ class _MonthViewState extends State<MonthView> {
             TextButton(
               onPressed: () {
                 _deleteExpense(expense.id!);
+                widget.updateWalletOnExpenseDeletion(expense);
                 Navigator.of(context).pop();
               },
               child: const Text('Delete'),
