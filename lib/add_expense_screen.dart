@@ -319,10 +319,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text((expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) 
-                        ? 'Edit Expense' : 'Add Expense'),
+        title: Text((expenseToEdit != null && expenseToEdit!.id != null) ? 'Edit Expense' : 'Add Expense'),
         actions: [
-          if (expenseToEdit != null)
+          if (expenseToEdit != null && expenseToEdit!.id != null)
             IconButton(
               icon: const Icon(Icons.attach_file),
               tooltip: 'Attachments',

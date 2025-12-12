@@ -10,8 +10,8 @@ class PersistenceContext {
   }
 
   // Saves a new expense or updates an existing one.
-  Future<void> saveOrUpdateExpense(Expense expense) async {
-    await DatabaseHelper().saveOrUpdateExpense(expense);
+  Future<int> saveOrUpdateExpense(Expense expense) async {
+    return await DatabaseHelper().saveOrUpdateExpense(expense);
   }
 
   // Retrieves all expenses from the database.

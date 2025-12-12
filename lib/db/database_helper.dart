@@ -169,7 +169,7 @@ class DatabaseHelper {
         endDate.toIso8601String().substring(0, 10),
         profileId
       ],
-      orderBy: 'entryDate desc',
+      orderBy: 'expenseDate desc',
     );
     return _mapMapsToExpenses(maps);
   }
