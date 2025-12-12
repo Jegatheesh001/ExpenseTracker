@@ -377,12 +377,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       TextFormField(
                         readOnly: true,
                         decoration: const InputDecoration(
-                          labelText: 'Date',
+                          labelText: 'Expense Date',
                           suffixIcon: Icon(Icons.calendar_today),
                           border: InputBorder.none,
                         ),
                         controller: TextEditingController(
-                            text: DateFormat('dd MMMM yyyy').format(_selectedDate)),
+                            text: DateFormat('dd MMMM yyyy, hh:mm aa').format(_selectedDate)),
                         onTap: () async {
                           final pickedDate = await showDatePicker(
                             context: context,
@@ -391,7 +391,36 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             lastDate: DateTime(2101),
                           );
                           if (pickedDate != null) {
-                            setState(() => _selectedDate = pickedDate);
+                            // ignore: use_build_context_synchronously
+                            final pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                            );
+                            
+                            if (pickedTime != null) {
+                                setState(() {
+                                  _selectedDate = DateTime(
+                                    pickedDate.year,
+                                    pickedDate.month,
+                                    pickedDate.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute,
+                                    _selectedDate.second
+                                  );
+                                });
+                            } else {
+                                // user cancelled time picker, so only date changes, time remains same as before
+                                setState(() {
+                                    _selectedDate = DateTime(
+                                        pickedDate.year,
+                                        pickedDate.month,
+                                        pickedDate.day,
+                                        _selectedDate.hour,
+                                        _selectedDate.minute,
+                                        _selectedDate.second
+                                    );
+                                });
+                            }
                           }
                         },
                       ),
@@ -485,7 +514,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     controller: textEditingController,
                     focusNode: focusNode,
                     decoration: const InputDecoration(
-                      labelText: 'Tags (comma-separated)',
+                      labelText: 'Tags (Optional, comma-separated)',
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.text,
@@ -544,7 +573,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Text('Wallet'),
+                        child: Text('Bank'),
                       ),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.0),
