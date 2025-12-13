@@ -15,6 +15,7 @@ import 'settings_screen.dart'; // Import the new settings screen
 import 'currency_symbol.dart';
 import 'reports_screen.dart';
 import 'month_view.dart';
+import 'expense_search_delegate.dart';
 
 void main() {
   runApp(const MyApp());
@@ -513,6 +514,20 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       appBar: AppBar(
         title: const Text('Expense Tracker'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              showSearch(
+                context: context,
+                delegate: ExpenseSearchDelegate(
+                  profileId: _profileId,
+                  currencySymbol: _currencySymbol,
+                  onEdit: _editExpense,
+                  onDelete: _deleteExpense,
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.pie_chart),
             onPressed: () {

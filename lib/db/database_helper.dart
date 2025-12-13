@@ -543,4 +543,28 @@ class DatabaseHelper {
     Database db = await database;
     await db.insert('expense_tags', {'expenseId': expenseId, 'tagId': tagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
+
+  Future<List<Expense>> searchExpenses(String query, int profileId) async {
+    final Database db = await database;
+    if (query.isEmpty) {
+      return [];
+    }
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT E.*
+      FROM expenses E
+      LEFT JOIN expense_tags ET ON E.id = ET.expenseId
+      LEFT JOIN tags T ON ET.tagId = T.tagId
+      WHERE (
+        E.remarks LIKE ? OR
+        E.category LIKE ? OR
+        T.tagName LIKE ?
+      ) AND E.profileId = ?
+      GROUP BY E.id
+      ORDER BY E.expenseDate DESC
+      LIMIT 100
+    ''', ['%$query%', '%$query%', '%$query%', profileId]);
+
+    return _mapMapsToExpenses(maps);
+  }
 }

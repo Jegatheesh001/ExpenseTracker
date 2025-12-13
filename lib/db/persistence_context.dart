@@ -115,4 +115,8 @@ class PersistenceContext {
   Future<void> saveExpenseTag(int expenseId, int tagId) async {
     await DatabaseHelper().saveExpenseTag(expenseId, tagId);
   }
+
+  Future<List<Expense>> searchExpenses(String query, int profileId) async {
+    return await DatabaseHelper().searchExpenses(query, profileId);
+  }
 }
