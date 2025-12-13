@@ -51,7 +51,7 @@ class DataBackup {
             } else if (parts.length == 3) { // Category: ID;;Name;;ActiveFlag
               final category = Category(int.parse(parts[0]), parts[1]);
               categoriesToInsert.add(category);
-            } else if (parts.length == 8) { // Expense: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId
+            } else if (parts.length == 9) { // Expense: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId;;PaymentMethod
               bool isActive = parts[6].toUpperCase() == 'Y';
               if(isActive) {
                 int categoryId = int.parse(parts[1]);
@@ -69,6 +69,7 @@ class DataBackup {
                   entryDate: DateTime.parse(parts[4]),
                   remarks: parts[5],
                   profileId: int.parse(parts[7]),
+                  paymentMethod: parts[8] != 'null' ? parts[8] : null,
                 );
                 //print("expense: \n${expense.toMap()}");
                 expensesToInsert.add(expense);
@@ -134,10 +135,10 @@ class DataBackup {
 
       // Add expenses
       for (Expense exp in expenses) {
-        // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFlag;;ProfileId
+        // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFlag;;ProfileId;;PaymentMethod
         // Note: ActiveFlag is not stored in the current Expense entity. Showing 'Y' as default.
         exportContent.writeln(
-            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;${exp.profileId}'
+            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;${exp.profileId};;${exp.paymentMethod}'
         );
       }
 
