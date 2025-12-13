@@ -95,4 +95,24 @@ class PersistenceContext {
   Future<Map<String, double>> getExpensesForLast15Days(int profileId) async {
     return await DatabaseHelper().getExpensesForLast15Days(profileId);
   }
+
+  Future<int> saveExpense(Expense expense) async {
+    return await DatabaseHelper().saveExpense(expense);
+  }
+
+  Future<List<Tag>> getAllTagsWithId() async {
+    return await DatabaseHelper().getAllTagsWithId();
+  }
+
+  Future<List<Map<String, dynamic>>> getAllExpenseTags() async {
+    return await DatabaseHelper().getAllExpenseTags();
+  }
+
+  Future<void> saveTag(Tag tag) async {
+    await DatabaseHelper().saveTag(tag);
+  }
+
+  Future<void> saveExpenseTag(int expenseId, int tagId) async {
+    await DatabaseHelper().saveExpenseTag(expenseId, tagId);
+  }
 }

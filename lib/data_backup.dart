@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class DataBackup {
   Future<void> importData(BuildContext context, VoidCallback refreshMainPage) async {
-    // 1. Pick file
+    // Picking a file from the device
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt'],
@@ -25,11 +25,13 @@ class DataBackup {
 
         List<Category> categoriesToInsert = [];
         List<Expense> expensesToInsert = [];
+        List<Tag> tagsToInsert = [];
+        List<Map<String, int>> expenseTagsToInsert = [];
         List<String> errors = [];
 
         final prefs = await SharedPreferences.getInstance();
+        final db = PersistenceContext();
 
-        // 2. Parse content
         for (String line in lines) {
           String trimmedLine = line.trim();
           if (trimmedLine.isEmpty) continue; // Skip empty lines
@@ -48,20 +50,27 @@ class DataBackup {
               } else {
                 await prefs.setString(key, valueStr);
               }
-            } else if (parts.length == 3) { // Category: ID;;Name;;ActiveFlag
-              final category = Category(int.parse(parts[0]), parts[1]);
-              categoriesToInsert.add(category);
-            } else if (parts.length == 9) { // Expense: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFLag;;ProfileId;;PaymentMethod
+            } else if (parts.length == 3) {
+              if (parts[0] == 'CATEGORY') {
+                categoriesToInsert.add(Category(int.parse(parts[1]), parts[2]));
+              } else if (parts[0] == 'TAG') {
+                tagsToInsert.add(Tag(int.parse(parts[1]), parts[2]));
+              } else if (parts[0] == 'EXPENSE_TAG') {
+                expenseTagsToInsert.add({
+                  'expenseId': int.parse(parts[1]),
+                  'tagId': int.parse(parts[2]),
+                });
+              } 
+            } else if (parts.length == 9) {
               bool isActive = parts[6].toUpperCase() == 'Y';
               if(isActive) {
                 int categoryId = int.parse(parts[1]);
                 Category category = categoriesToInsert.firstWhere(
                     (cat) => cat.categoryId == categoryId,
-                    orElse: () {
-                      return Category(categoryId, 'Unknown Category');
-                    },
+                    orElse: () => Category(categoryId, 'Unknown Category'),
                 );
                 final expense = Expense(
+                  id: int.parse(parts[0]),
                   categoryId: categoryId,
                   category: category.category,
                   amount: double.parse(parts[2]),
@@ -71,11 +80,10 @@ class DataBackup {
                   profileId: int.parse(parts[7]),
                   paymentMethod: parts[8] != 'null' ? parts[8] : null,
                 );
-                //print("expense: \n${expense.toMap()}");
                 expensesToInsert.add(expense);
               }
             } else {
-              errors.add('Skipping malformed line (incorrect number of parts): $trimmedLine');
+              errors.add('Skipping malformed line: $trimmedLine');
             }
           } catch (e) {
             errors.add('Error parsing line "$trimmedLine": $e');
@@ -83,27 +91,38 @@ class DataBackup {
         }
 
         if (errors.isNotEmpty) {
-          // Optionally show detailed errors to the user
           print("Import errors: \n${errors.join('\n')}");
         }
 
-        // 3. Insert into DB
-        final db = PersistenceContext();
         for (Category cat in categoriesToInsert) {
-          await db.saveCategory(cat); // Replace with your actual method
+          await db.saveCategory(cat);
         }
-        //print("Expense count: ${expensesToInsert.length}");
         for (Expense exp in expensesToInsert) {
-          await db.saveOrUpdateExpense(exp); // Replace with your actual method
+          await db.saveExpense(exp);
+        }
+        for (Tag tag in tagsToInsert) {
+          await db.saveTag(tag);
+        }
+        for (var et in expenseTagsToInsert) {
+          await db.saveExpenseTag(et['expenseId']!, et['tagId']!);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Data imported successfully! ${errors.isEmpty ? "" : "Some lines had issues."}')),
         );
-        refreshMainPage(); // Callback to refresh data on home screen
-        Navigator.of(context).pop(); // Close settings screen
+        refreshMainPage();
+        Navigator.of(context).pop();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error importing data: $e')));
+        final theme = Theme.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error importing data: $e',
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File selection cancelled.')));
@@ -116,11 +135,12 @@ class DataBackup {
       final db = PersistenceContext();
       List<Category> categories = await db.getCategories();
       List<Expense> expenses = await db.getExpenses();
+      List<Tag> tags = await db.getAllTagsWithId();
+      List<Map<String, dynamic>> expenseTags = await db.getAllExpenseTags();
 
-      // 2. Format data into a string
       StringBuffer exportContent = StringBuffer();
 
-      // Add SharedPreferences data
+      // 2. Fetch data from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final keys = prefs.getKeys();
       for (String key in keys) {
@@ -128,21 +148,26 @@ class DataBackup {
         exportContent.writeln('$key;;$value');
       }
 
-      // Add categories
+      // Inserting categories, tags, expenses, and expense-tags
       for (Category cat in categories) {
-        exportContent.writeln('${cat.categoryId};;${cat.category};;Y');
+        exportContent.writeln('CATEGORY;;${cat.categoryId};;${cat.category}');
       }
 
-      // Add expenses
+      for (Tag tag in tags) {
+        exportContent.writeln('TAG;;${tag.tagId};;${tag.tagName}');
+      }
+
       for (Expense exp in expenses) {
         // Format: ExpenseID;;CategoryID;;Amount;;ExpenseDate;;Timestamp;;Description;;ActiveFlag;;ProfileId;;PaymentMethod
         // Note: ActiveFlag is not stored in the current Expense entity. Showing 'Y' as default.
         exportContent.writeln(
-            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;${exp.profileId};;${exp.paymentMethod}'
-        );
+            '${exp.id};;${exp.categoryId};;${exp.amount};;${exp.expenseDate.toIso8601String()};;${exp.entryDate.toIso8601String()};;${exp.remarks};;Y;;${exp.profileId};;${exp.paymentMethod}');
       }
 
-      // 3. Save the file
+      for (var et in expenseTags) {
+        exportContent.writeln('EXPENSE_TAG;;${et['expenseId']};;${et['tagId']}');
+      }
+
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'Export Expense Data',
         fileName: 'expense_data_export_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.txt',

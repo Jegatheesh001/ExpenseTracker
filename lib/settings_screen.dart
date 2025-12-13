@@ -377,7 +377,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 TextButton(
                   onPressed: _deleteConfirmationController.text == 'delete'
                       ? () async {
+                          // Removing all data from the database
                           await PersistenceContext().deleteAllExpenseData();
+                          // Removing SharedPreferences data
+                          final prefs = await SharedPreferences.getInstance();
+                          prefs.clear();
+                          
                           widget.onDeleteAllData();
                           Navigator.of(context).pop();
                           Navigator.of(context).pop();

@@ -33,6 +33,7 @@ class Expense {
   // Convert an Expense object into a Map
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'profileId': profileId,
       'categoryId': categoryId,
       'category': category,

@@ -120,10 +120,15 @@ class DatabaseHelper {
         whereArgs: [expense.id],
       );
     } else {
-      expenseId = await db.insert('expenses', expense.toMap());
+      expenseId = await saveExpense(expense);
     }
     await _saveTagsForExpense(expenseId, expense.tags);
     return expenseId;
+  }
+
+  Future<int> saveExpense(Expense expense) async {
+    Database db = await database;
+    return await db.insert('expenses', expense.toMap());
   }
 
   // Method to get expenses (all)
@@ -296,6 +301,8 @@ class DatabaseHelper {
   Future<void> deleteAllExpenseData() async {
     final Database db = await database;
     await db.transaction((txn) async {
+      await txn.delete('expense_tags');
+      await txn.delete('tags');
       await txn.delete('expenses');
       await txn.delete('categories');
     });
@@ -512,5 +519,28 @@ class DatabaseHelper {
     }
 
     return dailyTotals;
+  }
+
+  Future<List<Tag>> getAllTagsWithId() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('tags');
+    return List.generate(maps.length, (i) {
+      return Tag(maps[i]['tagId'], maps[i]['tagName']);
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getAllExpenseTags() async {
+    final Database db = await database;
+    return await db.query('expense_tags');
+  }
+
+  Future<void> saveTag(Tag tag) async {
+    Database db = await database;
+    await db.insert('tags', tag.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<void> saveExpenseTag(int expenseId, int tagId) async {
+    Database db = await database;
+    await db.insert('expense_tags', {'expenseId': expenseId, 'tagId': tagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 }
