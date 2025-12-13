@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -382,6 +386,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // Removing SharedPreferences data
                           final prefs = await SharedPreferences.getInstance();
                           prefs.clear();
+                          // Removing all attachments from folders
+                          final directory = await getApplicationDocumentsDirectory();
+                          final attachmentsDir = Directory(path.join(directory.path, 'attachments'));
+                          if (await attachmentsDir.exists()) {
+                            await attachmentsDir.delete(recursive: true);
+                          }
                           
                           widget.onDeleteAllData();
                           Navigator.of(context).pop();
@@ -398,6 +408,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ).then((_) {
       _deleteConfirmationController.clear();
     });
+  }
+
+  Future<void> _showExportOptionsDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Export Data'),
+          content: const Text('Include images in the backup?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Without Images'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                DataBackup().exportData(context, includeImages: false);
+              },
+            ),
+            TextButton(
+              child: const Text('With Images'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                DataBackup().exportData(context, includeImages: true);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildSectionTitle(BuildContext context, String title) {
@@ -495,7 +539,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             title: const Text('Export Data'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => DataBackup().exportData(context),
+            onTap: _showExportOptionsDialog,
           ),
           ListTile(
             title: const Text('Import Data'),

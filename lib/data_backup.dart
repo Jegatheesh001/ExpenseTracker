@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
@@ -60,7 +62,21 @@ class DataBackup {
                   'expenseId': int.parse(parts[1]),
                   'tagId': int.parse(parts[2]),
                 });
-              } 
+              }
+            } else if (parts.length == 4 && parts[0] == 'IMAGE') {
+              final expenseId = int.parse(parts[1]);
+              final imageName = parts[2];
+              final base64String = parts[3];
+
+              final decodedBytes = base64Decode(base64String);
+              final directory = await getApplicationDocumentsDirectory();
+              final imagesDirectory = Directory(join(directory.path, 'attachments', expenseId.toString()));
+              if (!await imagesDirectory.exists()) {
+                await imagesDirectory.create(recursive: true);
+              }
+              final imageFile = File(join(imagesDirectory.path, imageName));
+              await imageFile.writeAsBytes(decodedBytes);
+
             } else if (parts.length == 9) {
               bool isActive = parts[6].toUpperCase() == 'Y';
               if(isActive) {
@@ -129,7 +145,7 @@ class DataBackup {
     }
   }
 
-  Future<void> exportData(BuildContext context) async {
+  Future<void> exportData(BuildContext context, {bool includeImages = false}) async {
     try {
       // 1. Fetch data from DB
       final db = PersistenceContext();
@@ -166,6 +182,22 @@ class DataBackup {
 
       for (var et in expenseTags) {
         exportContent.writeln('EXPENSE_TAG;;${et['expenseId']};;${et['tagId']}');
+      }
+
+      if (includeImages) {
+        final directory = await getApplicationDocumentsDirectory();
+        for (Expense exp in expenses) {
+          if (exp.id == null) continue;
+          final imagesDirectory = Directory(join(directory.path, 'attachments', exp.id.toString()));
+          if (await imagesDirectory.exists()) {
+            final files = imagesDirectory.listSync().whereType<File>().toList();
+            for (var file in files) {
+              final bytes = await file.readAsBytes();
+              final base64String = base64Encode(bytes);
+              exportContent.writeln('IMAGE;;${exp.id};;${basename(file.path)};;$base64String');
+            }
+          }
+        }
       }
 
       String? outputFile = await FilePicker.platform.saveFile(

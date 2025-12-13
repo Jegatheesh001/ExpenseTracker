@@ -84,12 +84,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         _loadCategories(); // Refresh the list after deleting
       } else {
         // show error msg
+        final theme = Theme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
+            content: Text(
               'Failed to delete category',
-              style: TextStyle(color: Colors.red),
-            )
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: theme.colorScheme.error,
           ),
         );
       }
