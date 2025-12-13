@@ -16,6 +16,7 @@ import 'currency_symbol.dart';
 import 'reports_screen.dart';
 import 'month_view.dart';
 import 'expense_search_delegate.dart';
+import 'data_backup.dart';
 
 void main() {
   runApp(const MyApp());
@@ -259,6 +260,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadWalletAmount();
     _loadExpStatusBar();
     _loadTodaysExpenses();
+    _checkBackupReminder();
   }
 
   /// Handles profile change event from settings.
@@ -838,5 +840,84 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         _editExpense(expense);
       }
     }
+  }
+
+  void _checkBackupReminder() async {
+    bool isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
+    if (isBackupReminderEnabled) {
+      int? lastReminderTimestamp = _prefs.getInt(PrefKeys.lastBackupReminderTimestamp);
+      if (lastReminderTimestamp == null || DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastReminderTimestamp)).inHours >= 24) {
+        _showBackupReminderDialog();
+      }
+    }
+  }
+
+  void _showBackupReminderDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Backup Reminder'),
+          content: const Text('It\'s been a while since your last backup. Would you like to back up your data now?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Backup Now'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _showExportOptionsDialog();
+              },
+            ),
+            TextButton(
+              child: const Text('Remind Later'),
+              onPressed: () {
+                _prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Disable'),
+              onPressed: () {
+                _prefs.setBool(PrefKeys.dailyBackupReminderEnabled, false);
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showExportOptionsDialog() async {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Export Data'),
+          content: const Text('Include images in the backup?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Without Images'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                DataBackup().exportData(context, includeImages: false);
+              },
+            ),
+            TextButton(
+              child: const Text('With Images'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                DataBackup().exportData(context, includeImages: true);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 }

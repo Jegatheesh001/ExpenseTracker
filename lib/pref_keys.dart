@@ -2,6 +2,8 @@
 class PrefKeys {
   static const String isDarkMode = 'isDarkMode'; // Default value is false
   static const String showExpStatusBar = 'showExpStatusBar'; // Default value is false
+  static const String dailyBackupReminderEnabled = 'dailyBackupReminderEnabled';
+  static const String lastBackupReminderTimestamp = 'lastBackupReminderTimestamp';
   // Profile-wise constants
   static const String profileId = 'profileId'; // Default value is 0
   static const String walletAmount = 'walletAmount';

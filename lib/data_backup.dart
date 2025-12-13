@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -147,6 +148,7 @@ class DataBackup {
 
   Future<void> exportData(BuildContext context, {bool includeImages = false}) async {
     try {
+      final theme = Theme.of(context);
       // 1. Fetch data from DB
       final db = PersistenceContext();
       List<Category> categories = await db.getCategories();
@@ -209,11 +211,20 @@ class DataBackup {
       );
 
       if (outputFile != null) {
+        prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Data exported successfully to $outputFile')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export cancelled.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Export cancelled.',
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error exporting data: $e')));

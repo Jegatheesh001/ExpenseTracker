@@ -38,6 +38,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDarkMode = false;
+  bool _isBackupReminderEnabled = false;
   final List<String> _currencies = CurrencySymbol().getCurrencies();
   String _currentCurrency = 'Rupee'; // This will hold the loaded currency
 
@@ -66,6 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
       _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
+      _isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
       _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
       _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
       _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
@@ -536,16 +538,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             onTap: _showSetWalletAmountDialog,
           ),
-          ListTile(
-            title: const Text('Export Data'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: _showExportOptionsDialog,
-          ),
-          ListTile(
-            title: const Text('Import Data'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => DataBackup().importData(context, widget.onDeleteAllData),
-          ),
           _buildSectionTitle(context, 'Profile'),
           ListTile(
             title: const Text('Switch Profile'),
@@ -554,6 +546,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             onTap: _showProfileSwitchConfirmationDialog,
+          ),
+          _buildSectionTitle(context, 'Backup & Restore'),
+          ListTile(
+            title: const Text('Backup Data'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _showExportOptionsDialog,
+          ),
+          ListTile(
+            title: const Text('Restore Data'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => DataBackup().importData(context, widget.onDeleteAllData),
+          ),
+          SwitchListTile(
+            title: const Text('Daily Backup Reminder'),
+            value: _isBackupReminderEnabled,
+            onChanged: (bool value) {
+              setState(() {
+                _isBackupReminderEnabled = value;
+              });
+              _prefs.setBool(PrefKeys.dailyBackupReminderEnabled, value);
+            },
           ),
           _buildSectionTitle(context, 'Danger Zone'),
           ListTile(
