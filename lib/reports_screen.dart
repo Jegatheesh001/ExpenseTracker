@@ -1,3 +1,4 @@
+import 'package:expense_tracker/category_month_view_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -315,16 +316,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             children: spendingData.entries.map((entry) {
                               final index = spendingData.keys.toList().indexOf(entry.key);
                               return GestureDetector(
-                                onTap: _reportType == ReportType.tag
-                                    ? () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => TagExpensesScreen(tag: entry.key),
-                                          ),
-                                        );
-                                      }
-                                    : null,
+                                onTap: () {
+                                  if (_reportType == ReportType.tag) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => TagExpensesScreen(tag: entry.key),
+                                      ),
+                                    );
+                                  } else if (_reportType == ReportType.category) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => CategoryMonthViewScreen(
+                                          category: entry.key,
+                                          selectedDate: _selectedDate,
+                                          profileId: widget.profileId,
+                                          currencySymbol: widget.currencySymbol,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
                                 child: Chip(
                                   avatar: CircleAvatar(
                                     backgroundColor: _colors[index % _colors.length],

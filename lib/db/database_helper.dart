@@ -499,6 +499,18 @@ class DatabaseHelper {
     return Category(categoryId, category);
   }
 
+
+  Future<List<Expense>> getExpensesByCategoryForMonth(String category, DateTime date, int profileId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'expenses',
+      where: "strftime('%Y-%m', expenseDate) = ? AND category = ? AND profileId = ?",
+      whereArgs: [date.toIso8601String().substring(0, 7), category, profileId],
+      orderBy: 'expenseDate desc',
+    );
+    return _mapMapsToExpenses(maps);
+  }
+
   // Retrieves the total expenses for the last 15 days.
   Future<Map<String, double>> getExpensesForLast15Days(int profileId) async {
     final Database db = await database;
