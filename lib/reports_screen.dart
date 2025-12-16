@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'db/persistence_context.dart';
+import 'tag_expenses_screen.dart';
 
 enum ReportType { category, tag }
 
@@ -169,48 +170,140 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     children: [
                       SizedBox(
                         height: 300,
-                        child: PieChart(
-                          PieChartData(
-                            pieTouchData: PieTouchData(
-                              touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                                setState(() {
-                                  if (!event.isInterestedForInteractions || pieTouchResponse == null || pieTouchResponse.touchedSection == null) {
-                                    _touchedIndex = -1;
-                                    return;
-                                  }
-                                  _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                                });
-                              },
-                            ),
-                            sections: spendingData.entries.map((entry) {
-                              final index = spendingData.keys.toList().indexOf(entry.key);
-                              final isTouched = index == _touchedIndex;
-                              final fontSize = isTouched ? 25.0 : 16.0;
-                              final radius = isTouched ? 110.0 : 100.0;
-                              final percentage = (entry.value / totalSpending) * 100;
-                              return PieChartSectionData(
-                                color: _colors[index % _colors.length],
-                                value: entry.value,
-                                title: '${percentage.toStringAsFixed(1)}%',
-                                radius: radius,
-                                titleStyle: TextStyle(
-                                  fontSize: fontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                        child: _reportType == ReportType.category
+                            ? PieChart(
+                                PieChartData(
+                                  pieTouchData: PieTouchData(
+                                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                                      setState(() {
+                                        if (!event.isInterestedForInteractions ||
+                                            pieTouchResponse == null ||
+                                            pieTouchResponse.touchedSection == null) {
+                                          _touchedIndex = -1;
+                                          return;
+                                        }
+                                        _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                                      });
+                                    },
+                                  ),
+                                  sections: spendingData.entries.map((entry) {
+                                    final index = spendingData.keys.toList().indexOf(entry.key);
+                                    final isTouched = index == _touchedIndex;
+                                    final fontSize = isTouched ? 25.0 : 16.0;
+                                    final radius = isTouched ? 110.0 : 100.0;
+                                    final percentage = (entry.value / totalSpending) * 100;
+                                    return PieChartSectionData(
+                                      color: _colors[index % _colors.length],
+                                      value: entry.value,
+                                      title: '${percentage.toStringAsFixed(1)}%',
+                                      radius: radius,
+                                      titleStyle: TextStyle(
+                                        fontSize: fontSize,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  sectionsSpace: 2,
+                                  centerSpaceRadius: 40,
                                 ),
-                              );
-                            }).toList(),
-                            sectionsSpace: 2,
-                            centerSpaceRadius: 40,
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                child: RotatedBox(
+                                  quarterTurns: 1,
+                                  child: BarChart(
+                                    BarChartData(
+                                      barTouchData: BarTouchData(
+                                        touchTooltipData: BarTouchTooltipData(
+                                          rotateAngle: -90,
+                                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                                            return BarTooltipItem(
+                                              '${spendingData.keys.elementAt(group.x)}: ${widget.currencySymbol}${rod.toY.toStringAsFixed(2)}',
+                                              const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      barGroups: spendingData.entries.toList().asMap().entries.map((entry) {
+                                        return BarChartGroupData(
+                                          x: entry.key,
+                                          barRods: [
+                                            BarChartRodData(
+                                              fromY: 0,
+                                              toY: entry.value.value,
+                                              color: _colors[entry.key % _colors.length],
+                                              width: 15,
+                                              borderRadius: BorderRadius.zero,
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                      titlesData: FlTitlesData(
+                                        show: true,
+                                        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                        rightTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            getTitlesWidget: (double value, TitleMeta meta) {
+                                              return RotatedBox(
+                                                quarterTurns: -1,
+                                                child: Text(NumberFormat.compact().format(value), style: const TextStyle(fontSize: 10)),
+                                              );
+                                            },
+                                            reservedSize: 28,
+                                          ),
+                                        ),
+                                        bottomTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            getTitlesWidget: (double value, TitleMeta meta) {
+                                              final index = value.toInt();
+                                              if (index >= 0 && index < spendingData.keys.length) {
+                                                return RotatedBox(
+                                                  quarterTurns: -1,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: _colors[index % _colors.length],
+                                                      borderRadius: BorderRadius.circular(25),
+                                                    ),
+                                                    child: Text(
+                                                      spendingData.keys.elementAt(index)[0],
+                                                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                              return const Text('');
+                                            },
+                                            reservedSize: 25,
+                                          ),
+                                        ),
+                                      ),
+                                      borderData: FlBorderData(show: false),
+                                      gridData: const FlGridData(
+                                        show: true,
+                                        drawHorizontalLine: false,
+                                        drawVerticalLine: true,
+                                      ),
+                                      alignment: BarChartAlignment.spaceAround,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      if (_reportType != ReportType.tag)
+                        Chip(
+                          label: Text(
+                            'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ),
-                      ),
-                      Chip(
-                        label: Text(
-                          'Total: ${widget.currencySymbol}${totalSpending.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                      ),
                       Card(
                         margin: const EdgeInsets.all(8.0),
                         elevation: 4,
@@ -221,15 +314,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             runSpacing: 8.0,
                             children: spendingData.entries.map((entry) {
                               final index = spendingData.keys.toList().indexOf(entry.key);
-                              return Chip(
-                                avatar: CircleAvatar(
-                                  backgroundColor: _colors[index % _colors.length],
-                                  child: Text(
-                                    entry.key.substring(0, 1),
-                                    style: const TextStyle(color: Colors.white),
+                              return GestureDetector(
+                                onTap: _reportType == ReportType.tag
+                                    ? () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => TagExpensesScreen(tag: entry.key),
+                                          ),
+                                        );
+                                      }
+                                    : null,
+                                child: Chip(
+                                  avatar: CircleAvatar(
+                                    backgroundColor: _colors[index % _colors.length],
+                                    child: Text(
+                                      entry.key.substring(0, 1),
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
                                   ),
+                                  label: Text('${entry.key}: ${widget.currencySymbol}${entry.value.toStringAsFixed(2)}'),
                                 ),
-                                label: Text('${entry.key}: ${widget.currencySymbol}${entry.value.toStringAsFixed(2)}'),
                               );
                             }).toList(),
                           ),
@@ -341,6 +446,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                       ),
                       borderData: FlBorderData(show: false),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                            return touchedBarSpots.map((barSpot) {
+                              final day = sortedDays[barSpot.x.toInt()];
+                              return LineTooltipItem(
+                                '${DateFormat('dd MMM').format(DateTime.parse(day))}: ${widget.currencySymbol}${barSpot.y.toStringAsFixed(2)}',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
                       lineBarsData: [
                         LineChartBarData(
                           spots: spots,

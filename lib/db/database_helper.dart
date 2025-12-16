@@ -331,13 +331,13 @@ class DatabaseHelper {
     final Database db = await database;
     final List<Map<String, dynamic>> result = await db.rawQuery('''
       SELECT
-        COALESCE(T.tagName, '#') AS tagName,
+        T.tagName AS tagName,
         SUM(E.amount) AS total
       FROM
         expenses E
-      LEFT JOIN
+      JOIN
         expense_tags ET ON E.id = ET.expenseId
-      LEFT JOIN
+      JOIN
         tags T ON ET.tagId = T.tagId
       WHERE
         strftime('%Y-%m', E.expenseDate) = ? AND E.profileId = ?
