@@ -211,6 +211,7 @@ class DataBackup {
       );
 
       if (outputFile != null) {
+        prefs.setInt(PrefKeys.lastBackupTimestamp, DateTime.now().millisecondsSinceEpoch);
         prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Data exported successfully to $outputFile')),

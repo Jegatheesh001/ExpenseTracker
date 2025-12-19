@@ -49,6 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   int _profileId = 0;
   late SharedPreferences _prefs;
+  int? _lastBackupTimestamp;
 
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _cashAmountController = TextEditingController();
@@ -71,6 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
       _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
       _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+      _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
 
       double walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
 
@@ -416,6 +418,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
+        String lastBackup = 'Never';
+        if (_lastBackupTimestamp != null) {
+          final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(_lastBackupTimestamp!);
+          lastBackup = DateFormat('dd-MM-yyyy hh:mm aa').format(lastBackupDate);
+        }
         return AlertDialog(
           title: const Text('Export Data'),
           content: const Text('Include images in the backup?'),
@@ -428,17 +435,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             TextButton(
               child: const Text('Without Images'),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                DataBackup().exportData(context, includeImages: false);
+                await DataBackup().exportData(context, includeImages: false);
+                setState(() {
+                  _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+                });
               },
             ),
             TextButton(
               child: const Text('With Images'),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                DataBackup().exportData(context, includeImages: true);
+                await DataBackup().exportData(context, includeImages: true);
+                setState(() {
+                  _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+                });
               },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+              child: Text(
+                'Last backup: $lastBackup',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
             ),
           ],
         );
