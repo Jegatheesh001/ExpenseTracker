@@ -482,7 +482,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
                         ],
                       ),
               ),
-              const SizedBox(height: 8.0),
+              //const SizedBox(height: 8.0),
               if (_isMonthView)
                 Expanded(
                   child: MonthView(

@@ -63,6 +63,10 @@ class _MyAppState extends State<MyApp> {
           seedColor: Colors.teal,
           brightness: Brightness.light,
         ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.teal.shade50,
+          foregroundColor: Colors.black,
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true, // Enable Material 3

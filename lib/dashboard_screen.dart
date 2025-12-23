@@ -65,6 +65,17 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good Morning,';
+    } else if (hour < 17) {
+      return 'Good Afternoon,';
+    } else {
+      return 'Good Evening,';
+    }
+  }
+
   Future<void> _loadExpenses() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -104,7 +115,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Good Morning,',
+              _getGreeting(),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(

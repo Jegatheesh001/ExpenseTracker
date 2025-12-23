@@ -87,7 +87,9 @@ class _MonthViewState extends State<MonthView> {
         final sortedDates = groupedExpenses.keys.toList()
           ..sort((a, b) => b.compareTo(a));
 
-        return ListView.builder(
+        return MediaQuery.removePadding(
+          context: context,
+          removeTop: true, child: ListView.builder(
           itemCount: sortedDates.length,
           itemBuilder: (context, index) {
             final date = sortedDates[index];
@@ -95,7 +97,7 @@ class _MonthViewState extends State<MonthView> {
             final totalForDay = expensesForDay.fold(0.0, (sum, item) => sum + item.amount);
 
             return Card(
-              margin: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 6.0),
+              margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 6.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -153,6 +155,7 @@ class _MonthViewState extends State<MonthView> {
               ),
             );
           },
+        )
         );
       },
     );

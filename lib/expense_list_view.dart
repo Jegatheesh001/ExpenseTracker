@@ -96,7 +96,10 @@ class ExpenseListView extends StatelessWidget {
       );
     }
     return Expanded(
-      child: ListView.builder(
+      child: MediaQuery.removePadding( // <--- ADD THIS WRAPPER
+        context: context,
+        removeTop: true, // Forces removal of top system padding
+        child: ListView.builder(
         itemCount: expenses.length,
         itemBuilder: (context, index) {
           final expense = expenses[index];
@@ -175,6 +178,7 @@ class ExpenseListView extends StatelessWidget {
             ),
           );
         },
+      ),
       ),
     );
   }
