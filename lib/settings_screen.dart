@@ -457,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
               child: Text(
                 'Last backup: $lastBackup',
-                style: Theme.of(context).textTheme.titleSmall,
+                style: Theme.of(context).textTheme.bodySmall, 
               ),
             ),
           ],
