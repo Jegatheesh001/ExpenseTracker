@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'db/persistence_context.dart';
 import 'pref_keys.dart';
@@ -7,10 +6,12 @@ import 'currency_symbol.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int profileId;
+  final Function(int) navigateToExpensesTab;
 
   const DashboardScreen({
     super.key,
     required this.profileId,
+    required this.navigateToExpensesTab,
   });
 
   @override
@@ -182,136 +183,62 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildTodayCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1F2B36) // A slightly darker, appealing blue-grey shade for card surface
-            : Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(16), // Softer, more modern corners
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Today',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Icon(Icons.calendar_today_outlined,
-                  color: Theme.of(context).colorScheme.onSurface, size: 16),
-            ],
-          ),
-          const SizedBox(height: 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$_currencySymbol ${_todayExpense.toStringAsFixed(1)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _todayChange >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${_todayChange.abs().toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthlyCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1F2B36) // Consistent card color
-            : Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(16), // Consistent border radius
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Monthly',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Icon(Icons.bar_chart_rounded,
-                  color: Theme.of(context).colorScheme.onSurface, size: 16),
-            ],
-          ),
-          const SizedBox(height: 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$_currencySymbol ${_monthlyExpense.toStringAsFixed(1)}',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            child: Row(
+    return InkWell(
+      onTap: () => widget.navigateToExpensesTab(0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1F2B36) // A slightly darker, appealing blue-grey shade for card surface
+              : Theme.of(context).colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(16), // Softer, more modern corners
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                Text(
+                  'Today',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Icon(Icons.calendar_today_outlined,
+                    color: Theme.of(context).colorScheme.onSurface, size: 16),
+              ],
+            ),
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$_currencySymbol ${_todayExpense.toStringAsFixed(1)}',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _monthlyChange <= 0
-                        ? Colors.green.withOpacity(0.2)
-                        : Colors.red.withOpacity(0.2),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _monthlyChange <= 0
-                            ? Icons.arrow_downward
-                            : Icons.arrow_upward,
-                        color: _monthlyChange <= 0 ? Colors.green : Colors.red,
+                        _todayChange >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                        color: Theme.of(context).colorScheme.primary,
                         size: 12,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${_monthlyChange.abs().toStringAsFixed(0)}%',
+                        '${_todayChange.abs().toStringAsFixed(1)}%',
                         style: TextStyle(
-                          color:
-                              _monthlyChange <= 0 ? Colors.green : Colors.red,
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -319,15 +246,95 @@ class DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyCard() {
+    return InkWell(
+      onTap: () => widget.navigateToExpensesTab(1),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1F2B36) // Consistent card color
+              : Theme.of(context).colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(16), // Consistent border radius
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
                 Text(
-                  'vs last month',
-                  style: Theme.of(context).textTheme.labelSmall,
+                  'Monthly',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
+                Icon(Icons.bar_chart_rounded,
+                    color: Theme.of(context).colorScheme.onSurface, size: 16),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '$_currencySymbol ${_monthlyExpense.toStringAsFixed(1)}',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              child: Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _monthlyChange <= 0
+                          ? Colors.green.withOpacity(0.2)
+                          : Colors.red.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _monthlyChange <= 0
+                              ? Icons.arrow_downward
+                              : Icons.arrow_upward,
+                          color: _monthlyChange <= 0 ? Colors.green : Colors.red,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_monthlyChange.abs().toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            color:
+                                _monthlyChange <= 0 ? Colors.green : Colors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'vs last month',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

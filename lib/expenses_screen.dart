@@ -13,12 +13,14 @@ class ExpensesScreen extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
   final VoidCallback onWalletAmountChange;
+  final int initialTabIndex;
 
   const ExpensesScreen({
     super.key,
     required this.profileId,
     required this.currencySymbol,
     required this.onWalletAmountChange,
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -32,23 +34,28 @@ class ExpensesScreenState extends State<ExpensesScreen> {
   double _percentageChange = 0;
   bool _isMonthView = false;
   Key _monthViewKey = UniqueKey();
-  double _walletAmount = 0.0;
   bool _showExpStatusBar = false;
   double _monthlyLimit = 0;
   double _monthlyLimitPerc = 0;
-  double _currMonthExp = 0;
   late SharedPreferences _prefs;
 
   @override
   void initState() {
     super.initState();
+    _isMonthView = widget.initialTabIndex == 1;
     _initData();
+  }
+
+  void setTab(int index) {
+    setState(() {
+      _isMonthView = index == 1;
+      refresh();
+    });
   }
 
   Future<void> _initData() async {
     _prefs = await SharedPreferences.getInstance();
     _loadExpStatusBar();
-    _loadWalletAmount();
     refresh();
   }
 
@@ -61,12 +68,6 @@ class ExpensesScreenState extends State<ExpensesScreen> {
     bool status = _prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
     setState(() {
       _showExpStatusBar = status;
-    });
-  }
-
-  Future<void> _loadWalletAmount() async {
-    setState(() {
-      _walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-${widget.profileId}') ?? 0.0;
     });
   }
 
@@ -128,7 +129,6 @@ class ExpensesScreenState extends State<ExpensesScreen> {
       setState(() {
         _monthlyLimit = monthlyLimit;
         _monthlyLimitPerc = monthlyLimitPerc;
-        _currMonthExp = monthlyExp;
       });
     }
   }
@@ -140,7 +140,6 @@ class ExpensesScreenState extends State<ExpensesScreen> {
         builder: (context) => AddExpenseScreen(
           expenseToEdit: expense,
           onWalletAmountChange: () {
-            _loadWalletAmount();
             widget.onWalletAmountChange();
           },
         ),
@@ -169,8 +168,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
       double totalWalletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-${widget.profileId}') ?? 0.0;
       double newTotalWalletAmount = totalWalletAmount + expense.amount;
       await _prefs.setDouble('${PrefKeys.walletAmount}-${widget.profileId}', newTotalWalletAmount);
-      
-      _loadWalletAmount();
+
       widget.onWalletAmountChange();
     }
   }
@@ -208,98 +206,6 @@ class ExpensesScreenState extends State<ExpensesScreen> {
     setState(() {
       _expensesTotal = total;
     });
-  }
-
-  Future<void> _showWalletDetailsDialog() async {
-    final double cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-${widget.profileId}') ?? 0.0;
-    final double bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-${widget.profileId}') ?? 0.0;
-    final double totalAmount = cashAmount + bankAmount;
-    final theme = Theme.of(context);
-
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          titlePadding: EdgeInsets.zero,
-          title: Container(
-            padding: const EdgeInsets.symmetric(
-              vertical: 15,
-              horizontal: 24,
-            ),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Column(
-                  children: [
-                    Text(
-                      'Total Balance',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${widget.currencySymbol} ${totalAmount.toStringAsFixed(2)}',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                Positioned(
-                  top: -10,
-                  right: -10,
-                  child: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.money_outlined),
-                    const SizedBox(width: 10),
-                    const Text('Cash'),
-                    const Spacer(),
-                    Text('${widget.currencySymbol}${cashAmount.toStringAsFixed(2)}'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.account_balance_outlined),
-                    const SizedBox(width: 10),
-                    const Text('Bank'),
-                    const Spacer(),
-                    Text('${widget.currencySymbol}${bankAmount.toStringAsFixed(2)}'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   @override
