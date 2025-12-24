@@ -22,6 +22,8 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onWalletAmountUpdated; // Callback for when wallet amount is updated
   final VoidCallback onDeleteAllData; // New callback for data deletion
   final VoidCallback onProfileChange;
+  final VoidCallback onUsernameChange;
+
   const SettingsScreen({
     Key? key,
     required this.onDeleteAllData, // Add the new callback
@@ -30,7 +32,8 @@ class SettingsScreen extends StatefulWidget {
     required this.onWalletAmountUpdated,
     required this.onStatusBarToggle,
     required this.onMonthlyLimitSaved, 
-    required this.onProfileChange}) : super(key: key);
+    required this.onProfileChange,
+    required this.onUsernameChange}) : super(key: key);
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -50,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _profileId = 0;
   late SharedPreferences _prefs;
   int? _lastBackupTimestamp;
+  String _username = '';
 
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _cashAmountController = TextEditingController();
@@ -67,6 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _prefs = await SharedPreferences.getInstance();
     setState(() {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
+      _username = _prefs.getString(PrefKeys.username) ?? '';
       _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
       _isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
       _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
@@ -297,6 +302,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _showEditUsernameDialog() async {
+    final nameController = TextEditingController(text: _username);
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Username'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(hintText: "Your Name"),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Update'),
+              onPressed: () {
+                final name = nameController.text;
+                if (name.isNotEmpty) {
+                  _prefs.setString(PrefKeys.username, name);
+                  setState(() {
+                    _username = name;
+                  });
+                  widget.onUsernameChange();
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _switchProfileId() async {
     if(_profileId == 0) {
       _profileId = 1;
@@ -498,6 +541,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
+          _buildSectionTitle(context, 'Profile'),
+          ListTile(
+            title: const Text('Username'),
+            trailing: Text(_username),
+            onTap: _showEditUsernameDialog,
+          ),
           ListTile(
             title: const Text('Currency'),
             trailing: DropdownButton<String>(
@@ -512,6 +561,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (newValue != null) _saveCurrency(newValue);
               },
             ),
+          ),
+          ListTile(
+            title: const Text('Switch Profile'),
+            trailing: Text(
+              CurrencySymbol().getLabel(_currentCurrency),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            onTap: _showProfileSwitchConfirmationDialog,
           ),
           _buildSectionTitle(context, 'Management'),
           ListTile(
@@ -557,15 +614,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ).format(_currentWalletAmount),
             ),
             onTap: _showSetWalletAmountDialog,
-          ),
-          _buildSectionTitle(context, 'Profile'),
-          ListTile(
-            title: const Text('Switch Profile'),
-            trailing: Text(
-              CurrencySymbol().getLabel(_currentCurrency),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            onTap: _showProfileSwitchConfirmationDialog,
           ),
           _buildSectionTitle(context, 'Backup & Restore'),
           ListTile(

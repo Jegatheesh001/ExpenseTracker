@@ -236,6 +236,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _loadTodaysExpenses();
   }
 
+  void _onUsernameChange() {
+    _dashboardKey.currentState?.refresh();
+  }
+
   Future<void> _handleMonthlyLimitUpdate(String newLimit) async {
     _expensesKey.currentState?.refresh();
   }
@@ -291,6 +295,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             onDeleteAllData: _handleDataDeletion,
             onWalletAmountUpdated: _loadWalletAmount,
             onProfileChange: _onProfileChange,
+            onUsernameChange: _onUsernameChange,
           ),
         ],
       ),

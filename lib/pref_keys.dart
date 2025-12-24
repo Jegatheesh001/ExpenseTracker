@@ -13,4 +13,5 @@ class PrefKeys {
   static const String selectedCurrency = 'selectedCurrency'; // Default value is Rupee
   static const String monthlyLimit = 'monthlyLimit';
   static const String dailyLimit = 'dailyLimit';
+  static const String username = 'username';
 }

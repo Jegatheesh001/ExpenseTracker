@@ -27,6 +27,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _bankBalance = 0.0;
   String _currencySymbol = '₹';
   late SharedPreferences _prefs;
+  String _username = '';
 
   // New text editing controllers for balance management dialog
   late final TextEditingController _cashAmountController = TextEditingController();
@@ -47,9 +48,63 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> refresh() async {
     _prefs = await SharedPreferences.getInstance();
+    await _loadUsername();
     await _loadBalances();
     await _loadExpenses();
     _loadCurrency();
+  }
+
+  Future<void> _loadUsername() async {
+    final username = _prefs.getString(PrefKeys.username);
+    if (username == null || username.isEmpty) {
+      setState(() {
+        _username = "User";
+      });
+      Future.delayed(Duration.zero, _showUsernamePopup);
+    } else {
+      setState(() {
+        _username = username;
+      });
+    }
+  }
+
+  Future<void> _showUsernamePopup() async {
+    final nameController = TextEditingController();
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // user must enter name
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Welcome!'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                const Text('Please enter your name to continue.'),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(hintText: "Your Name"),
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Save'),
+              onPressed: () {
+                final name = nameController.text;
+                if (name.isNotEmpty) {
+                  _prefs.setString(PrefKeys.username, name);
+                  setState(() {
+                    _username = name;
+                  });
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadBalances() async {
@@ -120,7 +175,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              'Jegatheesh',
+              _username,
               style: Theme.of(context)
                   .textTheme
                   .titleLarge
