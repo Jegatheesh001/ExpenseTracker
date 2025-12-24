@@ -1,3 +1,4 @@
+import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'db/persistence_context.dart';
@@ -28,6 +29,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   String _currencySymbol = '₹';
   late SharedPreferences _prefs;
   String _username = '';
+  String _tipOfTheDay = '';
 
   // New text editing controllers for balance management dialog
   late final TextEditingController _cashAmountController = TextEditingController();
@@ -37,6 +39,13 @@ class DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     refresh();
+    _loadTip();
+  }
+
+  void _loadTip() {
+    setState(() {
+      _tipOfTheDay = getRandomBudgetTip();
+    });
   }
 
   @override
@@ -473,12 +482,21 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildFinancialWisdomHeader() {
-    return Text(
-      'Financial Wisdom',
-      style: Theme.of(context)
-          .textTheme
-          .titleLarge
-          ?.copyWith(fontWeight: FontWeight.bold),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Financial Wisdom',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loadTip,
+        ),
+      ],
     );
   }
 
@@ -520,25 +538,8 @@ class DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            'Track small purchases like coffee and snacks. They add up quickly and are the easiest expenses to reduce!',
+            _tipOfTheDay,
             style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          TextButton(
-            onPressed: () {},
-            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('READ MORE',
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(width: 5),
-                Icon(Icons.arrow_forward,
-                    color: Theme.of(context).colorScheme.primary, size: 16),
-              ],
-            ),
           ),
         ],
       ),
