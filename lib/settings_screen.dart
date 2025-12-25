@@ -13,6 +13,7 @@ import 'expense_limit_screen.dart';
 import 'pref_keys.dart';
 import 'currency_symbol.dart';
 import 'data_backup.dart';
+import 'developer_mode_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -54,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late SharedPreferences _prefs;
   int? _lastBackupTimestamp;
   String _username = '';
+  bool _isDeveloperMode = false;
 
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _cashAmountController = TextEditingController();
@@ -73,6 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
       _username = _prefs.getString(PrefKeys.username) ?? '';
       _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
+      _isDeveloperMode = _prefs.getBool(PrefKeys.isDeveloperMode) ?? false;
       _isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
       _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
       _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
@@ -637,6 +640,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           _buildSectionTitle(context, 'Danger Zone'),
+          ListTile(
+            title: const Text('Developer Mode'),
+            // if on show ON in green else OFF in default theme color
+            trailing: Text(_isDeveloperMode ? 'ON' : 'OFF', style: _isDeveloperMode ? TextStyle(color: Colors.green) : TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const DeveloperModeScreen()),
+              );
+              final prefs = await SharedPreferences.getInstance();
+              setState(() {
+                _isDeveloperMode = prefs.getBool(PrefKeys.isDeveloperMode) ?? false;
+              });
+            },
+          ),
           ListTile(
             title: const Text('Delete All Data', style: TextStyle(color: Colors.red)),
             trailing: const Icon(Icons.warning, color: Colors.red),

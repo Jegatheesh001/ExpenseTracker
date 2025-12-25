@@ -2,6 +2,7 @@
 class PrefKeys {
   static const String username = 'username';
   static const String isDarkMode = 'isDarkMode'; // Default value is false
+  static const String isDeveloperMode = 'isDeveloperMode'; // Default value is false
   static const String showExpStatusBar = 'showExpStatusBar'; // Default value is false
   static const String dailyBackupReminderEnabled = 'dailyBackupReminderEnabled';
   static const String lastBackupReminderTimestamp = 'lastBackupReminderTimestamp';
