@@ -53,7 +53,17 @@ String getRandomBudgetTip() {
       "Use a specific list for every shopping trip. If an item isn't on the list, do not put it in the cart.",
       "Sell items you no longer use on online marketplaces. Use the profit to pad your emergency fund or pay down debt.",
       "Take advantage of cashback apps and coupons. Even saving a few dollars per trip compounds into significant savings over a year.",
-      "Prioritize building an emergency fund. having 1,000 set aside prevents you from using high-interest credit cards when unexpected costs arise."
+      "Prioritize building an emergency fund. having \$1,000 set aside prevents you from using high-interest credit cards when unexpected costs arise.",
+      "Learn basic repairs like sewing buttons or fixing leaks. Extending the life of items is cheaper than replacing them immediately.",
+      "Buy non-perishable staples in bulk, but only if you have the storage space and will actually use them before they expire.",
+      "Unsubscribe from marketing emails. Flash sales create a false sense of urgency that leads to unplanned spending.",
+      "Switch to LED light bulbs. They use up to 90% less energy and last 25 times longer than traditional incandescent bulbs.",
+      "Bring your lunch to work. Buying lunch daily costs \$10-\$15, while a packed lunch usually costs less than \$3.",
+      "Negotiate your bills. Call your internet or cable provider and ask for the current promotional rate or a loyalty discount.",
+      "Use loyalty programs for places you shop frequently, but don't let points tempt you into buying things you don't need.",
+      "Make your own cleaning supplies. Vinegar, baking soda, and lemon are effective and much cheaper than chemical cleaners.",
+      "Carpool or use public transportation. Reducing your driving cuts down on gas, maintenance, and vehicle depreciation.",
+      "Review your bank statements weekly. This helps you catch errors, fraud, or forgotten subscriptions immediately."
   ];
   return tips[random.nextInt(tips.length)];
 }
