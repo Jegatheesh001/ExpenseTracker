@@ -240,7 +240,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       if (confirmUpdate) {
         await PersistenceContext().saveOrUpdateExpense(newExpense);
-        _updateBalances(amount);
+        await _updateBalances(amount);
         Navigator.pop(context, true);
       }
     }
@@ -614,7 +614,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  void _updateBalances(double amount) async {
+  Future<void> _updateBalances(double amount) async {
     if (_selectedPaymentMethod == null) return;
     
     final prefs = await SharedPreferences.getInstance();
