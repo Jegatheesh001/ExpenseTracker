@@ -30,6 +30,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   late SharedPreferences _prefs;
   String _username = '';
   String _tipOfTheDay = '';
+  bool _isBalanceVisible = true;
 
   // New text editing controllers for balance management dialog
   late final TextEditingController _cashAmountController = TextEditingController();
@@ -57,10 +58,24 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> refresh() async {
     _prefs = await SharedPreferences.getInstance();
+    await _loadBalanceVisibility();
     await _loadUsername();
     await _loadBalances();
     await _loadExpenses();
     _loadCurrency();
+  }
+
+  Future<void> _loadBalanceVisibility() async {
+    setState(() {
+      _isBalanceVisible = _prefs.getBool(PrefKeys.balanceVisible) ?? true;
+    });
+  }
+
+  Future<void> _toggleBalanceVisibility() async {
+    setState(() {
+      _isBalanceVisible = !_isBalanceVisible;
+    });
+    await _prefs.setBool(PrefKeys.balanceVisible, _isBalanceVisible);
   }
 
   Future<void> _loadUsername() async {
@@ -227,8 +242,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 15),
                 _buildBalanceItem(
                   icon: Icons.account_balance_rounded,
-                  title: 'Bank Account',
-                  subtitle: '*****', // Placeholder as per design
+                  title: 'Bank Balance',
+                  subtitle: 'Accounts & Deposits',
                   amount: _bankBalance,
                   iconColor: Colors.blueAccent,
                 ),
@@ -407,12 +422,22 @@ class DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Your Balance',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Text(
+              'Your Balance',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            IconButton(
+              icon: Icon(
+                _isBalanceVisible ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: _toggleBalanceVisibility,
+            ),
+          ],
         ),
         TextButton(
           onPressed: _showBalanceManagementDialog,
@@ -462,15 +487,16 @@ class DashboardScreenState extends State<DashboardScreen> {
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
               ],
             ),
           ),
           Text(
-            '$_currencySymbol${amount.toStringAsFixed(2)}',
+            _isBalanceVisible ? '$_currencySymbol${amount.toStringAsFixed(2)}' : '****',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
