@@ -26,7 +26,7 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onUsernameChange;
 
   const SettingsScreen({
-    Key? key,
+    super.key,
     required this.onDeleteAllData, // Add the new callback
     required this.onThemeToggle,
     required this.onCurrencyToggle,
@@ -34,13 +34,14 @@ class SettingsScreen extends StatefulWidget {
     required this.onStatusBarToggle,
     required this.onMonthlyLimitSaved, 
     required this.onProfileChange,
-    required this.onUsernameChange}) : super(key: key);
+    required this.onUsernameChange
+  });
 
   @override
-  _SettingsScreenState createState() => _SettingsScreenState();
+  SettingsScreenState createState() => SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class SettingsScreenState extends State<SettingsScreen> {
   bool _isDarkMode = false;
   bool _isBackupReminderEnabled = false;
   final List<String> _currencies = CurrencySymbol().getCurrencies();
@@ -66,6 +67,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  Future<void> refresh() async {
+    setState(() {
+      _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+      _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+      _currentWalletAmount = _cashAmount + _bankAmount;
+    });
   }
 
   // Loads saved settings (theme mode and currency) from shared preferences.

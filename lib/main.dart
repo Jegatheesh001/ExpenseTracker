@@ -91,6 +91,8 @@ class ExpenseHomePage extends StatefulWidget {
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
   final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
   final GlobalKey<ExpensesScreenState> _expensesKey = GlobalKey<ExpensesScreenState>();
+  final GlobalKey<SettingsScreenState> _settingsKey = GlobalKey<SettingsScreenState>();
+
   int _selectedIndex = 0;
 
   void _navigateToExpensesTab(int tabIndex) {
@@ -198,6 +200,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       // Using the same key as in SettingsScreen
       _walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
     });
+    _settingsKey.currentState?.refresh();
   }
 
   // Determines the currency symbol based on the selected currency.
@@ -279,6 +282,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             key: _dashboardKey,
             profileId: _profileId,
             navigateToExpensesTab: _navigateToExpensesTab,
+            onWalletAmountChange: _loadWalletAmount,
           ),
           ExpensesScreen(
             key: _expensesKey,
@@ -288,6 +292,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           ),
           ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
           SettingsScreen(
+            key: _settingsKey,
             onThemeToggle: context.findAncestorStateOfType<_MyAppState>()?._toggleTheme ?? () {},
             onCurrencyToggle: _loadCurrency,
             onStatusBarToggle: _toggleExpStatusBar,

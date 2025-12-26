@@ -8,11 +8,13 @@ import 'currency_symbol.dart';
 class DashboardScreen extends StatefulWidget {
   final int profileId;
   final Function(int) navigateToExpensesTab;
+  final VoidCallback onWalletAmountChange;
 
   const DashboardScreen({
     super.key,
     required this.profileId,
     required this.navigateToExpensesTab,
+    required this.onWalletAmountChange,
   });
 
   @override
@@ -757,5 +759,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     
     // Update local state and refresh dashboard data
     await _loadBalances(); // This will call setstate
+    widget.onWalletAmountChange();
   }
 }
