@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
-import 'expense_list_view.dart';
 import 'package:intl/intl.dart';
 
 class ExpenseSearchDelegate extends SearchDelegate {
@@ -42,27 +41,7 @@ class ExpenseSearchDelegate extends SearchDelegate {
 
   @override
   Widget buildResults(BuildContext context) {
-    if (query.isEmpty) {
-      return Container();
-    }
-
-    return FutureBuilder<List<Expense>>(
-      future: PersistenceContext().searchExpenses(query, profileId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No expenses found.'));
-        }
-        return ExpenseListView(
-          expenses: snapshot.data!,
-          currencySymbol: currencySymbol,
-          onEdit: onEdit,
-          onDelete: onDelete,
-        );
-      },
-    );
+    return Container();
   }
 
   @override
@@ -97,8 +76,8 @@ class ExpenseSearchDelegate extends SearchDelegate {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () {
-                query = expense.remarks;
-                showResults(context);
+                close(context, null);
+                onEdit(expense);
               },
             );
           },
