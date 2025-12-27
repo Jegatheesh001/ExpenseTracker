@@ -62,7 +62,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     });
     _loadSelectedProfile().then((_) {
-      _loadCurrencySymbol();
+      _loadCurrencySymbol(expenseToEdit?.profileId ?? _profileId);
     });
     _remarksController.addListener(_updateSuggestedTags);
   }
@@ -91,9 +91,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
   }
 
-  Future<void> _loadCurrencySymbol() async {
+  Future<void> _loadCurrencySymbol(profileId) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentCurrency = prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
+    final currentCurrency = prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
     setState(() {
       _currencySymbol = CurrencySymbol().getSymbol(currentCurrency);
     });
@@ -127,7 +127,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     }
     Category selectedCategory;
-    if (expense.categoryId != null && expense.categoryId != 0) {
+    if (expense.categoryId != 0) {
       selectedCategory = _categories.firstWhere(
         (category) => category.categoryId == expense.categoryId,
       );
@@ -585,17 +585,30 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 24),
 
               // --- Action Buttons ---
-              FilledButton(
-                onPressed: () => _addExpense(context),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+              if (expenseToEdit != null && expenseToEdit!.categoryId != 0 && expenseToEdit!.profileId != _profileId) ...[
+                FilledButton( 
+                  onPressed: null,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text(
+                    'Update Expense',
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
-                child: Text(
-                  (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) ? 'Update Expense' : 'Add Expense',
-                  style: const TextStyle(fontSize: 16),
+              ] else ...[
+                FilledButton(
+                  onPressed: () => _addExpense(context),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(
+                    (expenseToEdit != null && expenseToEdit!.categoryId != 0) ? 'Update Expense' : 'Add Expense',
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 ),
-              ),
-              if (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) ...[
+              ],
+              if (expenseToEdit != null && expenseToEdit!.categoryId != 0) ...[
                 const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: () => _deleteCurrentExpense(context),
@@ -624,7 +637,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     double cashAmount = prefs.getDouble(cashAmountKey) ?? 0.0;
     double bankAmount = prefs.getDouble(bankAmountKey) ?? 0.0;
 
-    if (expenseToEdit != null && expenseToEdit!.categoryId != null && expenseToEdit!.categoryId != 0) {
+    if (expenseToEdit != null && expenseToEdit!.categoryId != 0) {
       // This is an edit. Refund the old amount first.
       final oldAmount = expenseToEdit!.amount;
       final oldPaymentMethod = expenseToEdit!.paymentMethod;

@@ -50,7 +50,7 @@ class ExpenseSearchDelegate extends SearchDelegate {
     return FutureBuilder<List<Expense>>(
       future: query.isEmpty
           ? Future.value([])
-          : PersistenceContext().searchExpenses(query, profileId),
+          : PersistenceContext().searchExpenses(query),
       builder: (context, snapshot) {
         if (query.isEmpty) {
           return Container();

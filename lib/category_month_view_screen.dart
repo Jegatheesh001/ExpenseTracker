@@ -137,7 +137,7 @@ class _CategoryMonthViewScreenState extends State<CategoryMonthViewScreen> {
                     ),
                     const Divider(height: 1),
                     ...expensesForDay.map((expense) {
-                      final tagsString = expense.tags?.map((t) => '#$t').join(' ') ?? '';
+                      final tagsString = expense.tags.map((t) => '#$t').join(' ');
                       final timeString = DateFormat.jm().format(expense.expenseDate);
                       final subtitle = tagsString.isNotEmpty ? '$tagsString @ $timeString' : timeString;
                       return ListTile(

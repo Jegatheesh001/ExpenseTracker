@@ -556,26 +556,42 @@ class DatabaseHelper {
     await db.insert('expense_tags', {'expenseId': expenseId, 'tagId': tagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  Future<List<Expense>> searchExpenses(String query, int profileId) async {
-    final Database db = await database;
+  Future<List<Expense>> searchExpenses(String query, {int? profileId}) async {
     if (query.isEmpty) {
       return [];
     }
 
+    final Database db = await database;
+
+    // 1. Base arguments for the LIKE clauses
+    final List<dynamic> args = ['%$query%', '%$query%', '%$query%'];
+
+    // 2. Base WHERE clause
+    String whereClause = '''
+      (
+        E.remarks LIKE ? OR
+        E.category LIKE ? OR
+        T.tagName LIKE ?
+      )
+    ''';
+
+    // 3. Conditionally append profileId logic
+    if (profileId != null) {
+      whereClause += ' AND E.profileId = ?';
+      args.add(profileId);
+    }
+
+    // 4. Construct the full query
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT E.*
       FROM expenses E
       LEFT JOIN expense_tags ET ON E.id = ET.expenseId
       LEFT JOIN tags T ON ET.tagId = T.tagId
-      WHERE (
-        E.remarks LIKE ? OR
-        E.category LIKE ? OR
-        T.tagName LIKE ?
-      ) AND E.profileId = ?
+      WHERE $whereClause
       GROUP BY E.id
       ORDER BY E.expenseDate DESC
       LIMIT 100
-    ''', ['%$query%', '%$query%', '%$query%', profileId]);
+    ''', args);
 
     return _mapMapsToExpenses(maps);
   }
