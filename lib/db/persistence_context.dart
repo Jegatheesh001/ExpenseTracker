@@ -76,6 +76,10 @@ class PersistenceContext {
     return await DatabaseHelper().getExpensesByTag(tag, profileId);
   }
 
+  Future<List<Expense>> getExpensesByTagAndMonth(String tag, DateTime month, int profileId) async {
+    return await DatabaseHelper().getExpensesByTag(tag, profileId, month : month);
+  }
+
   Future<List<String>> getAllTags() async {
     return await DatabaseHelper().getAllTags();
   }

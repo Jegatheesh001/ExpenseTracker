@@ -375,7 +375,7 @@ class DatabaseHelper {
     return monthlyTotals;
   }
 
-  Future<List<Expense>> getExpensesByTag(String tagName, int profileId) async {
+  Future<List<Expense>> getExpensesByTag(String tagName, int profileId, { DateTime? month }) async {
     final Database db = await database;
     // Find the tagId for the given tagName
     final List<Map<String, dynamic>> tagResult = await db.query(
@@ -385,21 +385,35 @@ class DatabaseHelper {
       whereArgs: [tagName],
     );
 
+    // If no tag is found, return an empty list of expenses
     if (tagResult.isEmpty) {
-      // If the tag doesn't exist, return an empty list of expenses
       return [];
     }
 
     final int tagId = tagResult.first['tagId'] as int;
 
-    // Use the tagId to get the expenses
+    // Base Query
+    String whereClause = 'ET.tagId = ? AND E.profileId = ?';
+    final List<Object?> args = [tagId, profileId];
+
+    // MONTH FILTER
+    if (month != null) {
+      final startOfMonth = DateTime(month.year, month.month, 1);
+      final startOfNextMonth = DateTime(month.year, month.month + 1, 1);
+
+      whereClause += ' AND E.expenseDate >= ? AND E.expenseDate < ?';
+      args.add(startOfMonth.toIso8601String());
+      args.add(startOfNextMonth.toIso8601String());
+    }
+
+    // List expenses matching the criteria, tagId and month (if provided) for the profile
     final List<Map<String, dynamic>> maps = await db.rawQuery('''
       SELECT E.*
       FROM expenses E
       JOIN expense_tags ET ON E.id = ET.expenseId
-      WHERE ET.tagId = ? AND E.profileId = ?
+      WHERE $whereClause
       ORDER BY E.expenseDate DESC
-    ''', [tagId, profileId]);
+    ''', args);
 
     return _mapMapsToExpenses(maps);
   }

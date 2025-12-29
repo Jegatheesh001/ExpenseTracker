@@ -321,7 +321,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => TagExpensesScreen(tag: entry.key),
+                                        builder: (context) => TagExpensesScreen(tag: entry.key, selectedDate: _selectedDate),
                                       ),
                                     );
                                   } else if (_reportType == ReportType.category) {

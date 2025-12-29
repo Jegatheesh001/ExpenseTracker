@@ -250,9 +250,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   iconColor: Colors.blueAccent,
                 ),
                 const SizedBox(height: 30),
-                _buildFinancialWisdomHeader(),
-                const SizedBox(height: 15),
-                _buildTipCard(),
+                _buildFinTipCard(),
                 const SizedBox(
                     height: 100), // Extra space for FAB and Bottom Nav
               ],
@@ -509,29 +507,10 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildFinancialWisdomHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Financial Wisdom',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _loadTip,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTipCard() {
+  Widget _buildFinTipCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
             ? const Color(0xFF1F2B36) // Consistent card color
@@ -544,7 +523,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
@@ -562,6 +541,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadTip,
+              )
             ],
           ),
           const SizedBox(height: 15),

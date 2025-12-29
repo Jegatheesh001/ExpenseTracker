@@ -12,8 +12,9 @@ import 'currency_symbol.dart';
 
 class TagExpensesScreen extends StatefulWidget {
   final String tag;
+  final DateTime? selectedDate;
 
-  const TagExpensesScreen({Key? key, required this.tag}) : super(key: key);
+  const TagExpensesScreen({Key? key, required this.tag, this.selectedDate}) : super(key: key);
 
   @override
   _TagExpensesScreenState createState() => _TagExpensesScreenState();
@@ -36,7 +37,12 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
     _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
     final currency = prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
     _currencySymbol = CurrencySymbol().getSymbol(currency);
-    final loadedExpenses = await PersistenceContext().getExpensesByTag(widget.tag, _profileId);
+    List<Expense> loadedExpenses = [];
+    if (widget.selectedDate != null) {
+      loadedExpenses = await PersistenceContext().getExpensesByTagAndMonth(widget.tag, widget.selectedDate!, _profileId);
+    } else {
+      loadedExpenses = await PersistenceContext().getExpensesByTag(widget.tag, _profileId);
+    }
 
     Map<String, List<Expense>> grouped = {};
     Map<String, double> totals = {};
