@@ -162,7 +162,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final lastMonth = DateTime(now.year, now.month - 1, now.day);
+    final lastMonth = DateTime(now.year, now.month - 1, 1);
 
     final todayExp = await PersistenceContext().getExpenseSumByDate(today, widget.profileId);
     final yesterdayExp = await PersistenceContext().getExpenseSumByDate(yesterday, widget.profileId);
