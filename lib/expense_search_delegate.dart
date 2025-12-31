@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'db/persistence_context.dart';
 import 'db/entity.dart';
-import 'package:intl/intl.dart';
 
 class ExpenseSearchDelegate extends SearchDelegate {
+  final ScrollController _scrollController = ScrollController();
+
   final int profileId;
   final String currencySymbol;
   final Future<void> Function(Expense) onEdit;
@@ -22,9 +24,7 @@ class ExpenseSearchDelegate extends SearchDelegate {
     return [
       IconButton(
         icon: const Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
+        onPressed: () => query = '',
       ),
     ];
   }
@@ -33,37 +33,37 @@ class ExpenseSearchDelegate extends SearchDelegate {
   Widget buildLeading(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, null);
-      },
+      onPressed: () => close(context, null),
     );
   }
 
   @override
   Widget buildResults(BuildContext context) {
-    return Container();
+    return const SizedBox.shrink();
   }
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    // Show suggestions as the user types
+    if (query.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return FutureBuilder<List<Expense>>(
-      future: query.isEmpty
-          ? Future.value([])
-          : PersistenceContext().searchExpenses(query),
+      future: PersistenceContext().searchExpenses(query),
       builder: (context, snapshot) {
-        if (query.isEmpty) {
-          return Container();
-        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('No suggestions.'));
         }
 
         final expenses = snapshot.data!;
+
         return ListView.builder(
+          key: PageStorageKey<String>('expense_search_$query'),
+          controller: _scrollController,
           itemCount: expenses.length,
           itemBuilder: (context, index) {
             final expense = expenses[index];
@@ -75,9 +75,12 @@ class ExpenseSearchDelegate extends SearchDelegate {
                 '$currencySymbol${expense.amount.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              onTap: () {
-                close(context, null);
-                onEdit(expense);
+              onTap: () async {
+                await onEdit(expense);
+
+                if (context.mounted) {
+                  showSuggestions(context);
+                }
               },
             );
           },
