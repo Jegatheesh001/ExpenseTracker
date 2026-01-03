@@ -70,11 +70,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> refresh() async {
-    setState(() {
-      _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-      _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
-      _currentWalletAmount = _cashAmount + _bankAmount;
-    });
+    await _loadSettings();
   }
 
   // Loads saved settings (theme mode and currency) from shared preferences.
@@ -358,13 +354,8 @@ class SettingsScreenState extends State<SettingsScreen> {
     } else {
       _profileId = 0;
     }
-    setState(() {
-      _profileId = _profileId;
-    });
     _prefs.setInt(PrefKeys.profileId, _profileId);
     widget.onProfileChange();
-    // Remove the SnackBar, as the logic is now implemented
-    Navigator.pop(context); // Go back to the previous screen
   }
   
   Future<void> _showProfileSwitchConfirmationDialog() async {
@@ -453,7 +444,6 @@ class SettingsScreenState extends State<SettingsScreen> {
                           }
                           
                           widget.onDeleteAllData();
-                          Navigator.of(context).pop();
                           Navigator.of(context).pop();
                         }
                       : null,
