@@ -1,3 +1,4 @@
+import 'package:expense_tracker/ai_insights_screen.dart';
 import 'package:expense_tracker/category_month_view_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -87,6 +88,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
               setState(() {
                 _showMonthlyReport = false;
               });
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.psychology, color: Colors.purpleAccent),
+            tooltip: 'AI Insights',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AIInsightsScreen(
+                    profileId: widget.profileId,
+                    currencySymbol: widget.currencySymbol,
+                  ),
+                ),
+              );
             },
           ),
         ],

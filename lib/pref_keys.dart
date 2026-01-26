@@ -16,4 +16,8 @@ class PrefKeys {
   static const String selectedCurrency = 'selectedCurrency'; // Default value is Rupee
   static const String monthlyLimit = 'monthlyLimit';
   static const String dailyLimit = 'dailyLimit';
+  static const String geminiApiKey = 'geminiApiKey';
+  static const String geminiModelName = 'geminiModelName';
+  static const String lastAIInsights = 'lastAIInsights';
+  static const String lastAIInsightsTimestamp = 'lastAIInsightsTimestamp';
 }

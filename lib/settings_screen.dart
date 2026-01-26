@@ -14,6 +14,7 @@ import 'pref_keys.dart';
 import 'currency_symbol.dart';
 import 'data_backup.dart';
 import 'developer_mode_screen.dart';
+import 'package:expense_tracker/ai_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -636,6 +637,18 @@ class SettingsScreenState extends State<SettingsScreen> {
                 _isBackupReminderEnabled = value;
               });
               _prefs.setBool(PrefKeys.dailyBackupReminderEnabled, value);
+            },
+          ),
+          _buildSectionTitle(context, 'AI'),
+          ListTile(
+            title: const Text('AI Settings'),
+            subtitle: const Text('Configure Gemini API Key & Model'),
+            trailing: const Icon(Icons.psychology),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AISettingsScreen()),
+              );
             },
           ),
           _buildSectionTitle(context, 'Danger Zone'),
