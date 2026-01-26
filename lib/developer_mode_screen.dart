@@ -68,7 +68,11 @@ class _DeveloperModeScreenState extends State<DeveloperModeScreen> {
                   final value = _prefsMap[key];
                   return ListTile(
                     title: Text(key),
-                    subtitle: Text(value.toString()),
+                    subtitle: Text(
+                      value.toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
