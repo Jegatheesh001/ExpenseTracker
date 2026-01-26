@@ -86,7 +86,7 @@ class AIService {
       summary += "\nData Range Analyzed: ${DateFormat('yyyy-MM-dd').format(oldest.expenseDate)} to ${DateFormat('yyyy-MM-dd').format(newest.expenseDate)}\n";
     }
 
-    print('Prepared Expense Summary for AI:\n$summary');
+    // print('Prepared Expense Summary for AI:\n$summary');
     return summary;
   }
 }
