@@ -162,6 +162,9 @@ class DataBackup {
       final prefs = await SharedPreferences.getInstance();
       final keys = prefs.getKeys();
       for (String key in keys) {
+        if (key.startsWith('${PrefKeys.lastAIInsights}_')) {
+          continue;
+        }
         final value = prefs.get(key);
         exportContent.writeln('$key;;$value');
       }
