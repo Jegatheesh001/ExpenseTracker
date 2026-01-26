@@ -1,5 +1,6 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:expense_tracker/db/entity.dart';
+import 'package:intl/intl.dart';
 
 class AIService {
   final String _apiKey;
@@ -45,10 +46,20 @@ class AIService {
   }
 
   String _prepareExpenseSummary(List<Expense> expenses, String currencySymbol) {
+    // Sort expenses by date descending once at the beginning
+    final sortedExpenses = List<Expense>.from(expenses)
+      ..sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
+
     final Map<String, double> categoryTotals = {};
     double totalAmount = 0;
 
-    for (var expense in expenses) {
+    // Filter for current month's breakdown to make it more relevant to "recent"
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+    
+    final currentMonthExpenses = sortedExpenses.where((e) => e.expenseDate.isAfter(currentMonthStart.subtract(const Duration(days: 1)))).toList();
+
+    for (var expense in currentMonthExpenses) {
       categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + expense.amount;
       totalAmount += expense.amount;
     }
@@ -56,19 +67,26 @@ class AIService {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    String summary = "Total Spending: \$currencySymbol\${totalAmount.toStringAsFixed(2)}\n\n";
-    summary += "Breakdown by Category:\n";
+    String summary = "Current Month's Spending (${DateFormat('MMMM yyyy').format(now)}):\n";
+    summary += "Total Spending: $currencySymbol${totalAmount.toStringAsFixed(2)}\n\n";
+    summary += "Current Month Breakdown by Category:\n";
     for (var entry in sortedCategories) {
-      summary += "- \${entry.key}: \$currencySymbol\${entry.value.toStringAsFixed(2)}\n";
+      summary += "- ${entry.key}: $currencySymbol${entry.value.toStringAsFixed(2)}\n";
     }
 
-    summary += "\nRecent Transactions:\n";
-    // Include last 10 transactions for context
-    final recentExpenses = expenses.take(10);
-    for (var expense in recentExpenses) {
-      summary += "- \${DateFormat('yyyy-MM-dd').format(expense.expenseDate)}: \$currencySymbol\${expense.amount} on \${expense.category} (\${expense.remarks})\n";
+    summary += "\nRecent Transactions (Latest 20):\n";
+    for (var expense in sortedExpenses.take(20)) {
+      summary += "- ${DateFormat('yyyy-MM-dd').format(expense.expenseDate)}: $currencySymbol${expense.amount} on ${expense.category} (${expense.remarks})\n";
+    }
+    
+    // Add context about the date range provided
+    if (expenses.isNotEmpty) {
+      final oldest = expenses.reduce((a, b) => a.expenseDate.isBefore(b.expenseDate) ? a : b);
+      final newest = sortedExpenses.first;
+      summary += "\nData Range Analyzed: ${DateFormat('yyyy-MM-dd').format(oldest.expenseDate)} to ${DateFormat('yyyy-MM-dd').format(newest.expenseDate)}\n";
     }
 
+    print('Prepared Expense Summary for AI:\n$summary');
     return summary;
   }
 }
