@@ -1,17 +1,25 @@
+import 'dart:typed_data';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 
 class AIService {
   final String _apiKey;
   final String _modelName;
   late final GenerativeModel _model;
+  late final GenerativeModel _chatModel;
+  ChatSession? _chatSession;
 
-  AIService(this._apiKey, {String modelName = 'gemini-1.5-flash-latest'}) : _modelName = modelName {
+  AIService(this._apiKey, this._modelName) {
     _model = GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
     );
+
+    _chatSession = _chatModel.startChat();
   }
 
   Future<String> getSpendingInsights(List<Expense> expenses, String currencySymbol) async {
@@ -88,5 +96,84 @@ class AIService {
 
     // print('Prepared Expense Summary for AI:\n$summary');
     return summary;
+  }
+
+  Future<Uint8List?> generateSpeech(String text) async {
+    try {
+      // Step 1: Detect the language of the input text
+      final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
+      final String languageCode = await languageIdentifier.identifyLanguage(text);
+      
+      // Cleanup: release resources
+      await languageIdentifier.close();
+
+      // Default to English if detection fails or returns 'und' (undetermined)
+      String targetLanguage = (languageCode == 'und') ? 'en-US' : languageCode;
+
+      // Step 2: Call Google Cloud TTS with the detected language
+      final url = Uri.parse(
+        'https://texttospeech.googleapis.com/v1/text:synthesize?key=$_apiKey',
+      );
+
+      // We map simple codes (e.g., 'fr') to full locale codes (e.g., 'fr-FR')
+      // Google requires the full locale (language-REGION).
+      String fullLanguageCode = _mapToFullLocale(targetLanguage);
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "input": {"text": text},
+          "voice": {
+            "languageCode": fullLanguageCode,
+            "ssmlGender": "FEMALE" 
+          },
+          "audioConfig": {
+            "audioEncoding": "MP3"
+          }
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['audioContent'] != null) {
+          return base64Decode(jsonResponse['audioContent']);
+        }
+      } else {
+        print("TTS API Error: ${response.statusCode} - ${response.body}");
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error in AIService.generateSpeech: $e');
+      return null;
+    }
+  }
+
+  ChatSession get chatSession {
+    return _chatSession ??= _chatModel.startChat();
+  }
+
+  void resetChat() {
+    _chatSession = _chatModel.startChat();
+  }
+
+  String _mapToFullLocale(String shortCode) {
+    const localeMap = {
+      'en': 'en-US',
+      'es': 'es-ES',
+      'fr': 'fr-FR',
+      'de': 'de-DE',
+      'it': 'it-IT',
+      'ja': 'ja-JP',
+      'ko': 'ko-KR',
+      'pt': 'pt-BR',
+      'ru': 'ru-RU',
+      'ta': 'ta-IN',
+      'zh': 'cmn-CN',
+      'ar': 'ar-XA',
+      'hi': 'hi-IN',
+    };
+    return localeMap[shortCode] ?? 'en-US';
   }
 }

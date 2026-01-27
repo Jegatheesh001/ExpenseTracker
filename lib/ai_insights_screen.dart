@@ -81,7 +81,7 @@ class _AIInsightsScreenState extends State<AIInsightsScreen> {
         widget.profileId,
       );
 
-      final aiService = AIService(apiKey, modelName: modelName);
+      final aiService = AIService(apiKey, modelName);
       final result = await aiService.getSpendingInsights(expenses, widget.currencySymbol);
 
       final nowTimestamp = DateTime.now();

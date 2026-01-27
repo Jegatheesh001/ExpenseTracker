@@ -14,6 +14,7 @@ import 'reports_screen.dart';
 import 'data_backup.dart';
 import 'dashboard_screen.dart';
 import 'expenses_screen.dart';
+import 'chatbot_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -290,6 +291,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             currencySymbol: _currencySymbol,
             onWalletAmountChange: _loadWalletAmount,
           ),
+          ChatbotScreen(profileId: _profileId),
           ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
           SettingsScreen(
             key: _settingsKey,
@@ -304,7 +306,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           ),
         ],
       ),
-      floatingActionButton: _selectedIndex != 3
+      floatingActionButton: (_selectedIndex != 2 && _selectedIndex != 4)
           ? FloatingActionButton(
               onPressed: () async {
                 final bool result = await Navigator.push(
@@ -338,6 +340,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.list_alt_rounded), label: 'Expenses'),
+          BottomNavigationBarItem(icon: Icon(Icons.face_retouching_natural), label: 'Ask Anila'),
           BottomNavigationBarItem(icon: Icon(Icons.pie_chart_rounded), label: 'Reports'),
           BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],

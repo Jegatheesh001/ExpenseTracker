@@ -12,10 +12,22 @@
 @import app_links;
 #endif
 
+#if __has_include(<audioplayers_darwin/AudioplayersDarwinPlugin.h>)
+#import <audioplayers_darwin/AudioplayersDarwinPlugin.h>
+#else
+@import audioplayers_darwin;
+#endif
+
 #if __has_include(<file_picker/FilePickerPlugin.h>)
 #import <file_picker/FilePickerPlugin.h>
 #else
 @import file_picker;
+#endif
+
+#if __has_include(<google_mlkit_language_id/GoogleMlKitLanguageIdPlugin.h>)
+#import <google_mlkit_language_id/GoogleMlKitLanguageIdPlugin.h>
+#else
+@import google_mlkit_language_id;
 #endif
 
 #if __has_include(<image_picker_ios/FLTImagePickerPlugin.h>)
@@ -36,6 +48,12 @@
 @import receive_sharing_intent;
 #endif
 
+#if __has_include(<record_ios/RecordIosPlugin.h>)
+#import <record_ios/RecordIosPlugin.h>
+#else
+@import record_ios;
+#endif
+
 #if __has_include(<shared_preferences_foundation/SharedPreferencesPlugin.h>)
 #import <shared_preferences_foundation/SharedPreferencesPlugin.h>
 #else
@@ -52,10 +70,13 @@
 
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [AppLinksIosPlugin registerWithRegistrar:[registry registrarForPlugin:@"AppLinksIosPlugin"]];
+  [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
+  [GoogleMlKitLanguageIdPlugin registerWithRegistrar:[registry registrarForPlugin:@"GoogleMlKitLanguageIdPlugin"]];
   [FLTImagePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTImagePickerPlugin"]];
   [PathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"PathProviderPlugin"]];
   [ReceiveSharingIntentPlugin registerWithRegistrar:[registry registrarForPlugin:@"ReceiveSharingIntentPlugin"]];
+  [RecordIosPlugin registerWithRegistrar:[registry registrarForPlugin:@"RecordIosPlugin"]];
   [SharedPreferencesPlugin registerWithRegistrar:[registry registrarForPlugin:@"SharedPreferencesPlugin"]];
   [SqflitePlugin registerWithRegistrar:[registry registrarForPlugin:@"SqflitePlugin"]];
 }
