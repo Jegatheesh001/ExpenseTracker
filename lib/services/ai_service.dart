@@ -1,6 +1,8 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -14,9 +16,75 @@ class AIService {
   ChatSession? _chatSession;
 
   AIService(this._apiKey, this._modelName) {
+    final tools = [
+      Tool(functionDeclarations: [
+        FunctionDeclaration(
+          'getExpensesByDate',
+          'Retrieves expenses within a specific date range.',
+          Schema.object(properties: {
+            'startDate': Schema.string(
+                description: 'The start date in ISO 8601 format (YYYY-MM-DD).'),
+            'endDate': Schema.string(
+                description: 'The end date in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(
+                description: 'The user profile ID.'),
+          }, requiredProperties: [
+            'startDate',
+            'endDate',
+            'profileId'
+          ]),
+        ),
+        FunctionDeclaration(
+          'getCategorySpendingForMonth',
+          'Retrieves category-wise spending for a specific month.',
+          Schema.object(properties: {
+            'date': Schema.string(
+                description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(
+                description: 'The user profile ID.'),
+          }, requiredProperties: [
+            'date',
+            'profileId'
+          ]),
+        ),
+        FunctionDeclaration(
+          'searchExpensesByProfileId',
+          'Searches for expenses by a query string.',
+          Schema.object(properties: {
+            'query': Schema.string(
+                description: 'The search query (e.g., category, remarks).'),
+            'profileId': Schema.integer(
+                description: 'The user profile ID.'),
+          }, requiredProperties: [
+            'query',
+            'profileId'
+          ]),
+        ),
+        FunctionDeclaration(
+          'getExpenseSumByMonth',
+          'Retrieves the total expense sum for a specific month.',
+          Schema.object(properties: {
+            'date': Schema.string(
+                description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(
+                description: 'The user profile ID.'),
+          }, requiredProperties: [
+            'date',
+            'profileId'
+          ]),
+        ),
+      ])
+    ];
+
     _model = GenerativeModel(
       model: _modelName,
       apiKey: _apiKey,
+    );
+
+    _chatModel = GenerativeModel(
+      model: _modelName,
+      apiKey: _apiKey,
+      tools: tools,
     );
 
     _chatSession = _chatModel.startChat();
@@ -156,6 +224,41 @@ class AIService {
 
   void resetChat() {
     _chatSession = _chatModel.startChat();
+  }
+
+  Future<Map<String, dynamic>> executeFunctionCall(FunctionCall functionCall) async {
+    final persistenceContext = PersistenceContext();
+    debugPrint("Executing function call: ${functionCall.name} with args: ${functionCall.args}");
+
+    switch (functionCall.name) {
+      case 'getExpensesByDate':
+        final startDate = DateTime.parse(functionCall.args['startDate'] as String);
+        final endDate = DateTime.parse(functionCall.args['endDate'] as String);
+        final profileId = functionCall.args['profileId'] as int;
+        final expenses = await persistenceContext.getExpensesByDate(startDate, endDate, profileId);
+        return {'expenses': expenses.map((e) => e.toMap()).toList()};
+
+      case 'getCategorySpendingForMonth':
+        final date = DateTime.parse(functionCall.args['date'] as String);
+        final profileId = functionCall.args['profileId'] as int;
+        final spending = await persistenceContext.getCategorySpendingForMonth(date, profileId);
+        return {'categorySpending': spending};
+
+      case 'searchExpensesByProfileId':
+        final query = functionCall.args['query'] as String;
+        final profileId = functionCall.args['profileId'] as int;
+        final expenses = await persistenceContext.searchExpensesByProfileId(query, profileId);
+        return {'expenses': expenses.map((e) => e.toMap()).toList()};
+
+      case 'getExpenseSumByMonth':
+        final date = DateTime.parse(functionCall.args['date'] as String);
+        final profileId = functionCall.args['profileId'] as int;
+        final total = await persistenceContext.getExpenseSumByMonth(date, profileId);
+        return {'totalExpense': total};
+
+      default:
+        throw UnimplementedError('Function ${functionCall.name} not implemented');
+    }
   }
 
   String _mapToFullLocale(String shortCode) {

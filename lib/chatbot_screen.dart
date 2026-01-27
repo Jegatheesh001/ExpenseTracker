@@ -4,7 +4,6 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/services/ai_service.dart';
-import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:record/record.dart';
@@ -146,7 +145,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           });
           _scrollToBottom();
 
-          final result = await _executeFunctionCall(functionCall);
+          final result = await _aiService!.executeFunctionCall(functionCall);
           functionResponses.add(FunctionResponse(functionCall.name, result));
         }
 
@@ -178,41 +177,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         _isLoading = false;
       });
       _scrollToBottom();
-    }
-  }
-
-  Future<Map<String, dynamic>> _executeFunctionCall(FunctionCall functionCall) async {
-    final persistenceContext = PersistenceContext();
-    debugPrint("Executing function call: ${functionCall.name} with args: ${functionCall.args}");
-
-    switch (functionCall.name) {
-      case 'getExpensesByDate':
-        final startDate = DateTime.parse(functionCall.args['startDate'] as String);
-        final endDate = DateTime.parse(functionCall.args['endDate'] as String);
-        final profileId = functionCall.args['profileId'] as int;
-        final expenses = await persistenceContext.getExpensesByDate(startDate, endDate, profileId);
-        return {'expenses': expenses.map((e) => e.toMap()).toList()};
-
-      case 'getCategorySpendingForMonth':
-        final date = DateTime.parse(functionCall.args['date'] as String);
-        final profileId = functionCall.args['profileId'] as int;
-        final spending = await persistenceContext.getCategorySpendingForMonth(date, profileId);
-        return {'categorySpending': spending};
-
-      case 'searchExpensesByProfileId':
-        final query = functionCall.args['query'] as String;
-        final profileId = functionCall.args['profileId'] as int;
-        final expenses = await persistenceContext.searchExpensesByProfileId(query, profileId);
-        return {'expenses': expenses.map((e) => e.toMap()).toList()};
-
-      case 'getExpenseSumByMonth':
-        final date = DateTime.parse(functionCall.args['date'] as String);
-        final profileId = functionCall.args['profileId'] as int;
-        final total = await persistenceContext.getExpenseSumByMonth(date, profileId);
-        return {'totalExpense': total};
-
-      default:
-        throw UnimplementedError('Function ${functionCall.name} not implemented');
     }
   }
 
