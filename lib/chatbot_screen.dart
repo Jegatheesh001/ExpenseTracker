@@ -198,7 +198,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   Future<void> _speak(String text) async {
     if (_aiService != null) {
-      final audioBytes = await _aiService!.generateSpeech(text);
+      // Remove markdown characters before sending to TTS
+      String cleanText = text
+          // 1. Remove Links but keep the display text: [Click here](url) -> Click here
+          .replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1')
+          // 2. Remove Headers (e.g., ### Title)
+          .replaceAll(RegExp(r'#+\s*'), '')
+          // 3. Remove Bold, Italics, and Strikethrough (**, __, *, _, ~~)
+          .replaceAll(RegExp(r'(\*\*|__|\*|_|~~)'), '')
+          // 4. Remove Inline Code and Code Blocks
+          .replaceAll(RegExp(r'`+'), '')
+          // 5. Remove Blockquotes (starting with >)
+          .replaceAll(RegExp(r'^\s*>\s*', multiLine: true), '')
+          // 6. Remove Horizontal Rules (---, ***, ___)
+          .replaceAll(RegExp(r'^\s*([-*_]){3,}\s*$', multiLine: true), '')
+          // 7. Remove Bullet points (-, *, +)
+          .replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), '')
+          // 8. Remove Numbered lists (1. , 2. )
+          .replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), '')
+          // 9. Final cleanup: Collapse multiple newlines/spaces into single ones
+          .replaceAll(RegExp(r'\n{2,}'), '\n')
+          .trim();
+
+      final audioBytes = await _aiService!.generateSpeech(cleanText);
       if (audioBytes != null) {
         if (_isSpeaking) {
           await _audioPlayer.stop();

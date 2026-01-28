@@ -90,6 +90,26 @@ class AIService {
             'query'
           ]),
         ),
+        FunctionDeclaration(
+          'createExpense',
+          'Creates a new expense entry. Use this when the user wants to record a spend.',
+          Schema.object(properties: {
+            'amount': Schema.number(
+                description: 'The amount spent.'),
+            'remarks': Schema.string(
+                description: 'A brief description or remark about the expense.'),
+            'category': Schema.string(
+                description: 'The category of the expense (e.g., Food, Transport). Optional if category can be inferred.'),
+            'date': Schema.string(
+                description: 'The date of the expense in ISO 8601 format (YYYY-MM-DD). Use current date if today, or ask user if not provided.'),
+            'profileId': Schema.integer(
+                description: 'The user profile ID.'),
+          }, requiredProperties: [
+            'amount',
+            'remarks',
+            'profileId'
+          ]),
+        ),
       ])
     ];
 
@@ -103,10 +123,26 @@ class AIService {
       apiKey: _apiKey,
       tools: tools,
       systemInstruction: Content.system(
-          'Your name is Anila, a helpful AI financial assistant for the Expense Tracker app. '
-          'You help users manage their expenses, provide spending insights, and answer financial questions. '
-          'Always be professional, encouraging, and concise. '
-          'Always respond in English, even if the user asks questions in other languages.'),
+      '# ROLE\n'
+      'Your name is Anila, a helpful and professional AI financial assistant for the Expense Tracker app.\n\n'
+
+      '# TOOL USAGE POLICY\n'
+      '- SEARCH: Only use the web search tool if the user asks for real-time data (e.g., current exchange rates, stock prices) or if the query is outside your internal knowledge base. Do NOT search for general knowledge, basic math, or app-related logic.\n'
+      '- EXPENSE TOOLS: Prioritize using local tools for any task involving the user’s financial data.\n\n'
+
+      '# STRICT CONSTRAINTS\n'
+      '- LANGUAGE: Always respond in English. This is mandatory, even if the user greets or questions you in other languages.\n'
+      '- BREVITY: Be concise. Avoid long-winded explanations unless specifically asked for deep insights.\n\n'
+
+      '# RESPONSIBILITIES\n'
+      '1. Manage and track user expenses using the provided tools.\n'
+      '2. Provide actionable spending insights and financial advice.\n'
+      '3. Answer general knowledge questions using your internal knowledge first. After answering, pivot back to how you can help with their budget.\n'
+      '4. DATA INTEGRITY: When creating expenses, if the user provides an expense without a date, ask for it unless "today" or a specific day is implied. If a category is missing or ambiguous, the tool will try to find a similar one, but you should confirm with the user if it\'s unsure. \n\n'
+
+      '# TONE\n'
+      'Maintain a professional, encouraging, and supportive personality.'
+    ),
     );
 
     _chatSession = _chatModel.startChat();
@@ -326,6 +362,68 @@ class AIService {
         } catch (e) {
           return {'error': 'Failed to perform web search: $e'};
         }
+
+      case 'createExpense':
+        final amount = (functionCall.args['amount'] as num).toDouble();
+        final remarks = functionCall.args['remarks'] as String;
+        final profileId = functionCall.args['profileId'] as int;
+        String? categoryName = functionCall.args['category'] as String?;
+        String? dateStr = functionCall.args['date'] as String?;
+
+        if (dateStr == null) {
+          return {
+            'status': 'missing_info',
+            'message': 'Please ask the user for the date of this expense.'
+          };
+        }
+
+        DateTime expenseDate;
+        try {
+          expenseDate = DateTime.parse(dateStr);
+        } catch (e) {
+          return {
+            'status': 'error',
+            'message': 'Invalid date format. Please provide date in YYYY-MM-DD format.'
+          };
+        }
+
+        Category? category;
+        if (categoryName == null || categoryName.isEmpty) {
+          // Try to look for similar expense
+          category = await persistenceContext.getCategoryForRemark(remarks);
+          if (category == null) {
+            return {
+              'status': 'missing_info',
+              'message': 'Category not found for similar expenses. Please ask the user for the category.'
+            };
+          }
+          categoryName = category.category;
+        } else {
+          // Find category by name or create/use fallback
+          final categories = await persistenceContext.getCategories();
+          category = categories.firstWhere(
+            (c) => c.category.toLowerCase() == categoryName!.toLowerCase(),
+            orElse: () => Category(0, categoryName!),
+          );
+        }
+
+        final expense = Expense(
+          profileId: profileId,
+          categoryId: category.categoryId,
+          category: category.category,
+          amount: amount,
+          remarks: remarks,
+          expenseDate: expenseDate,
+          entryDate: DateTime.now(),
+        );
+
+        final id = await persistenceContext.saveOrUpdateExpense(expense);
+        return {
+          'status': 'success',
+          'message': 'Expense created successfully with ID: $id',
+          'expense': expense.toMap(),
+          'inferredCategory': category.categoryId == 0 ? false : (functionCall.args['category'] == null)
+        };
 
       default:
         throw UnimplementedError('Function ${functionCall.name} not implemented');
