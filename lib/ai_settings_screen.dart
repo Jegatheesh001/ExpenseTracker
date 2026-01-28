@@ -10,8 +10,10 @@ class AISettingsScreen extends StatefulWidget {
 }
 
 class _AISettingsScreenState extends State<AISettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelNameController = TextEditingController();
+  final TextEditingController _googleSearchEngineIdController = TextEditingController();
   late SharedPreferences _prefs;
 
   @override
@@ -25,17 +27,21 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     setState(() {
       _apiKeyController.text = _prefs.getString(PrefKeys.geminiApiKey) ?? '';
       _modelNameController.text = _prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
+      _googleSearchEngineIdController.text = _prefs.getString(PrefKeys.googleSearchEngineId) ?? '';
     });
   }
 
   Future<void> _saveSettings() async {
-    await _prefs.setString(PrefKeys.geminiApiKey, _apiKeyController.text.trim());
-    await _prefs.setString(PrefKeys.geminiModelName, _modelNameController.text.trim());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI Settings saved successfully')),
-      );
-      Navigator.pop(context);
+    if (_formKey.currentState!.validate()) {
+      await _prefs.setString(PrefKeys.geminiApiKey, _apiKeyController.text.trim());
+      await _prefs.setString(PrefKeys.geminiModelName, _modelNameController.text.trim());
+      await _prefs.setString(PrefKeys.googleSearchEngineId, _googleSearchEngineIdController.text.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI Settings saved successfully')),
+        );
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -43,6 +49,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   void dispose() {
     _apiKeyController.dispose();
     _modelNameController.dispose();
+    _googleSearchEngineIdController.dispose();
     super.dispose();
   }
 
@@ -54,51 +61,80 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Configure your Google Gemini settings to enable AI features like Spending Insights.',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _apiKeyController,
-              decoration: const InputDecoration(
-                labelText: 'Gemini API Key',
-                hintText: 'Enter your API Key',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.vpn_key),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              const Text(
+                'Configure your Google Gemini settings to enable AI features like Spending Insights.',
+                style: TextStyle(fontSize: 16),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _modelNameController,
-              decoration: const InputDecoration(
-                labelText: 'Model Name',
-                hintText: 'e.g., gemini-1.5-flash-latest',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.model_training),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _apiKeyController,
+                decoration: const InputDecoration(
+                  labelText: 'Gemini API Key',
+                  hintText: 'Enter your API Key',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.vpn_key),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your Gemini API Key';
+                  }
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _saveSettings,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _modelNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Model Name',
+                  hintText: 'e.g., gemini-2.5-flash',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.model_training),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a model name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Google Custom Search settings (Optional)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _googleSearchEngineIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Google Search Engine ID (CX)',
+                  hintText: 'Enter your Search Engine ID (CX)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.travel_explore),
                 ),
               ),
-              child: const Text('Save Settings', style: TextStyle(fontSize: 16)),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'You can get an API key for free from the Google AI Studio website.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _saveSettings,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Save Settings', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'You can get an API key for free from the Google AI Studio website. The same key is used for Google Search if configured.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       ),
     );

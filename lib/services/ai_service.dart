@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:intl/intl.dart';
@@ -73,6 +75,21 @@ class AIService {
             'profileId'
           ]),
         ),
+        FunctionDeclaration(
+          'getCurrentDateInfo',
+          'Retrieves the current date information (year, month, day, etc.). Use this to find the related date info. For example, if the user doesn\'t mention a year, include the current year; if the month is not specified, use the current month; similarly for last week, last month, next month, etc.',
+          Schema.object(properties: {}),
+        ),
+        FunctionDeclaration(
+          'googleWebSearch',
+          'Performs a web search using Google Custom Search API. Use this ONLY if the internal tools and MCP data are insufficient to answer the user\'s query. Always prioritize internal data and expense-related tools first. THIS TOOL REQUIRES USER CONFIRMATION.',
+          Schema.object(properties: {
+            'query': Schema.string(
+                description: 'The search query to look up on the web.'),
+          }, requiredProperties: [
+            'query'
+          ]),
+        ),
       ])
     ];
 
@@ -85,6 +102,11 @@ class AIService {
       model: _modelName,
       apiKey: _apiKey,
       tools: tools,
+      systemInstruction: Content.system(
+          'Your name is Anila, a helpful AI financial assistant for the Expense Tracker app. '
+          'You help users manage their expenses, provide spending insights, and answer financial questions. '
+          'Always be professional, encouraging, and concise. '
+          'Always respond in English, even if the user asks questions in other languages.'),
     );
 
     _chatSession = _chatModel.startChat();
@@ -98,7 +120,7 @@ class AIService {
     final expenseSummary = _prepareExpenseSummary(expenses, currencySymbol);
 
     final prompt = '''
-    You are a professional financial advisor. Analyze the following expense data and provide:
+    Your name is Anila, a professional financial advisor. Analyze the following expense data and provide:
     1. A brief summary of spending (top categories and total).
     2. Key trends or observations (e.g., unusual spikes, recurring costs).
     3. Three actionable tips to save money based on this specific data.
@@ -228,6 +250,7 @@ class AIService {
 
   Future<Map<String, dynamic>> executeFunctionCall(FunctionCall functionCall) async {
     final persistenceContext = PersistenceContext();
+    final prefs = await SharedPreferences.getInstance();
     debugPrint("Executing function call: ${functionCall.name} with args: ${functionCall.args}");
 
     switch (functionCall.name) {
@@ -255,6 +278,54 @@ class AIService {
         final profileId = functionCall.args['profileId'] as int;
         final total = await persistenceContext.getExpenseSumByMonth(date, profileId);
         return {'totalExpense': total};
+
+      case 'getCurrentDateInfo':
+        final now = DateTime.now();
+        return {
+          'year': now.year,
+          'month': now.month,
+          'day': now.day,
+          'weekday': DateFormat('EEEE').format(now),
+          'monthName': DateFormat('MMMM').format(now),
+          'fullDate': DateFormat('yyyy-MM-dd').format(now),
+        };
+
+      case 'googleWebSearch':
+        final query = functionCall.args['query'] as String;
+        final apiKey = _apiKey;
+        final cx = prefs.getString(PrefKeys.googleSearchEngineId) ?? '';
+
+        if (apiKey.isEmpty || cx.isEmpty) {
+          return {'error': 'Gemini API Key or Google Search Engine ID is not configured in AI Settings.'};
+        }
+
+        try {
+          final url = Uri.parse(
+              'https://www.googleapis.com/customsearch/v1?key=$apiKey&cx=$cx&q=${Uri.encodeComponent(query)}');
+          final response = await http.get(url);
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            final items = data['items'] as List<dynamic>?;
+            if (items == null || items.isEmpty) {
+              return {'results': [], 'message': 'No results found.'};
+            }
+            final results = items.take(5).map((item) {
+              return {
+                'title': item['title'],
+                'link': item['link'],
+                'snippet': item['snippet'],
+              };
+            }).toList();
+            return {'results': results};
+          } else {
+            final data = jsonDecode(response.body);
+            final error = data['error']?['message'] ?? 'Unknown error';
+            return {'error': 'Google Search API error: ${response.statusCode} - $error'};
+          }
+        } catch (e) {
+          return {'error': 'Failed to perform web search: $e'};
+        }
 
       default:
         throw UnimplementedError('Function ${functionCall.name} not implemented');

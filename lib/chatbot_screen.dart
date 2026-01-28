@@ -9,6 +9,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:expense_tracker/currency_symbol.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final int profileId;
@@ -95,8 +96,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Future<void> _sendMessage({String? text, String? audioPath}) async {
+    final bool isVoice = audioPath != null;
     final messageText = text ?? _controller.text.trim();
-    if (messageText.isEmpty && audioPath == null) return;
+    if (messageText.isEmpty && !isVoice) return;
 
     setState(() {
       _messages.add({
@@ -125,7 +127,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         parts.add(DataPart('audio/m4a', bytes));
       }
       
-      final contextPrompt = "The current user's profile ID is ${widget.profileId}.";
+      final prefs = await SharedPreferences.getInstance();
+      final currency = prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
+      final currencySymbol = CurrencySymbol().getSymbol(currency);
+      final userName = prefs.getString(PrefKeys.username) ?? 'User';
+      
+      final contextPrompt = "CONTEXT: User Profile ID: ${widget.profileId}, User Name: $userName, Currency Symbol: $currencySymbol. "
+          "INSTRUCTIONS: Always use the currency symbol $currencySymbol for all monetary values.";
       final promptText = audioPath != null ? "$contextPrompt [Listen to this audio and respond]" : "$contextPrompt $messageText";
       parts.add(TextPart(promptText));
 
@@ -137,6 +145,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
         final functionResponses = <FunctionResponse>[];
         for (final functionCall in functionCalls) {
+          if (functionCall.name == 'googleWebSearch') {
+            final bool? confirmed = await _showSearchConfirmationDialog(functionCall.args['query'] as String);
+            if (confirmed != true) {
+              functionResponses.add(FunctionResponse(functionCall.name, {'error': 'User cancelled web search.'}));
+              continue;
+            }
+          }
+
           setState(() {
             _messages.add({
               "role": "tool",
@@ -161,7 +177,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _scrollToBottom();
       
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
+        if (mounted && !isVoice) {
           _focusNode.requestFocus();
         }
       });
@@ -220,6 +236,26 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         _isSpeaking = false;
       });
     }
+  }
+
+  Future<bool?> _showSearchConfirmationDialog(String query) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Web Search Permission"),
+        content: Text("Anila wants to search the web for: \"$query\". Allow?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Search"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _toggleRecording() async {

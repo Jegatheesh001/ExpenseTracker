@@ -18,6 +18,7 @@ class PrefKeys {
   static const String dailyLimit = 'dailyLimit';
   static const String geminiApiKey = 'geminiApiKey';
   static const String geminiModelName = 'geminiModelName';
+  static const String googleSearchEngineId = 'googleSearchEngineId';
   static const String lastAIInsights = 'lastAIInsights';
   static const String lastAIInsightsTimestamp = 'lastAIInsightsTimestamp';
 }
