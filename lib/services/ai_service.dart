@@ -100,6 +100,8 @@ class AIService {
                 description: 'A brief description or remark about the expense.'),
             'category': Schema.string(
                 description: 'The category of the expense (e.g., Food, Transport). Optional if category can be inferred.'),
+            'categoryId': Schema.integer(
+                description: 'The ID of the category. Preferred over category name. Get this using listCategories tool.'),
             'date': Schema.string(
                 description: 'The date of the expense in ISO 8601 format (YYYY-MM-DD). Use current date if today, or ask user if not provided.'),
             'profileId': Schema.integer(
@@ -109,6 +111,11 @@ class AIService {
             'remarks',
             'profileId'
           ]),
+        ),
+        FunctionDeclaration(
+          'listCategories',
+          'Retrieves a list of all available categories with their IDs and names.',
+          Schema.object(properties: {}),
         ),
       ])
     ];
@@ -138,7 +145,8 @@ class AIService {
       '1. Manage and track user expenses using the provided tools.\n'
       '2. Provide actionable spending insights and financial advice.\n'
       '3. Answer general knowledge questions using your internal knowledge first. After answering, pivot back to how you can help with their budget.\n'
-      '4. DATA INTEGRITY: When creating expenses, if the user provides an expense without a date, ask for it unless "today" or a specific day is implied. If a category is missing or ambiguous, the tool will try to find a similar one, but you should confirm with the user if it\'s unsure. \n\n'
+      '4. CATEGORY MANAGEMENT: When the user provides a category name for an expense, always use the `listCategories` tool to find the matching `categoryId`. If the category does not exist, you can use the categoryId from similar expense by search.\n'
+      '5. DATA INTEGRITY: When creating expenses, if the user provides an expense without a date, ask for it unless "today" or a specific day is implied. If a category is missing or ambiguous, the tool will try to find a similar one, but you should confirm with the user if it\'s unsure. \n\n'
 
       '# TONE\n'
       'Maintain a professional, encouraging, and supportive personality.'
@@ -363,11 +371,16 @@ class AIService {
           return {'error': 'Failed to perform web search: $e'};
         }
 
+      case 'listCategories':
+        final categories = await persistenceContext.getCategories();
+        return {'categories': categories.map((c) => c.toMap()).toList()};
+
       case 'createExpense':
         final amount = (functionCall.args['amount'] as num).toDouble();
         final remarks = functionCall.args['remarks'] as String;
         final profileId = functionCall.args['profileId'] as int;
         String? categoryName = functionCall.args['category'] as String?;
+        int? categoryId = functionCall.args['categoryId'] as int?;
         String? dateStr = functionCall.args['date'] as String?;
 
         if (dateStr == null) {
@@ -388,7 +401,14 @@ class AIService {
         }
 
         Category? category;
-        if (categoryName == null || categoryName.isEmpty) {
+        if (categoryId != null && categoryId != 0) {
+          final categories = await persistenceContext.getCategories();
+          category = categories.firstWhere(
+            (c) => c.categoryId == categoryId,
+            orElse: () => Category(0, categoryName ?? 'Uncategorized'),
+          );
+          categoryName = category.category;
+        } else if (categoryName == null || categoryName.isEmpty) {
           // Try to look for similar expense
           category = await persistenceContext.getCategoryForRemark(remarks);
           if (category == null) {
