@@ -23,7 +23,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  final List<Map<String, String>> _messages = [];
+  final List<Map<String, dynamic>> _chatMessages = <Map<String, dynamic>>[];
+  final Set<int> _expandedToolMessages = {};
   bool _isLoading = false;
   AIService? _aiService;
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -101,7 +102,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (messageText.isEmpty && !isVoice) return;
 
     setState(() {
-      _messages.add({
+      _chatMessages.add(<String, dynamic>{
         "role": "user",
         "content": audioPath != null ? "🎤 [Voice Message]" : messageText,
       });
@@ -144,6 +145,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         if (functionCalls.isEmpty) break;
 
         final functionResponses = <FunctionResponse>[];
+        
+        // Group multiple function calls. If previous message was a tool, append to it.
+        final String newToolMessageContent = functionCalls.map((fc) => "Calling: ${fc.name}\nArgs: ${fc.args}").join("\n\n");
+        
+        setState(() {
+          if (_chatMessages.isNotEmpty && _chatMessages.last["role"] == "tool") {
+            _chatMessages.last["content"] = "${_chatMessages.last["content"]}\n\n$newToolMessageContent";
+          } else {
+            _chatMessages.add(<String, dynamic>{
+              "role": "tool",
+              "content": newToolMessageContent,
+            });
+          }
+        });
+        _scrollToBottom();
+
         for (final functionCall in functionCalls) {
           if (functionCall.name == 'googleWebSearch') {
             final bool? confirmed = await _showSearchConfirmationDialog(functionCall.args['query'] as String);
@@ -152,14 +169,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               continue;
             }
           }
-
-          setState(() {
-            _messages.add({
-              "role": "tool",
-              "content": "Calling: ${functionCall.name}\nArgs: ${functionCall.args}",
-            });
-          });
-          _scrollToBottom();
 
           final result = await _aiService!.executeFunctionCall(functionCall);
           functionResponses.add(FunctionResponse(functionCall.name, result));
@@ -171,7 +180,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       final responseText = response.text ?? "No response from AI.";
 
       setState(() {
-        _messages.add({"role": "bot", "content": responseText});
+        _chatMessages.add(<String, dynamic>{"role": "bot", "content": responseText});
         _isLoading = false;
       });
       _scrollToBottom();
@@ -189,7 +198,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
     } catch (e) {
       setState(() {
-        _messages.add({"role": "bot", "content": "Error: $e"});
+        _chatMessages.add(<String, dynamic>{"role": "bot", "content": "Error: $e"});
         _isLoading = false;
       });
       _scrollToBottom();
@@ -236,7 +245,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   void _startNewChat() {
     _stopSpeaking();
     setState(() {
-      _messages.clear();
+      _chatMessages.clear();
       _isMuted = true;
       _aiService?.resetChat();
     });
@@ -309,7 +318,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Chat with Anila"),
+        title: const Text("Ask Chatbot AI"),
         actions: [
           if (_isSpeaking)
             IconButton(
@@ -335,7 +344,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           Expanded(
             child: Stack(
               children: [
-                if (_messages.isEmpty)
+                if (_chatMessages.isEmpty)
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -360,61 +369,104 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
+                  itemCount: _chatMessages.length,
                   itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final role = msg["role"];
-                final isUser = role == "user";
-                final isTool = role == "tool";
+                    final msg = _chatMessages[index];
+                    final role = msg["role"];
+                    final isUser = role == "user";
+                    final isTool = role == "tool";
 
-                return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isUser 
-                          ? Colors.teal 
-                          : isTool 
-                              ? Colors.blueGrey[900]?.withOpacity(0.5) 
-                              : Colors.grey[800],
-                      borderRadius: BorderRadius.circular(12),
-                      border: isTool ? Border.all(color: Colors.blueGrey, width: 0.5) : null,
-                    ),
-                    child: isUser 
-                      ? Text(
-                          msg["content"]!,
-                          style: const TextStyle(color: Colors.white),
-                        )
-                      : isTool
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.settings_suggest, size: 16, color: Colors.blueAccent),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  msg["content"]!,
-                                  style: const TextStyle(
-                                    color: Colors.blueAccent,
-                                    fontSize: 12,
-                                    fontStyle: FontStyle.italic,
-                                  ),
+                    if (isTool) {
+                      final isExpanded = _expandedToolMessages.contains(index);
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedToolMessages.remove(index);
+                              } else {
+                                _expandedToolMessages.add(index);
+                              }
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey[900]?.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blueGrey.withOpacity(0.5), width: 0.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isExpanded ? Icons.unfold_less : Icons.settings_suggest,
+                                      size: 16,
+                                      color: Colors.blueAccent.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      isExpanded ? "Hide tool details" : "Tool used",
+                                      style: TextStyle(
+                                        color: Colors.blueAccent.withOpacity(0.7),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (!isExpanded) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(Icons.arrow_drop_down, size: 16, color: Colors.blueAccent.withOpacity(0.7)),
+                                    ],
+                                  ],
                                 ),
-                              ),
-                            ],
-                          )
-                        : MarkdownBody(
-                            data: msg["content"]!,
-                            styleSheet: MarkdownStyleSheet(
-                              p: const TextStyle(color: Colors.white),
-                              strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                if (isExpanded) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    msg["content"]!,
+                                    style: const TextStyle(
+                                      color: Colors.blueAccent,
+                                      fontSize: 12,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                  ),
-                );
-              },
-            ),
+                        ),
+                      );
+                    }
+
+                    return Align(
+                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isUser ? Colors.teal : Colors.grey[800],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: isUser
+                            ? Text(
+                                msg["content"]!,
+                                style: const TextStyle(color: Colors.white),
+                              )
+                            : MarkdownBody(
+                                data: msg["content"]!,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: const TextStyle(color: Colors.white),
+                                  strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                      ),
+                    );
+                  },
+                ),
           ],
         ),
       ),
