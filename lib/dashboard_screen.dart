@@ -1,3 +1,4 @@
+import 'package:expense_tracker/atm_withdrawal_screen.dart';
 import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -439,12 +440,38 @@ class DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        TextButton(
-          onPressed: _showBalanceManagementDialog,
-          child: Text(
-            'Manage',
-            style: TextStyle(color: Theme.of(context).colorScheme.primary),
-          ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.atm_rounded),
+              tooltip: 'ATM Withdrawal',
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AtmWithdrawalScreen(
+                      profileId: widget.profileId,
+                      onBalanceUpdate: () {
+                        refresh();
+                        widget.onWalletAmountChange();
+                      },
+                    ),
+                  ),
+                );
+                if (result == true) {
+                  refresh();
+                  widget.onWalletAmountChange();
+                }
+              },
+            ),
+            TextButton(
+              onPressed: _showBalanceManagementDialog,
+              child: Text(
+                'Manage',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+          ],
         ),
       ],
     );
