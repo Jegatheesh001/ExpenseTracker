@@ -7,6 +7,11 @@ import 'db/entity.dart';
 import 'db/persistence_context.dart';
 import 'attach_image_screen.dart';
 import 'pref_keys.dart';
+import 'services/ocr_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 enum PaymentMethod { cash, bank, none }
 
@@ -37,6 +42,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   List<String> _suggestedTags = [];
   bool _userManuallySelectedCategory = false;
   String _currencySymbol = '';
+  final OCRService _ocrService = OCRService();
+  final ImagePicker _picker = ImagePicker();
+  bool _isProcessingOCR = false;
+  String? _tempImagePath;
+  bool _ocrEnabledInSettings = false;
 
   @override
   void initState() {
@@ -65,6 +75,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _loadCurrencySymbol(expenseToEdit?.profileId ?? _profileId);
     });
     _remarksController.addListener(_updateSuggestedTags);
+    _loadOCRSettings();
+  }
+
+  Future<void> _loadOCRSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _ocrEnabledInSettings = prefs.getBool(PrefKeys.ocrEnabled) ?? false;
+    });
   }
 
   void _updateCategoryFromRemarks() {
@@ -239,8 +257,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
 
       if (confirmUpdate) {
-        await PersistenceContext().saveOrUpdateExpense(newExpense);
+        final int id = await PersistenceContext().saveOrUpdateExpense(newExpense);
         await _updateBalances(amount);
+
+        // Auto attach image if scanned
+        if (_tempImagePath != null) {
+          try {
+            final directory = await getApplicationDocumentsDirectory();
+            final imagesDirectory = Directory(path.join(directory.path, 'attachments', id.toString()));
+            if (!await imagesDirectory.exists()) {
+              await imagesDirectory.create(recursive: true);
+            }
+            final String fileName = path.basename(_tempImagePath!);
+            final String newPath = path.join(imagesDirectory.path, fileName);
+            await File(_tempImagePath!).copy(newPath);
+          } catch (e) {
+            debugPrint("Error auto-attaching image: $e");
+          }
+        }
+
         Navigator.pop(context, true);
       }
     }
@@ -306,6 +341,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void dispose() {
+    _ocrService.dispose();
     _categoryController.dispose();
     _amountController.dispose();
     _remarksController.removeListener(_updateSuggestedTags);
@@ -315,12 +351,80 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.dispose();
   }
 
+  Future<void> _scanReceipt() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image == null) return;
+
+    setState(() {
+      _isProcessingOCR = true;
+    });
+
+    try {
+      final result = await _ocrService.processImage(image.path);
+      if (mounted) {
+        setState(() {
+          if (result.amount != null) {
+            _amountController.text = result.amount!.toStringAsFixed(2);
+          }
+          if (result.merchant != null) {
+            _remarksController.text = result.merchant!;
+          }
+          if (result.date != null) {
+            if (result.time != null) {
+              try {
+                final timeParts = result.time!.split(':');
+                final hour = int.parse(timeParts[0]);
+                final minute = int.parse(timeParts[1]);
+                _selectedDate = DateTime(
+                  result.date!.year,
+                  result.date!.month,
+                  result.date!.day,
+                  hour,
+                  minute,
+                );
+              } catch (e) {
+                _selectedDate = result.date!;
+              }
+            } else {
+              _selectedDate = result.date!;
+            }
+          }
+          _isProcessingOCR = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Receipt scanned successfully!')),
+        );
+
+        // Store the image path to attach after saving
+        _tempImagePath = image.path;
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessingOCR = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error scanning receipt: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text((expenseToEdit != null && expenseToEdit!.id != null) ? 'Edit Expense' : 'Add Expense'),
         actions: [
+          if (_ocrEnabledInSettings)
+            IconButton(
+              icon: _isProcessingOCR 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.document_scanner_outlined),
+              tooltip: 'Scan Receipt',
+              onPressed: _isProcessingOCR ? null : _scanReceipt,
+            ),
           if (expenseToEdit != null && expenseToEdit!.id != null)
             IconButton(
               icon: const Icon(Icons.attach_file),

@@ -164,7 +164,7 @@ class AIService {
     final expenseSummary = _prepareExpenseSummary(expenses, currencySymbol);
 
     final prompt = '''
-    Your name is Anila, a professional financial advisor. Analyze the following expense data and provide:
+    You are a professional financial advisor. Analyze the following expense data and provide:
     1. A brief summary of spending (top categories and total).
     2. Key trends or observations (e.g., unusual spikes, recurring costs).
     3. Three actionable tips to save money based on this specific data.

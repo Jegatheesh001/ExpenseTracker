@@ -21,4 +21,6 @@ class PrefKeys {
   static const String googleSearchEngineId = 'googleSearchEngineId';
   static const String lastAIInsights = 'lastAIInsights';
   static const String lastAIInsightsTimestamp = 'lastAIInsightsTimestamp';
+  static const String ocrEnabled = 'ocrEnabled';
+  static const String ocrModelName = 'ocrModelName';
 }

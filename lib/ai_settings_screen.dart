@@ -14,6 +14,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelNameController = TextEditingController();
   final TextEditingController _googleSearchEngineIdController = TextEditingController();
+  final TextEditingController _ocrModelNameController = TextEditingController();
+  bool _ocrEnabled = false;
   late SharedPreferences _prefs;
 
   @override
@@ -28,6 +30,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       _apiKeyController.text = _prefs.getString(PrefKeys.geminiApiKey) ?? '';
       _modelNameController.text = _prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
       _googleSearchEngineIdController.text = _prefs.getString(PrefKeys.googleSearchEngineId) ?? '';
+      _ocrModelNameController.text = _prefs.getString(PrefKeys.ocrModelName) ?? 'gemini-1.5-flash-latest';
+      _ocrEnabled = _prefs.getBool(PrefKeys.ocrEnabled) ?? false;
     });
   }
 
@@ -36,6 +40,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       await _prefs.setString(PrefKeys.geminiApiKey, _apiKeyController.text.trim());
       await _prefs.setString(PrefKeys.geminiModelName, _modelNameController.text.trim());
       await _prefs.setString(PrefKeys.googleSearchEngineId, _googleSearchEngineIdController.text.trim());
+      await _prefs.setString(PrefKeys.ocrModelName, _ocrModelNameController.text.trim());
+      await _prefs.setBool(PrefKeys.ocrEnabled, _ocrEnabled);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('AI Settings saved successfully')),
@@ -50,6 +56,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     _apiKeyController.dispose();
     _modelNameController.dispose();
     _googleSearchEngineIdController.dispose();
+    _ocrModelNameController.dispose();
     super.dispose();
   }
 
@@ -115,6 +122,39 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.travel_explore),
                 ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'OCR Settings (Receipt Scanning)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Enable Gemini OCR'),
+                subtitle: const Text('Use AI to scan receipts and auto-fill details'),
+                value: _ocrEnabled,
+                onChanged: (bool value) {
+                  setState(() {
+                    _ocrEnabled = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _ocrModelNameController,
+                enabled: _ocrEnabled,
+                decoration: const InputDecoration(
+                  labelText: 'OCR Model Name',
+                  hintText: 'e.g., gemini-2.5-flash',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.center_focus_weak),
+                ),
+                validator: (value) {
+                  if (_ocrEnabled && (value == null || value.trim().isEmpty)) {
+                    return 'Please enter a model name for OCR';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
               ElevatedButton(
