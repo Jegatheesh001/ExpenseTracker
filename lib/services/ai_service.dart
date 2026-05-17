@@ -232,6 +232,37 @@ class AIService {
     return summary;
   }
 
+  Future<String> getTrendInsights(Map<String, double> trendData, String currencySymbol, String trendType) async {
+    if (trendData.isEmpty) {
+      return "No trend data available for analysis.";
+    }
+
+    final trendSummary = trendData.entries.map((e) => "${e.key}: $currencySymbol${e.value.toStringAsFixed(2)}").join("\n");
+
+    final prompt = '''
+    You are a professional financial advisor. Analyze the following $trendType expense trend data and provide:
+    1. A brief analysis of the trend (is it increasing, decreasing, or stable?).
+    2. Identification of any significant peaks or drops and what they might imply.
+    3. Two actionable suggestions to improve financial health based on this specific trend.
+    4. A concise, encouraging conclusion.
+
+    Keep the tone professional and concise. Use markdown for formatting.
+    Use the currency symbol: $currencySymbol
+
+    Trend Data ($trendType):
+    $trendSummary
+    ''';
+
+    try {
+      final content = [Content.text(prompt)];
+      final response = await _model.generateContent(content);
+      return response.text ?? "Sorry, I couldn't generate trend insights at this moment.";
+    } catch (e) {
+      print('Gemini API Error: $e');
+      return "Error generating trend insights: $e";
+    }
+  }
+
   Future<Uint8List?> generateSpeech(String text) async {
     try {
       // Step 1: Detect the language of the input text

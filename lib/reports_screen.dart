@@ -1,5 +1,6 @@
 import 'package:expense_tracker/ai_insights_screen.dart';
 import 'package:expense_tracker/category_month_view_screen.dart';
+import 'package:expense_tracker/interactive_trends_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -78,16 +79,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 _showMonthlyReport = true;
               });
             },
-          ),
-          IconButton(
-            style: IconButton.styleFrom(
-              backgroundColor: !_showMonthlyReport ? Theme.of(context).highlightColor : Colors.transparent,
-            ),
-            icon: Icon(Icons.bar_chart, color: !_showMonthlyReport ? Colors.white : Colors.grey),
+          ),IconButton(
+            icon: const Icon(Icons.auto_graph, color: Colors.blue),
+            tooltip: 'Interactive AI Trends',
             onPressed: () {
-              setState(() {
-                _showMonthlyReport = false;
-              });
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => InteractiveTrendsScreen(
+                    profileId: widget.profileId,
+                    currencySymbol: widget.currencySymbol,
+                  ),
+                ),
+              );
             },
           ),
           IconButton(

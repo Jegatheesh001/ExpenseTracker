@@ -19,9 +19,19 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   Monitor your wallet balance, which can be updated through settings and reflects changes after adding or editing expenses.
 
 *   **Reports & Analysis:**
-    *   **Pie Chart Expense View:**
+*   **Pie Chart Expense View:**
         *   Visualize your expenses with an intuitive pie chart.
         *   Switch between different months to see expense distribution over time.
+    *   **Interactive Spending Trends:**
+        *   Visualize spending patterns with interactive line and bar charts.
+        *   Toggle between daily (last 15 days) and monthly (last 5 months) views.
+        *   Includes AI-powered trend analysis to help you understand your financial habits.
+
+*   **AI Integration (Gemini AI):**
+    *   **AI Spending Insights:** Get personalized spending analysis based on your expense data from the last 3 months.
+    *   **Interactive AI Chatbot:** Anila, your AI assistant, can help you manage expenses, answer questions about your spending, and even perform web searches for financial information.
+    *   **Voice Interactions:** Support for voice messages and text-to-speech in the chatbot.
+    *   **AI-Powered Trend Analysis:** Automatic generation of insights based on your spending charts.
 
 *   **Customization & Settings:**
     *   **Theme:**
@@ -41,9 +51,12 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
     *   **Expense Status Bar:**
         *   Toggle the visibility of the monthly limit progress bar on the home screen.
         *   This preference is saved.
+    *   **Developer Mode:**
+        *   Advanced settings for developers to manage application preferences directly.
 *   **Data Management:**
         *   Option to delete all stored expense data.
         *   Data backup and restore options (local file export/import).
+        *   Support for exporting and importing images alongside expense data.
 
 *   **Tagging System:**
     *   Add one or more tags to each expense for granular filtering.
@@ -59,10 +72,16 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
 *   **Enhanced Wallet Functionality:**
     *   Optionally deduct expenses from the wallet balance directly from the "Add Expense" screen.
     *   The wallet balance is automatically updated when expenses are added, edited, or deleted.
+    *   **Bank & Cash Transfer:** Easily manage and transfer funds between your bank and cash accounts.
 
 *   **Image Attachment Details:**
     *   Attach images from the camera or gallery.
     *   Images are stored locally on the device's file system, organized by expense, ensuring the database remains lean and efficient.
+    *   **Image Viewer:** Full-screen image viewing with zoom and pan support.
+
+*   **Search & Filtering:**
+    *   **Global Search:** Find expenses quickly by remarks, category, or amount across all profiles.
+    *   **Tag Filtering:** Tap on tags to view all associated expenses grouped by month.
 
 *   **Categories:**
     *   Categorize expenses for better tracking.
@@ -108,6 +127,9 @@ To get a local copy up and running, follow these simple steps.
 *   **`fl_chart`:** For charts and reports.
 *   **`receive_sharing_intent`:** To enable sharing content from other apps.
 *   **`flutter_slidable`:** For swipe actions on list items.
+*   **`google_generative_ai`:** To power AI insights and chatbot features.
+*   **`audioplayers` & `record`:** For voice interaction support in the chatbot.
+*   **`flutter_markdown`:** For rendering AI-generated content with rich formatting.
 
 ## Data Persistence
 
@@ -125,7 +147,6 @@ The application uses SQLite for local data persistence. The database operations 
 *   Ability to set recurring expenses.
 *   Advanced search and filtering of expenses.
 *   Budgeting features to set limits for different categories.
-*   OCR for scanning receipts to automatically add expenses.
 *   Multi-language support.
 
 ## Contributing
