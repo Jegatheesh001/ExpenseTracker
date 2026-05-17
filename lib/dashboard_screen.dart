@@ -1,4 +1,4 @@
-import 'package:expense_tracker/atm_withdrawal_screen.dart';
+import 'package:expense_tracker/bank_cash_transfer_screen.dart';
 import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -444,12 +444,12 @@ class DashboardScreenState extends State<DashboardScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.atm_rounded),
-              tooltip: 'ATM Withdrawal',
+              tooltip: 'Bank & Cash Transfer',
               onPressed: () async {
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => AtmWithdrawalScreen(
+                    builder: (context) => BankCashTransferScreen(
                       profileId: widget.profileId,
                       onBalanceUpdate: () {
                         refresh();

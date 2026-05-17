@@ -3,27 +3,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pref_keys.dart';
 import 'currency_symbol.dart';
 
-class AtmWithdrawalScreen extends StatefulWidget {
+class BankCashTransferScreen extends StatefulWidget {
   final int profileId;
   final VoidCallback onBalanceUpdate;
 
-  const AtmWithdrawalScreen({
+  const BankCashTransferScreen({
     super.key,
     required this.profileId,
     required this.onBalanceUpdate,
   });
 
   @override
-  State<AtmWithdrawalScreen> createState() => _AtmWithdrawalScreenState();
+  State<BankCashTransferScreen> createState() => _BankCashTransferScreenState();
 }
 
-class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
+class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
   final _amountController = TextEditingController();
   double _bankBalance = 0.0;
   double _cashBalance = 0.0;
   String _currencySymbol = '₹';
   late SharedPreferences _prefs;
   bool _isLoading = true;
+  bool _isWithdrawal = true;
 
   @override
   void initState() {
@@ -48,7 +49,7 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
     super.dispose();
   }
 
-  Future<void> _processWithdrawal() async {
+  Future<void> _processTransaction() async {
     final amountText = _amountController.text;
     if (amountText.isEmpty) {
       _showError('Please enter an amount');
@@ -61,14 +62,21 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
       return;
     }
 
-    if (amount > _bankBalance) {
-      _showError('Insufficient bank balance');
-      return;
+    if (_isWithdrawal) {
+      if (amount > _bankBalance) {
+        _showError('Insufficient bank balance');
+        return;
+      }
+    } else {
+      if (amount > _cashBalance) {
+        _showError('Insufficient cash balance');
+        return;
+      }
     }
 
-    // Process withdrawal
-    final newBankBalance = _bankBalance - amount;
-    final newCashBalance = _cashBalance + amount;
+    // Process transaction
+    final newBankBalance = _isWithdrawal ? _bankBalance - amount : _bankBalance + amount;
+    final newCashBalance = _isWithdrawal ? _cashBalance + amount : _cashBalance - amount;
 
     await _prefs.setDouble('${PrefKeys.bankAmount}-${widget.profileId}', newBankBalance);
     await _prefs.setDouble('${PrefKeys.cashAmount}-${widget.profileId}', newCashBalance);
@@ -76,7 +84,11 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully withdrawn $_currencySymbol${amount.toStringAsFixed(2)}'),
+          content: Text(
+            _isWithdrawal
+                ? 'Successfully withdrawn $_currencySymbol${amount.toStringAsFixed(2)}'
+                : 'Successfully deposited $_currencySymbol${amount.toStringAsFixed(2)} into bank',
+          ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
@@ -105,7 +117,7 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ATM Withdrawal'),
+        title: const Text('Bank & Cash Transfer'),
         elevation: 0,
         backgroundColor: Colors.transparent,
       ),
@@ -115,9 +127,30 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildBalanceCard(theme),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text('Withdraw'),
+                  icon: Icon(Icons.arrow_downward),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text('Deposit'),
+                  icon: Icon(Icons.arrow_upward),
+                ),
+              ],
+              selected: {_isWithdrawal},
+              onSelectionChanged: (Set<bool> newSelection) {
+                setState(() {
+                  _isWithdrawal = newSelection.first;
+                });
+              },
+            ),
+            const SizedBox(height: 24),
             Text(
-              'Enter Withdrawal Amount',
+              _isWithdrawal ? 'Enter Withdrawal Amount' : 'Enter Deposit Amount',
               style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -140,19 +173,21 @@ class _AtmWithdrawalScreenState extends State<AtmWithdrawalScreen> {
             _buildQuickAmountButtons(theme),
             const SizedBox(height: 40),
             FilledButton.icon(
-              onPressed: _processWithdrawal,
+              onPressed: _processTransaction,
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: const Icon(Icons.account_balance_wallet),
-              label: const Text('Withdraw Cash', style: TextStyle(fontSize: 18)),
+              icon: Icon(_isWithdrawal ? Icons.account_balance_wallet : Icons.account_balance),
+              label: Text(_isWithdrawal ? 'Withdraw Cash' : 'Deposit into Bank', style: const TextStyle(fontSize: 18)),
             ),
             const SizedBox(height: 16),
             Text(
-              'This will deduct from your Bank Balance and add to your Cash Balance.',
+              _isWithdrawal
+                  ? 'This will deduct from your Bank Balance and add to your Cash Balance.'
+                  : 'This will deduct from your Cash Balance and add to your Bank Balance.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
