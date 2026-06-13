@@ -64,14 +64,6 @@ class DataBackup {
                   'expenseId': int.parse(parts[1]),
                   'tagId': int.parse(parts[2]),
                 });
-              } else if (parts[0] == 'BILLED_ITEM') {
-                billedItemsToInsert.add(BilledItem(
-                  id: int.parse(parts[1]),
-                  expenseId: int.parse(parts[2]),
-                  itemName: parts[3],
-                  quantity: double.parse(parts[4]),
-                  price: double.parse(parts[5]),
-                ));
               }
             } else if (parts.length == 4 && parts[0] == 'IMAGE') {
               final expenseId = int.parse(parts[1]);
@@ -87,6 +79,14 @@ class DataBackup {
               final imageFile = File(join(imagesDirectory.path, imageName));
               await imageFile.writeAsBytes(decodedBytes);
 
+            } else if (parts.length == 6 && parts[0] == 'BILLED_ITEM') {
+              billedItemsToInsert.add(BilledItem(
+                id: int.parse(parts[1]),
+                expenseId: int.parse(parts[2]),
+                itemName: parts[3],
+                quantity: double.parse(parts[4]),
+                price: double.parse(parts[5]),
+              ));
             } else if (parts.length == 9) {
               bool isActive = parts[6].toUpperCase() == 'Y';
               if(isActive) {
