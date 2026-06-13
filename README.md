@@ -5,6 +5,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
 
 *   **Expense Management:**
     *   Add new expenses with amount, remarks, and category.
+    *   **Billed Items:** Capture itemized details from receipts, including name, quantity, and price. Users can add, modify, or delete items and sync the total amount.
     *   Edit existing expense details.
     *   Delete individual expenses with confirmation.
     *   View expenses categorized by date.
@@ -29,6 +30,7 @@ Track and manage your daily expenses with ease using this feature-rich mobile ap
 
 *   **AI Integration (Gemini AI):**
     *   **AI Spending Insights:** Get personalized spending analysis based on your expense data from the last 3 months.
+    *   **Receipt Scanning (OCR):** Use Gemini AI to scan receipts and automatically extract details like merchant, date, amount, and itemized billed items.
     *   **Interactive AI Chatbot:** Anila, your AI assistant, can help you manage expenses, answer questions about your spending, and even perform web searches for financial information.
     *   **Voice Interactions:** Support for voice messages and text-to-speech in the chatbot.
     *   **AI-Powered Trend Analysis:** Automatic generation of insights based on your spending charts.

@@ -1,3 +1,39 @@
+class BilledItem {
+  final int? id;
+  final int? expenseId;
+  final String itemName;
+  final double quantity;
+  final double price;
+
+  BilledItem({
+    this.id,
+    this.expenseId,
+    required this.itemName,
+    required this.quantity,
+    required this.price,
+  });
+
+  factory BilledItem.fromMap(Map<String, dynamic> map) {
+    return BilledItem(
+      id: map['id'],
+      expenseId: map['expenseId'],
+      itemName: map['itemName'],
+      quantity: (map['quantity'] as num?)?.toDouble() ?? 1.0,
+      price: (map['price'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'expenseId': expenseId,
+      'itemName': itemName,
+      'quantity': quantity,
+      'price': price,
+    };
+  }
+}
+
 class Expense {
   final int? id;
   final int profileId;
@@ -9,9 +45,10 @@ class Expense {
   final DateTime entryDate;
   final List<String> tags;
   final String? paymentMethod;
+  final List<BilledItem> billedItems;
 
   // Factory constructor to create an Expense from a Map
-  factory Expense.fromMap(Map<String, dynamic> map, {List<String>? tags}) {
+  factory Expense.fromMap(Map<String, dynamic> map, {List<String>? tags, List<BilledItem>? billedItems}) {
     return Expense(
       id: map['id'],
       profileId: map['profileId'],
@@ -27,6 +64,7 @@ class Expense {
       ),
       tags: tags ?? [],
       paymentMethod: map['paymentMethod'],
+      billedItems: billedItems ?? [],
     );
   }
 
@@ -57,6 +95,7 @@ class Expense {
     required this.entryDate,
     this.tags = const [],
     this.paymentMethod,
+    this.billedItems = const [],
   });
 }
 

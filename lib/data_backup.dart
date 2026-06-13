@@ -30,6 +30,7 @@ class DataBackup {
         List<Expense> expensesToInsert = [];
         List<Tag> tagsToInsert = [];
         List<Map<String, int>> expenseTagsToInsert = [];
+        List<BilledItem> billedItemsToInsert = [];
         List<String> errors = [];
 
         final prefs = await SharedPreferences.getInstance();
@@ -63,6 +64,14 @@ class DataBackup {
                   'expenseId': int.parse(parts[1]),
                   'tagId': int.parse(parts[2]),
                 });
+              } else if (parts[0] == 'BILLED_ITEM') {
+                billedItemsToInsert.add(BilledItem(
+                  id: int.parse(parts[1]),
+                  expenseId: int.parse(parts[2]),
+                  itemName: parts[3],
+                  quantity: double.parse(parts[4]),
+                  price: double.parse(parts[5]),
+                ));
               }
             } else if (parts.length == 4 && parts[0] == 'IMAGE') {
               final expenseId = int.parse(parts[1]);
@@ -123,6 +132,9 @@ class DataBackup {
         for (var et in expenseTagsToInsert) {
           await db.saveExpenseTag(et['expenseId']!, et['tagId']!);
         }
+        for (BilledItem item in billedItemsToInsert) {
+          await db.saveBilledItem(item);
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Data imported successfully! ${errors.isEmpty ? "" : "Some lines had issues."}')),
@@ -155,6 +167,7 @@ class DataBackup {
       List<Expense> expenses = await db.getExpenses();
       List<Tag> tags = await db.getAllTagsWithId();
       List<Map<String, dynamic>> expenseTags = await db.getAllExpenseTags();
+      List<BilledItem> billedItems = await db.getAllBilledItems();
 
       StringBuffer exportContent = StringBuffer();
 
@@ -187,6 +200,10 @@ class DataBackup {
 
       for (var et in expenseTags) {
         exportContent.writeln('EXPENSE_TAG;;${et['expenseId']};;${et['tagId']}');
+      }
+
+      for (BilledItem item in billedItems) {
+        exportContent.writeln('BILLED_ITEM;;${item.id};;${item.expenseId};;${item.itemName};;${item.quantity};;${item.price}');
       }
 
       if (includeImages) {

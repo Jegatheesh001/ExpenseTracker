@@ -154,9 +154,17 @@ class _AttachImageScreenState extends State<AttachImageScreen> {
                                   imageFile: _attachedImages[index],
                                   imageList: _attachedImages, // Pass the whole list for gallery view
                                   initialIndex: index,        // Pass the current index
+                                  showRescanOption: true,
                                 ),
                               ),
-                            );
+                            ).then((result) {
+                              if (result == 'rescan') {
+                                Navigator.pop(context, {
+                                  'action': 'rescan',
+                                  'imagePath': _attachedImages[index].path,
+                                });
+                              }
+                            });
                           },
                           onLongPress: () {
                             showDialog(

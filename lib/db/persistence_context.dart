@@ -112,6 +112,14 @@ class PersistenceContext {
     return await DatabaseHelper().getAllExpenseTags();
   }
 
+  Future<List<BilledItem>> getAllBilledItems() async {
+    return await DatabaseHelper().getAllBilledItems();
+  }
+
+  Future<void> saveBilledItem(BilledItem item) async {
+    await DatabaseHelper().saveBilledItem(item);
+  }
+
   Future<void> saveTag(Tag tag) async {
     await DatabaseHelper().saveTag(tag);
   }

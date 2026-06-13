@@ -9,12 +9,14 @@ class ImageViewerScreen extends StatefulWidget {
   final File imageFile;
   final List<File>? imageList; // Optional: for gallery view
   final int? initialIndex; // Optional: for gallery view
+  final bool showRescanOption;
 
   const ImageViewerScreen({
     Key? key,
     required this.imageFile,
     this.imageList,
     this.initialIndex,
+    this.showRescanOption = false,
   }) : super(key: key);
 
   @override
@@ -39,6 +41,16 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
         title: const Text('Image Viewer'),
         backgroundColor: Colors.black, // Darker theme for image viewing
         elevation: 0, // Remove shadow for a cleaner look
+        actions: [
+          if (widget.showRescanOption)
+            IconButton(
+              icon: const Icon(Icons.document_scanner),
+              tooltip: 'Rescan Receipt',
+              onPressed: () {
+                Navigator.pop(context, 'rescan');
+              },
+            ),
+        ],
       ),
       backgroundColor: Colors.black, // Set background color for the body as well
       body: Stack(

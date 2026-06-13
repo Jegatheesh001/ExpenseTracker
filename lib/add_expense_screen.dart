@@ -47,6 +47,219 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isProcessingOCR = false;
   String? _tempImagePath;
   bool _ocrEnabledInSettings = false;
+  List<BilledItem> _billedItems = [];
+
+  void _showAddEditItemDialog({BilledItem? item, int? index, VoidCallback? onSaved}) {
+    final nameController = TextEditingController(text: item?.itemName ?? '');
+    final quantityController = TextEditingController(text: item?.quantity.toString() ?? '1');
+    final priceController = TextEditingController(text: item?.price.toString() ?? '');
+    final totalController = TextEditingController(text: (item != null) ? (item.quantity * item.price).toStringAsFixed(2) : '0.00');
+
+    void updateTotal() {
+      final q = double.tryParse(quantityController.text) ?? 0.0;
+      final p = double.tryParse(priceController.text) ?? 0.0;
+      totalController.text = (q * p).toStringAsFixed(2);
+    }
+
+    quantityController.addListener(updateTotal);
+    priceController.addListener(updateTotal);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(item == null ? 'Add Billed Item' : 'Edit Billed Item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Item Name'),
+                ),
+                TextField(
+                  controller: quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Quantity'),
+                ),
+                TextField(
+                  controller: priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Price'),
+                ),
+                TextField(
+                  controller: totalController,
+                  readOnly: true,
+                  decoration: const InputDecoration(labelText: 'Total'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                final quantity = double.tryParse(quantityController.text) ?? 1.0;
+                final price = double.tryParse(priceController.text) ?? 0.0;
+
+                if (name.isNotEmpty) {
+                  final newItem = BilledItem(
+                    id: item?.id,
+                    expenseId: item?.expenseId,
+                    itemName: name,
+                    quantity: quantity,
+                    price: price,
+                  );
+                  setState(() {
+                    if (index != null) {
+                      _billedItems[index] = newItem;
+                    } else {
+                      _billedItems.add(newItem);
+                    }
+                  });
+                  if (onSaved != null) onSaved();
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _syncTotal() {
+    double total = 0.0;
+    for (var item in _billedItems) {
+      total += item.quantity * item.price;
+    }
+    setState(() {
+      _amountController.text = total.toStringAsFixed(2);
+    });
+  }
+
+  void _showBilledItemsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateSheet) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16.0,
+                right: 16.0,
+                top: 16.0,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('Billed Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () {
+                              _showAddEditItemDialog(
+                                onSaved: () => setStateSheet(() {}),
+                              );
+                            },
+                            icon: const Icon(Icons.add_circle, color: Colors.blue),
+                            tooltip: 'Add Item',
+                          ),
+                        ],
+                      ),
+                      if (_billedItems.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            _syncTotal();
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Sync Total'),
+                        ),
+                    ],
+                  ),
+                  const Divider(),
+                  if (_billedItems.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16.0),
+                      child: Text('No billed items.', style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                    ),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _billedItems.length,
+                      itemBuilder: (context, index) {
+                        final item = _billedItems[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(item.itemName),
+                          subtitle: Text('${item.quantity} x $_currencySymbol${item.price}'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('$_currencySymbol${(item.quantity * item.price).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  setState(() {
+                                    _billedItems.removeAt(index);
+                                  });
+                                  setStateSheet(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            _showAddEditItemDialog(
+                              item: item,
+                              index: index,
+                              onSaved: () => setStateSheet(() {}),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  if (_billedItems.isNotEmpty) ...[
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            '$_currencySymbol${_billedItems.fold(0.0, (sum, item) => sum + (item.quantity * item.price)).toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -158,6 +371,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
     setState(() {
       _selectedCategory = selectedCategory;
+      _billedItems = List.from(expense.billedItems);
     });
   }
 
@@ -256,6 +470,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         profileId: _profileId, // Current profile ID
         tags: tags,
         paymentMethod: _selectedPaymentMethod?.name,
+        billedItems: _billedItems,
       );
 
       // Show confirmation dialog only if it's an update (expenseToEdit is not null)
@@ -290,17 +505,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         final int id = await PersistenceContext().saveOrUpdateExpense(newExpense);
         await _updateBalances(amount);
 
-        // Auto attach image if scanned
+        // Auto attach image if scanned (only if it's a new image, not a rescan of an existing one)
         if (_tempImagePath != null) {
           try {
             final directory = await getApplicationDocumentsDirectory();
-            final imagesDirectory = Directory(path.join(directory.path, 'attachments', id.toString()));
-            if (!await imagesDirectory.exists()) {
-              await imagesDirectory.create(recursive: true);
+            final String attachmentsRoot = path.join(directory.path, 'attachments', id.toString());
+            
+            // Check if _tempImagePath is already inside the attachments directory for this expense
+            // If it is, it's a rescan of an existing image, so we shouldn't copy it (to avoid self-copy issues or corruption)
+            if (!path.absolute(_tempImagePath!).startsWith(path.absolute(attachmentsRoot))) {
+              final imagesDirectory = Directory(attachmentsRoot);
+              if (!await imagesDirectory.exists()) {
+                await imagesDirectory.create(recursive: true);
+              }
+              final String fileName = path.basename(_tempImagePath!);
+              final String newPath = path.join(imagesDirectory.path, fileName);
+              await File(_tempImagePath!).copy(newPath);
             }
-            final String fileName = path.basename(_tempImagePath!);
-            final String newPath = path.join(imagesDirectory.path, fileName);
-            await File(_tempImagePath!).copy(newPath);
           } catch (e) {
             debugPrint("Error auto-attaching image: $e");
           }
@@ -381,9 +602,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     super.dispose();
   }
 
-  Future<void> _scanReceipt() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+  Future<void> _scanReceipt({String? existingImagePath}) async {
+    final XFile? image;
+    if (existingImagePath != null) {
+      image = XFile(existingImagePath);
+    } else {
+      image = await _picker.pickImage(source: ImageSource.camera);
+    }
+
     if (image == null) return;
+
+    if (_billedItems.isNotEmpty) {
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Replace Billed Items?'),
+          content: const Text('Billed items already exist. Scanning will replace them. Do you want to proceed?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Replace'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
 
     setState(() {
       _isProcessingOCR = true;
@@ -393,30 +642,42 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final result = await _ocrService.processImage(image.path);
       if (mounted) {
         setState(() {
-          if (result.amount != null) {
-            _amountController.text = result.amount!.toStringAsFixed(2);
-          }
-          if (result.merchant != null) {
-            _remarksController.text = result.merchant!;
-          }
-          if (result.date != null) {
-            if (result.time != null) {
-              try {
-                final timeParts = result.time!.split(':');
-                final hour = int.parse(timeParts[0]);
-                final minute = int.parse(timeParts[1]);
-                _selectedDate = DateTime(
-                  result.date!.year,
-                  result.date!.month,
-                  result.date!.day,
-                  hour,
-                  minute,
-                );
-              } catch (e) {
+          // If we are editing an existing expense or rescanning, only update items
+          bool isEditMode = existingImagePath != null || (expenseToEdit != null && expenseToEdit!.id != null);
+
+          if (!isEditMode) {
+            if (result.amount != null) {
+              _amountController.text = result.amount!.toStringAsFixed(2);
+            }
+            if (result.merchant != null) {
+              _remarksController.text = result.merchant!;
+            }
+            if (result.date != null) {
+              if (result.time != null) {
+                try {
+                  final timeParts = result.time!.split(':');
+                  final hour = int.parse(timeParts[0]);
+                  final minute = int.parse(timeParts[1]);
+                  _selectedDate = DateTime(
+                    result.date!.year,
+                    result.date!.month,
+                    result.date!.day,
+                    hour,
+                    minute,
+                  );
+                } catch (e) {
+                  _selectedDate = result.date!;
+                }
+              } else {
                 _selectedDate = result.date!;
               }
-            } else {
-              _selectedDate = result.date!;
+            }
+          }
+
+          if (result.items != null && result.items!.isNotEmpty) {
+            _billedItems = result.items!;
+            if (isEditMode) {
+              _syncTotal();
             }
           }
           _isProcessingOCR = false;
@@ -467,7 +728,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       expenseId: widget.expenseToEdit!.id!,
                     ),
                   ),
-                );
+                ).then((result) {
+                  if (result != null && result is Map && result['action'] == 'rescan') {
+                    _scanReceipt(existingImagePath: result['imagePath']);
+                  }
+                  // Refresh billed items or state if needed when returning from attachments
+                  setState(() {});
+                });
               },
             ),
         ],
@@ -571,8 +838,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   labelText: 'Amount',
                   prefixText: '$_currencySymbol ',
                   border: const OutlineInputBorder(),
+                  helper: (expenseToEdit != null &&
+                          (double.tryParse(_amountController.text) ?? -1.0) != expenseToEdit!.amount)
+                      ? Text(
+                          'Old amount: $_currencySymbol${expenseToEdit!.amount.toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) {
+                  setState(() {});
+                },
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
@@ -683,10 +960,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               ),
               const SizedBox(height: 16.0),
 
-              // --- Payment Method ---
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              // --- Billed Items & Payment Method ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  IconButton(
+                    onPressed: _showBilledItemsBottomSheet,
+                    icon: Badge(
+                      isLabelVisible: _billedItems.isNotEmpty,
+                      label: Text('${_billedItems.length}'),
+                      child: const Icon(Icons.receipt_long),
+                    ),
+                    tooltip: 'Billed Items',
+                  ),
                   ToggleButtons(
                     isSelected: [
                       _selectedPaymentMethod == PaymentMethod.cash,

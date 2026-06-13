@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/db/entity.dart';
 
 class OCRResult {
   final double? amount;
   final DateTime? date;
   final String? time; // Format: "HH:mm"
   final String? merchant;
+  final List<BilledItem>? items;
   final String rawText;
 
   OCRResult({
@@ -16,6 +18,7 @@ class OCRResult {
     this.date,
     this.time,
     this.merchant,
+    this.items,
     required this.rawText,
   });
 }
@@ -37,7 +40,7 @@ class OCRService {
     final prompt = [
       Content.multi([
         TextPart('Analyze this receipt image and extract the following details in JSON format: '
-                 '{"amount": number, "date": "YYYY-MM-DD", "time": "HH:mm", "merchant": "string"}. '
+                 '{"amount": number, "date": "YYYY-MM-DD", "time": "HH:mm", "merchant": "string", "items": [{"name": "string", "quantity": number, "price": number}]}. '
                  'The "time" should be in 24-hour format (e.g., "14:30"). '
                  'If a detail is not found, use null. Only return the JSON object.'),
         DataPart('image/jpeg', imageBytes),
@@ -72,11 +75,23 @@ class OCRService {
         } catch (_) {}
       }
 
+      List<BilledItem>? items;
+      if (data['items'] != null && data['items'] is List) {
+        items = (data['items'] as List).map((item) {
+          return BilledItem(
+            itemName: item['name']?.toString() ?? 'Unknown Item',
+            quantity: (item['quantity'] as num?)?.toDouble() ?? 1.0,
+            price: (item['price'] as num?)?.toDouble() ?? 0.0,
+          );
+        }).toList();
+      }
+
       return OCRResult(
         amount: amount,
         date: date,
         time: data['time'],
         merchant: data['merchant'],
+        items: items,
         rawText: text,
       );
     } catch (e) {

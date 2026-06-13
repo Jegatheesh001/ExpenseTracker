@@ -28,7 +28,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -43,6 +43,7 @@ class DatabaseHelper {
 
     await version2DbChanges(db);
     await version5DbChanges(db);
+    await version7DbChanges(db);
   }
 
   // Applies database changes for version 2.
@@ -96,6 +97,24 @@ class DatabaseHelper {
     if (oldVersion < 6) {
       await db.execute('ALTER TABLE expenses ADD COLUMN paymentMethod TEXT');
     }
+    // Version 7 changes
+    if (oldVersion < 7) {
+      await version7DbChanges(db);
+    }
+  }
+
+  // Applies database changes for version 7.
+  Future<void> version7DbChanges(Database db) async {
+    await db.execute('''
+      CREATE TABLE billed_items(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        expenseId INTEGER,
+        itemName TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        price REAL NOT NULL,
+        FOREIGN KEY(expenseId) REFERENCES expenses(id)
+      )
+    ''');
   }
 
   // Applies database changes for version 2.
@@ -123,6 +142,7 @@ class DatabaseHelper {
       expenseId = await saveExpense(expense);
     }
     await _saveTagsForExpense(expenseId, expense.tags);
+    await _saveBilledItemsForExpense(expenseId, expense.billedItems);
     return expenseId;
   }
 
@@ -191,6 +211,7 @@ class DatabaseHelper {
   // Deletes an expense from the database by its ID.
   Future<int> deleteExpense(int id) async {
     final Database db = await database;
+    await db.delete('billed_items', where: 'expenseId = ?', whereArgs: [id]);
     await db.delete('expense_tags', where: 'expenseId = ?', whereArgs: [id]);
     return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
   }
@@ -211,9 +232,31 @@ class DatabaseHelper {
     List<Expense> expenses = [];
     for (var map in maps) {
       List<String> tags = await _getTagsForExpense(map['id']);
-      expenses.add(Expense.fromMap(map, tags: tags));
+      List<BilledItem> billedItems = await _getBilledItemsForExpense(map['id']);
+      expenses.add(Expense.fromMap(map, tags: tags, billedItems: billedItems));
     }
     return expenses;
+  }
+
+  Future<List<BilledItem>> _getBilledItemsForExpense(int expenseId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'billed_items',
+      where: 'expenseId = ?',
+      whereArgs: [expenseId],
+    );
+    return maps.map((map) => BilledItem.fromMap(map)).toList();
+  }
+
+  Future<void> _saveBilledItemsForExpense(int expenseId, List<BilledItem> billedItems) async {
+    final Database db = await database;
+    await db.delete('billed_items', where: 'expenseId = ?', whereArgs: [expenseId]);
+    for (var item in billedItems) {
+      var itemMap = item.toMap();
+      itemMap['expenseId'] = expenseId;
+      itemMap.remove('id'); // Ensure ID is auto-generated
+      await db.insert('billed_items', itemMap);
+    }
   }
 
   Future<List<String>> _getTagsForExpense(int expenseId) async {
@@ -301,6 +344,7 @@ class DatabaseHelper {
   Future<void> deleteAllExpenseData() async {
     final Database db = await database;
     await db.transaction((txn) async {
+      await txn.delete('billed_items');
       await txn.delete('expense_tags');
       await txn.delete('tags');
       await txn.delete('expenses');
@@ -560,6 +604,17 @@ class DatabaseHelper {
     return await db.query('expense_tags');
   }
 
+  Future<List<BilledItem>> getAllBilledItems() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('billed_items');
+    return maps.map((map) => BilledItem.fromMap(map)).toList();
+  }
+
+  Future<void> saveBilledItem(BilledItem item) async {
+    final Database db = await database;
+    await db.insert('billed_items', item.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   Future<void> saveTag(Tag tag) async {
     Database db = await database;
     await db.insert('tags', tag.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -578,14 +633,15 @@ class DatabaseHelper {
     final Database db = await database;
 
     // 1. Base arguments for the LIKE clauses
-    final List<dynamic> args = ['%$query%', '%$query%', '%$query%'];
+    final List<dynamic> args = ['%$query%', '%$query%', '%$query%', '%$query%'];
 
     // 2. Base WHERE clause
     String whereClause = '''
       (
         E.remarks LIKE ? OR
         E.category LIKE ? OR
-        T.tagName LIKE ?
+        T.tagName LIKE ? OR
+        EXISTS (SELECT 1 FROM billed_items BI WHERE BI.expenseId = E.id AND BI.itemName LIKE ?)
       )
     ''';
 
