@@ -215,6 +215,36 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Please enter remarks')));
     } else {
+      // Validate cash/bank value based on selection
+      final prefs = await SharedPreferences.getInstance();
+      if (_selectedPaymentMethod == PaymentMethod.cash) {
+        double currentCash = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+        if (expenseToEdit != null && expenseToEdit!.paymentMethod == PaymentMethod.cash.name) {
+          currentCash += expenseToEdit!.amount;
+        }
+        if (amount > currentCash) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Insufficient cash balance. Available: $_currencySymbol${currentCash.toStringAsFixed(2)}')),
+            );
+          }
+          return;
+        }
+      } else if (_selectedPaymentMethod == PaymentMethod.bank) {
+        double currentBank = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+        if (expenseToEdit != null && expenseToEdit!.paymentMethod == PaymentMethod.bank.name) {
+          currentBank += expenseToEdit!.amount;
+        }
+        if (amount > currentBank) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Insufficient bank balance. Available: $_currencySymbol${currentBank.toStringAsFixed(2)}')),
+            );
+          }
+          return;
+        }
+      }
+
       final newExpense = Expense(
         id: expenseToEdit?.id, // Use existing ID if editing
         categoryId: _selectedCategory!.categoryId, // Selected category ID
