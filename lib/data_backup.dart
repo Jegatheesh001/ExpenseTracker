@@ -140,7 +140,6 @@ class DataBackup {
           SnackBar(content: Text('Data imported successfully! ${errors.isEmpty ? "" : "Some lines had issues."}')),
         );
         refreshMainPage();
-        Navigator.of(context).pop();
       } catch (e) {
         final theme = Theme.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
