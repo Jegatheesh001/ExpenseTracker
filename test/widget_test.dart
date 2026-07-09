@@ -1,30 +1,32 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:expense_tracker/main.dart';
+import 'package:expense_tracker/currency_symbol.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('CurrencySymbol Tests', () {
+    final currencyHelper = CurrencySymbol();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('getSymbol returns correct symbols', () {
+      expect(currencyHelper.getSymbol('Rupee'), '₹');
+      expect(currencyHelper.getSymbol('Dirham'), 'د.إ');
+      expect(currencyHelper.getSymbol('Dollar'), '\$');
+      expect(currencyHelper.getSymbol('Pound'), '£');
+      expect(currencyHelper.getSymbol('Euro'), '€');
+      expect(currencyHelper.getSymbol('Unknown'), '₹'); // Default case
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('getLabel returns correct ISO codes', () {
+      expect(currencyHelper.getLabel('Rupee'), 'INR');
+      expect(currencyHelper.getLabel('Dirham'), 'AED');
+      expect(currencyHelper.getLabel('Dollar'), 'USD');
+      expect(currencyHelper.getLabel('Pound'), 'GBP');
+      expect(currencyHelper.getLabel('Euro'), 'EUR');
+      expect(currencyHelper.getLabel('Unknown'), 'INR'); // Default case
+    });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    test('getCurrencies returns list of supported currencies', () {
+      final currencies = currencyHelper.getCurrencies();
+      expect(currencies, containsAll(['Rupee', 'Dirham', 'Dollar', 'Pound', 'Euro']));
+      expect(currencies.length, 5);
+    });
   });
 }

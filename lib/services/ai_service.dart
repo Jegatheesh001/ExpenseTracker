@@ -164,10 +164,10 @@ class AIService {
     final expenseSummary = _prepareExpenseSummary(expenses, currencySymbol);
 
     final prompt = '''
-    You are a professional financial advisor. Analyze the following expense data and provide:
+    You are a professional financial advisor. Analyze the following expense data (including individual items/sub-items under expenses if available) and provide:
     1. A brief summary of spending (top categories and total).
-    2. Key trends or observations (e.g., unusual spikes, recurring costs).
-    3. Three actionable tips to save money based on this specific data.
+    2. Key trends or observations (e.g., unusual spikes, recurring costs, or specific items/sub-items contributing to high spending).
+    3. Three actionable tips to save money based on this specific data, taking into account the individual items purchased.
     4. A motivational closing statement.
 
     Keep the tone encouraging, concise, and professional. Use markdown for formatting.
@@ -216,9 +216,18 @@ class AIService {
       summary += "- ${entry.key}: $currencySymbol${entry.value.toStringAsFixed(2)}\n";
     }
 
-    summary += "\nRecent Transactions (Latest 20):\n";
-    for (var expense in sortedExpenses.take(20)) {
-      summary += "- ${DateFormat('yyyy-MM-dd').format(expense.expenseDate)}: $currencySymbol${expense.amount} on ${expense.category} (${expense.remarks})\n";
+    summary += "\nRecent Transactions (Latest 150):\n";
+    for (var expense in sortedExpenses.take(150)) {
+      String itemDetails = "";
+      if (expense.billedItems.isNotEmpty) {
+        final itemsList = expense.billedItems.map((item) {
+          final qtyStr = item.quantity % 1 == 0 ? item.quantity.toInt().toString() : item.quantity.toString();
+          final priceStr = item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2);
+          return "${item.itemName} (Qty: $qtyStr, Price: $currencySymbol$priceStr)";
+        }).join(", ");
+        itemDetails = " [Items: $itemsList]";
+      }
+      summary += "- ${DateFormat('yyyy-MM-dd').format(expense.expenseDate)}: $currencySymbol${expense.amount} on ${expense.category} (${expense.remarks})$itemDetails\n";
     }
     
     // Add context about the date range provided

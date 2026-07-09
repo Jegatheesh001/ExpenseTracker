@@ -95,7 +95,7 @@ class ExpenseSearchDelegate extends SearchDelegate {
           itemBuilder: (context, index) {
             final expense = expenses[index];
             final formattedDate = DateFormat('dd-MM-yyyy hh:mm a').format(expense.expenseDate);
-            final symbol = currencySymbols[expense.profileId] ?? currencySymbol ?? '';
+            final symbol = currencySymbols[expense.profileId] ?? currencySymbol;
             
             return ListTile(
               title: Text(expense.remarks),
