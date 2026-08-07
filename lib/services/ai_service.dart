@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -10,107 +11,276 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_mlkit_language_id/google_mlkit_language_id.dart';
 
-class AIService {
-  final String _apiKey;
-  final String _modelName;
-  late final GenerativeModel _model;
-  late final GenerativeModel _chatModel;
-  ChatSession? _chatSession;
+class AIFunctionCall {
+  final String id;
+  final String name;
+  final Map<String, dynamic> args;
 
-  AIService(this._apiKey, this._modelName) {
+  AIFunctionCall({
+    this.id = '',
+    required this.name,
+    required this.args,
+  });
+}
+
+class AIFunctionResponse {
+  final String id;
+  final String name;
+  final Map<String, dynamic> response;
+
+  AIFunctionResponse({
+    this.id = '',
+    required this.name,
+    required this.response,
+  });
+}
+
+class AIChatResponse {
+  final String? text;
+  final List<AIFunctionCall> functionCalls;
+
+  AIChatResponse({
+    this.text,
+    this.functionCalls = const [],
+  });
+
+  bool get hasFunctionCalls => functionCalls.isNotEmpty;
+}
+
+class AIService {
+  final String provider; // 'gemini' or 'openai'
+  final String apiKey;
+  final String modelName;
+  final String baseUrl;
+
+  GenerativeModel? _geminiModel;
+  GenerativeModel? _geminiChatModel;
+  ChatSession? _geminiChatSession;
+
+  final List<Map<String, dynamic>> _openAIMessages = [];
+
+  AIService({
+    required this.provider,
+    required this.apiKey,
+    required this.modelName,
+    this.baseUrl = 'https://api.openai.com/v1',
+  }) {
+    if (provider == 'gemini') {
+      _initGemini();
+    } else {
+      _initOpenAI();
+    }
+  }
+
+  // Factory constructor from SharedPreferences
+  factory AIService.fromPrefs(SharedPreferences prefs) {
+    final provider = prefs.getString(PrefKeys.aiProvider) ?? 'gemini';
+    if (provider == 'openai') {
+      return AIService(
+        provider: 'openai',
+        baseUrl: prefs.getString(PrefKeys.openaiBaseUrl) ?? 'https://api.openai.com/v1',
+        apiKey: prefs.getString(PrefKeys.openaiApiKey) ?? '',
+        modelName: prefs.getString(PrefKeys.openaiModelName) ?? 'gpt-4o-mini',
+      );
+    } else {
+      return AIService(
+        provider: 'gemini',
+        apiKey: prefs.getString(PrefKeys.geminiApiKey) ?? '',
+        modelName: prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest',
+      );
+    }
+  }
+
+  // Positional constructor for backwards compatibility
+  AIService.legacy(String apiKey, String modelName)
+      : this(provider: 'gemini', apiKey: apiKey, modelName: modelName);
+
+  bool get isConfigured {
+    if (provider == 'openai') {
+      return baseUrl.trim().isNotEmpty && modelName.trim().isNotEmpty;
+    }
+    return apiKey.trim().isNotEmpty;
+  }
+
+  static const String _systemInstruction = '''
+# ROLE
+Your name is Anila, a helpful and professional AI financial assistant for the Expense Tracker app.
+
+# TOOL USAGE POLICY
+- EXPENSE TOOLS: Prioritize using local tools for any task involving the user’s financial data.
+
+# STRICT CONSTRAINTS
+- LANGUAGE: Always respond in English. This is mandatory, even if the user greets or questions you in other languages.
+- BREVITY: Be concise. Avoid long-winded explanations unless specifically asked for deep insights.
+
+# RESPONSIBILITIES
+1. Manage and track user expenses using the provided tools.
+2. Provide actionable spending insights and financial advice.
+3. Answer general knowledge questions using your internal knowledge first. After answering, pivot back to how you can help with their budget.
+4. CATEGORY MANAGEMENT: When the user provides a category name for an expense, always use the `listCategories` tool to find the matching `categoryId`. If the category does not exist, you can use the categoryId from similar expense by search.
+5. DATA INTEGRITY: When creating expenses, if the user provides an expense without a date, ask for it unless "today" or a specific day is implied. If a category is missing or ambiguous, confirm with the user.
+
+# TONE
+Maintain a professional, encouraging, and supportive personality.
+''';
+
+  static final List<Map<String, dynamic>> _openAITools = [
+    {
+      'type': 'function',
+      'function': {
+        'name': 'getExpensesByDate',
+        'description': 'Retrieves expenses within a specific date range.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'startDate': {'type': 'string', 'description': 'The start date in ISO 8601 format (YYYY-MM-DD).'},
+            'endDate': {'type': 'string', 'description': 'The end date in ISO 8601 format (YYYY-MM-DD).'},
+            'profileId': {'type': 'integer', 'description': 'The user profile ID.'},
+          },
+          'required': ['startDate', 'endDate', 'profileId'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'getCategorySpendingForMonth',
+        'description': 'Retrieves category-wise spending for a specific month.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'date': {'type': 'string', 'description': 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'},
+            'profileId': {'type': 'integer', 'description': 'The user profile ID.'},
+          },
+          'required': ['date', 'profileId'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'searchExpensesByProfileId',
+        'description': 'Searches for expenses by a query string.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'query': {'type': 'string', 'description': 'The search query (e.g., category, remarks).'},
+            'profileId': {'type': 'integer', 'description': 'The user profile ID.'},
+          },
+          'required': ['query', 'profileId'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'getExpenseSumByMonth',
+        'description': 'Retrieves the total expense sum for a specific month.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'date': {'type': 'string', 'description': 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'},
+            'profileId': {'type': 'integer', 'description': 'The user profile ID.'},
+          },
+          'required': ['date', 'profileId'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'getCurrentDateInfo',
+        'description': 'Retrieves the current date information (year, month, day, etc.). Use this to find the related date info.',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'createExpense',
+        'description': 'Creates a new expense entry. Use this when the user wants to record a spend.',
+        'parameters': {
+          'type': 'object',
+          'properties': {
+            'amount': {'type': 'number', 'description': 'The amount spent.'},
+            'remarks': {'type': 'string', 'description': 'A brief description or remark about the expense.'},
+            'category': {'type': 'string', 'description': 'The category of the expense (e.g., Food, Transport).'},
+            'categoryId': {'type': 'integer', 'description': 'The ID of the category.'},
+            'date': {'type': 'string', 'description': 'The date of the expense in ISO 8601 format (YYYY-MM-DD).'},
+            'profileId': {'type': 'integer', 'description': 'The user profile ID.'},
+          },
+          'required': ['amount', 'remarks', 'profileId'],
+        },
+      },
+    },
+    {
+      'type': 'function',
+      'function': {
+        'name': 'listCategories',
+        'description': 'Retrieves a list of all available categories with their IDs and names.',
+        'parameters': {
+          'type': 'object',
+          'properties': {},
+        },
+      },
+    },
+  ];
+
+  void _initGemini() {
     final tools = [
       Tool(functionDeclarations: [
         FunctionDeclaration(
           'getExpensesByDate',
           'Retrieves expenses within a specific date range.',
           Schema.object(properties: {
-            'startDate': Schema.string(
-                description: 'The start date in ISO 8601 format (YYYY-MM-DD).'),
-            'endDate': Schema.string(
-                description: 'The end date in ISO 8601 format (YYYY-MM-DD).'),
-            'profileId': Schema.integer(
-                description: 'The user profile ID.'),
-          }, requiredProperties: [
-            'startDate',
-            'endDate',
-            'profileId'
-          ]),
+            'startDate': Schema.string(description: 'The start date in ISO 8601 format (YYYY-MM-DD).'),
+            'endDate': Schema.string(description: 'The end date in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(description: 'The user profile ID.'),
+          }, requiredProperties: ['startDate', 'endDate', 'profileId']),
         ),
         FunctionDeclaration(
           'getCategorySpendingForMonth',
           'Retrieves category-wise spending for a specific month.',
           Schema.object(properties: {
-            'date': Schema.string(
-                description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
-            'profileId': Schema.integer(
-                description: 'The user profile ID.'),
-          }, requiredProperties: [
-            'date',
-            'profileId'
-          ]),
+            'date': Schema.string(description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(description: 'The user profile ID.'),
+          }, requiredProperties: ['date', 'profileId']),
         ),
         FunctionDeclaration(
           'searchExpensesByProfileId',
           'Searches for expenses by a query string.',
           Schema.object(properties: {
-            'query': Schema.string(
-                description: 'The search query (e.g., category, remarks).'),
-            'profileId': Schema.integer(
-                description: 'The user profile ID.'),
-          }, requiredProperties: [
-            'query',
-            'profileId'
-          ]),
+            'query': Schema.string(description: 'The search query (e.g., category, remarks).'),
+            'profileId': Schema.integer(description: 'The user profile ID.'),
+          }, requiredProperties: ['query', 'profileId']),
         ),
         FunctionDeclaration(
           'getExpenseSumByMonth',
           'Retrieves the total expense sum for a specific month.',
           Schema.object(properties: {
-            'date': Schema.string(
-                description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
-            'profileId': Schema.integer(
-                description: 'The user profile ID.'),
-          }, requiredProperties: [
-            'date',
-            'profileId'
-          ]),
+            'date': Schema.string(description: 'Any date within the month in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(description: 'The user profile ID.'),
+          }, requiredProperties: ['date', 'profileId']),
         ),
         FunctionDeclaration(
           'getCurrentDateInfo',
-          'Retrieves the current date information (year, month, day, etc.). Use this to find the related date info. For example, if the user doesn\'t mention a year, include the current year; if the month is not specified, use the current month; similarly for last week, last month, next month, etc.',
+          'Retrieves the current date information (year, month, day, etc.).',
           Schema.object(properties: {}),
         ),
         FunctionDeclaration(
-          'googleWebSearch',
-          'Performs a web search using Google Custom Search API. Use this ONLY if the internal tools and MCP data are insufficient to answer the user\'s query. Always prioritize internal data and expense-related tools first. THIS TOOL REQUIRES USER CONFIRMATION.',
-          Schema.object(properties: {
-            'query': Schema.string(
-                description: 'The search query to look up on the web.'),
-          }, requiredProperties: [
-            'query'
-          ]),
-        ),
-        FunctionDeclaration(
           'createExpense',
-          'Creates a new expense entry. Use this when the user wants to record a spend.',
+          'Creates a new expense entry.',
           Schema.object(properties: {
-            'amount': Schema.number(
-                description: 'The amount spent.'),
-            'remarks': Schema.string(
-                description: 'A brief description or remark about the expense.'),
-            'category': Schema.string(
-                description: 'The category of the expense (e.g., Food, Transport). Optional if category can be inferred.'),
-            'categoryId': Schema.integer(
-                description: 'The ID of the category. Preferred over category name. Get this using listCategories tool.'),
-            'date': Schema.string(
-                description: 'The date of the expense in ISO 8601 format (YYYY-MM-DD). Use current date if today, or ask user if not provided.'),
-            'profileId': Schema.integer(
-                description: 'The user profile ID.'),
-          }, requiredProperties: [
-            'amount',
-            'remarks',
-            'profileId'
-          ]),
+            'amount': Schema.number(description: 'The amount spent.'),
+            'remarks': Schema.string(description: 'A brief description or remark about the expense.'),
+            'category': Schema.string(description: 'The category of the expense (e.g., Food, Transport).'),
+            'categoryId': Schema.integer(description: 'The ID of the category.'),
+            'date': Schema.string(description: 'The date of the expense in ISO 8601 format (YYYY-MM-DD).'),
+            'profileId': Schema.integer(description: 'The user profile ID.'),
+          }, requiredProperties: ['amount', 'remarks', 'profileId']),
         ),
         FunctionDeclaration(
           'listCategories',
@@ -120,40 +290,40 @@ class AIService {
       ])
     ];
 
-    _model = GenerativeModel(
-      model: _modelName,
-      apiKey: _apiKey,
+    _geminiModel = GenerativeModel(
+      model: modelName,
+      apiKey: apiKey,
     );
 
-    _chatModel = GenerativeModel(
-      model: _modelName,
-      apiKey: _apiKey,
+    _geminiChatModel = GenerativeModel(
+      model: modelName,
+      apiKey: apiKey,
       tools: tools,
-      systemInstruction: Content.system(
-      '# ROLE\n'
-      'Your name is Anila, a helpful and professional AI financial assistant for the Expense Tracker app.\n\n'
-
-      '# TOOL USAGE POLICY\n'
-      '- SEARCH: Only use the web search tool if the user asks for real-time data (e.g., current exchange rates, stock prices) or if the query is outside your internal knowledge base. Do NOT search for general knowledge, basic math, or app-related logic.\n'
-      '- EXPENSE TOOLS: Prioritize using local tools for any task involving the user’s financial data.\n\n'
-
-      '# STRICT CONSTRAINTS\n'
-      '- LANGUAGE: Always respond in English. This is mandatory, even if the user greets or questions you in other languages.\n'
-      '- BREVITY: Be concise. Avoid long-winded explanations unless specifically asked for deep insights.\n\n'
-
-      '# RESPONSIBILITIES\n'
-      '1. Manage and track user expenses using the provided tools.\n'
-      '2. Provide actionable spending insights and financial advice.\n'
-      '3. Answer general knowledge questions using your internal knowledge first. After answering, pivot back to how you can help with their budget.\n'
-      '4. CATEGORY MANAGEMENT: When the user provides a category name for an expense, always use the `listCategories` tool to find the matching `categoryId`. If the category does not exist, you can use the categoryId from similar expense by search.\n'
-      '5. DATA INTEGRITY: When creating expenses, if the user provides an expense without a date, ask for it unless "today" or a specific day is implied. If a category is missing or ambiguous, the tool will try to find a similar one, but you should confirm with the user if it\'s unsure. \n\n'
-
-      '# TONE\n'
-      'Maintain a professional, encouraging, and supportive personality.'
-    ),
+      systemInstruction: Content.system(_systemInstruction),
     );
 
-    _chatSession = _chatModel.startChat();
+    _geminiChatSession = _geminiChatModel!.startChat();
+  }
+
+  void _initOpenAI() {
+    resetChat();
+  }
+
+  String _getOpenAICompletionsEndpoint() {
+    var url = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    if (url.endsWith('/chat/completions')) return url;
+    if (url.endsWith('/v1')) return '$url/chat/completions';
+    return '$url/v1/chat/completions';
+  }
+
+  Map<String, String> _getOpenAIHeaders() {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (apiKey.trim().isNotEmpty) {
+      headers['Authorization'] = 'Bearer ${apiKey.trim()}';
+    }
+    return headers;
   }
 
   Future<String> getSpendingInsights(List<Expense> expenses, String currencySymbol) async {
@@ -177,29 +347,55 @@ class AIService {
     $expenseSummary
     ''';
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      return response.text ?? "Sorry, I couldn't generate insights at this moment.";
-    } catch (e) {
-      print('Gemini API Error: $e');
-      return "Error generating insights: $e";
+    if (provider == 'openai') {
+      try {
+        final endpoint = _getOpenAICompletionsEndpoint();
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: _getOpenAIHeaders(),
+          body: jsonEncode({
+            'model': modelName,
+            'messages': [
+              {'role': 'user', 'content': prompt}
+            ]
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final text = data['choices']?[0]?['message']?['content'] as String?;
+          return text ?? "Sorry, I couldn't generate insights at this moment.";
+        } else {
+          return "OpenAI API Error (${response.statusCode}): ${response.body}";
+        }
+      } catch (e) {
+        return "Error generating insights: $e";
+      }
+    } else {
+      try {
+        final content = [Content.text(prompt)];
+        final response = await _geminiModel!.generateContent(content);
+        return response.text ?? "Sorry, I couldn't generate insights at this moment.";
+      } catch (e) {
+        print('Gemini API Error: $e');
+        return "Error generating insights: $e";
+      }
     }
   }
 
   String _prepareExpenseSummary(List<Expense> expenses, String currencySymbol) {
-    // Sort expenses by date descending once at the beginning
     final sortedExpenses = List<Expense>.from(expenses)
       ..sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
 
     final Map<String, double> categoryTotals = {};
     double totalAmount = 0;
 
-    // Filter for current month's breakdown to make it more relevant to "recent"
     final now = DateTime.now();
     final currentMonthStart = DateTime(now.year, now.month, 1);
     
-    final currentMonthExpenses = sortedExpenses.where((e) => e.expenseDate.isAfter(currentMonthStart.subtract(const Duration(days: 1)))).toList();
+    final currentMonthExpenses = sortedExpenses
+        .where((e) => e.expenseDate.isAfter(currentMonthStart.subtract(const Duration(days: 1))))
+        .toList();
 
     for (var expense in currentMonthExpenses) {
       categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + expense.amount;
@@ -230,14 +426,12 @@ class AIService {
       summary += "- ${DateFormat('yyyy-MM-dd').format(expense.expenseDate)}: $currencySymbol${expense.amount} on ${expense.category} (${expense.remarks})$itemDetails\n";
     }
     
-    // Add context about the date range provided
     if (expenses.isNotEmpty) {
       final oldest = expenses.reduce((a, b) => a.expenseDate.isBefore(b.expenseDate) ? a : b);
       final newest = sortedExpenses.first;
       summary += "\nData Range Analyzed: ${DateFormat('yyyy-MM-dd').format(oldest.expenseDate)} to ${DateFormat('yyyy-MM-dd').format(newest.expenseDate)}\n";
     }
 
-    // print('Prepared Expense Summary for AI:\n$summary');
     return summary;
   }
 
@@ -262,59 +456,102 @@ class AIService {
     $trendSummary
     ''';
 
-    try {
-      final content = [Content.text(prompt)];
-      final response = await _model.generateContent(content);
-      return response.text ?? "Sorry, I couldn't generate trend insights at this moment.";
-    } catch (e) {
-      print('Gemini API Error: $e');
-      return "Error generating trend insights: $e";
+    if (provider == 'openai') {
+      try {
+        final endpoint = _getOpenAICompletionsEndpoint();
+        final response = await http.post(
+          Uri.parse(endpoint),
+          headers: _getOpenAIHeaders(),
+          body: jsonEncode({
+            'model': modelName,
+            'messages': [
+              {'role': 'user', 'content': prompt}
+            ]
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final text = data['choices']?[0]?['message']?['content'] as String?;
+          return text ?? "Sorry, I couldn't generate trend insights at this moment.";
+        } else {
+          return "OpenAI API Error (${response.statusCode}): ${response.body}";
+        }
+      } catch (e) {
+        return "Error generating trend insights: $e";
+      }
+    } else {
+      try {
+        final content = [Content.text(prompt)];
+        final response = await _geminiModel!.generateContent(content);
+        return response.text ?? "Sorry, I couldn't generate trend insights at this moment.";
+      } catch (e) {
+        print('Gemini API Error: $e');
+        return "Error generating trend insights: $e";
+      }
     }
   }
 
   Future<Uint8List?> generateSpeech(String text) async {
     try {
-      // Step 1: Detect the language of the input text
       final languageIdentifier = LanguageIdentifier(confidenceThreshold: 0.5);
       final String languageCode = await languageIdentifier.identifyLanguage(text);
-      
-      // Cleanup: release resources
       await languageIdentifier.close();
 
-      // Default to English if detection fails or returns 'und' (undetermined)
       String targetLanguage = (languageCode == 'und') ? 'en-US' : languageCode;
 
-      // Step 2: Call Google Cloud TTS with the detected language
-      final url = Uri.parse(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=$_apiKey',
-      );
-
-      // We map simple codes (e.g., 'fr') to full locale codes (e.g., 'fr-FR')
-      // Google requires the full locale (language-REGION).
-      String fullLanguageCode = _mapToFullLocale(targetLanguage);
-
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "input": {"text": text},
-          "voice": {
-            "languageCode": fullLanguageCode,
-            "ssmlGender": "FEMALE" 
-          },
-          "audioConfig": {
-            "audioEncoding": "MP3"
+      // Check OpenAI TTS endpoint first if provider is openai and key present
+      if (provider == 'openai' && apiKey.isNotEmpty) {
+        try {
+          var cleanBaseUrl = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+          if (cleanBaseUrl.endsWith('/v1')) {
+            cleanBaseUrl = cleanBaseUrl.substring(0, cleanBaseUrl.length - 3);
           }
-        }),
-      );
+          final ttsUrl = Uri.parse('$cleanBaseUrl/v1/audio/speech');
+          final response = await http.post(
+            ttsUrl,
+            headers: _getOpenAIHeaders(),
+            body: jsonEncode({
+              "model": "tts-1",
+              "input": text,
+              "voice": "alloy"
+            }),
+          );
+          if (response.statusCode == 200) {
+            return response.bodyBytes;
+          }
+        } catch (_) {}
+      }
 
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        if (jsonResponse['audioContent'] != null) {
-          return base64Decode(jsonResponse['audioContent']);
+      // Fallback to Google Cloud TTS if apiKey is available
+      if (apiKey.isNotEmpty) {
+        final url = Uri.parse(
+          'https://texttospeech.googleapis.com/v1/text:synthesize?key=$apiKey',
+        );
+
+        String fullLanguageCode = _mapToFullLocale(targetLanguage);
+
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            "input": {"text": text},
+            "voice": {
+              "languageCode": fullLanguageCode,
+              "ssmlGender": "FEMALE" 
+            },
+            "audioConfig": {
+              "audioEncoding": "MP3"
+            }
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final jsonResponse = jsonDecode(response.body);
+          if (jsonResponse['audioContent'] != null) {
+            return base64Decode(jsonResponse['audioContent']);
+          }
         }
-      } else {
-        print("TTS API Error: ${response.statusCode} - ${response.body}");
       }
       
       return null;
@@ -324,17 +561,132 @@ class AIService {
     }
   }
 
-  ChatSession get chatSession {
-    return _chatSession ??= _chatModel.startChat();
-  }
-
   void resetChat() {
-    _chatSession = _chatModel.startChat();
+    if (provider == 'gemini') {
+      _geminiChatSession = _geminiChatModel?.startChat();
+    } else {
+      _openAIMessages.clear();
+      _openAIMessages.add({
+        'role': 'system',
+        'content': _systemInstruction,
+      });
+    }
   }
 
-  Future<Map<String, dynamic>> executeFunctionCall(FunctionCall functionCall) async {
+  Future<AIChatResponse> sendMessage(String text, {String? audioPath}) async {
+    if (provider == 'openai') {
+      _openAIMessages.add({
+        'role': 'user',
+        'content': text,
+      });
+      return await _sendOpenAIMessageRequest();
+    } else {
+      final List<Part> parts = [];
+      if (audioPath != null) {
+        final bytes = await File(audioPath).readAsBytes();
+        parts.add(DataPart('audio/m4a', bytes));
+      }
+      parts.add(TextPart(text));
+
+      _geminiChatSession ??= _geminiChatModel!.startChat();
+      final response = await _geminiChatSession!.sendMessage(Content.multi(parts));
+      return _parseGeminiResponse(response);
+    }
+  }
+
+  Future<AIChatResponse> sendFunctionResponses(List<AIFunctionResponse> functionResponses) async {
+    if (provider == 'openai') {
+      for (final resp in functionResponses) {
+        _openAIMessages.add({
+          'role': 'tool',
+          'tool_call_id': resp.id,
+          'content': jsonEncode(resp.response),
+        });
+      }
+      return await _sendOpenAIMessageRequest();
+    } else {
+      final geminiResponses = functionResponses.map((r) => FunctionResponse(r.name, r.response)).toList();
+      final response = await _geminiChatSession!.sendMessage(Content.model(geminiResponses));
+      return _parseGeminiResponse(response);
+    }
+  }
+
+  Future<AIChatResponse> _sendOpenAIMessageRequest() async {
+    try {
+      final endpoint = _getOpenAICompletionsEndpoint();
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: _getOpenAIHeaders(),
+        body: jsonEncode({
+          'model': modelName,
+          'messages': _openAIMessages,
+          'tools': _openAITools,
+          'tool_choice': 'auto',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final choice = data['choices']?[0];
+        if (choice == null) {
+          return AIChatResponse(text: "No choice returned from OpenAI API.");
+        }
+
+        final messageObj = choice['message'] as Map<String, dynamic>;
+        _openAIMessages.add(messageObj);
+
+        final toolCallsList = messageObj['tool_calls'] as List<dynamic>?;
+        if (toolCallsList != null && toolCallsList.isNotEmpty) {
+          final calls = toolCallsList.map((tc) {
+            final fn = tc['function'] as Map<String, dynamic>? ?? {};
+            Map<String, dynamic> args = {};
+            try {
+              if (fn['arguments'] != null) {
+                args = jsonDecode(fn['arguments'] as String);
+              }
+            } catch (_) {}
+            return AIFunctionCall(
+              id: tc['id'] as String? ?? '',
+              name: fn['name'] as String? ?? '',
+              args: args,
+            );
+          }).toList();
+
+          return AIChatResponse(functionCalls: calls);
+        }
+
+        final text = messageObj['content'] as String?;
+        return AIChatResponse(text: text ?? '');
+      } else {
+        return AIChatResponse(text: "Error from OpenAI API (${response.statusCode}): ${response.body}");
+      }
+    } catch (e) {
+      return AIChatResponse(text: "Error communicating with AI Service: $e");
+    }
+  }
+
+  AIChatResponse _parseGeminiResponse(GenerateContentResponse response) {
+    if (response.candidates.isEmpty) {
+      return AIChatResponse(text: "No response from Gemini.");
+    }
+    final contentParts = response.candidates.first.content.parts;
+    final geminiFunctionCalls = contentParts.whereType<FunctionCall>().toList();
+
+    if (geminiFunctionCalls.isNotEmpty) {
+      final calls = geminiFunctionCalls.map((fc) {
+        return AIFunctionCall(
+          name: fc.name,
+          args: fc.args,
+        );
+      }).toList();
+      return AIChatResponse(functionCalls: calls);
+    }
+
+    return AIChatResponse(text: response.text ?? '');
+  }
+
+  Future<Map<String, dynamic>> executeFunctionCall(AIFunctionCall functionCall) async {
     final persistenceContext = PersistenceContext();
-    final prefs = await SharedPreferences.getInstance();
     debugPrint("Executing function call: ${functionCall.name} with args: ${functionCall.args}");
 
     switch (functionCall.name) {
@@ -374,43 +726,6 @@ class AIService {
           'fullDate': DateFormat('yyyy-MM-dd').format(now),
         };
 
-      case 'googleWebSearch':
-        final query = functionCall.args['query'] as String;
-        final apiKey = _apiKey;
-        final cx = prefs.getString(PrefKeys.googleSearchEngineId) ?? '';
-
-        if (apiKey.isEmpty || cx.isEmpty) {
-          return {'error': 'Gemini API Key or Google Search Engine ID is not configured in AI Settings.'};
-        }
-
-        try {
-          final url = Uri.parse(
-              'https://www.googleapis.com/customsearch/v1?key=$apiKey&cx=$cx&q=${Uri.encodeComponent(query)}');
-          final response = await http.get(url);
-
-          if (response.statusCode == 200) {
-            final data = jsonDecode(response.body);
-            final items = data['items'] as List<dynamic>?;
-            if (items == null || items.isEmpty) {
-              return {'results': [], 'message': 'No results found.'};
-            }
-            final results = items.take(5).map((item) {
-              return {
-                'title': item['title'],
-                'link': item['link'],
-                'snippet': item['snippet'],
-              };
-            }).toList();
-            return {'results': results};
-          } else {
-            final data = jsonDecode(response.body);
-            final error = data['error']?['message'] ?? 'Unknown error';
-            return {'error': 'Google Search API error: ${response.statusCode} - $error'};
-          }
-        } catch (e) {
-          return {'error': 'Failed to perform web search: $e'};
-        }
-
       case 'listCategories':
         final categories = await persistenceContext.getCategories();
         return {'categories': categories.map((c) => c.toMap()).toList()};
@@ -449,7 +764,6 @@ class AIService {
           );
           categoryName = category.category;
         } else if (categoryName == null || categoryName.isEmpty) {
-          // Try to look for similar expense
           category = await persistenceContext.getCategoryForRemark(remarks);
           if (category == null) {
             return {
@@ -459,7 +773,6 @@ class AIService {
           }
           categoryName = category.category;
         } else {
-          // Find category by name or create/use fallback
           final categories = await persistenceContext.getCategories();
           category = categories.firstWhere(
             (c) => c.category.toLowerCase() == categoryName!.toLowerCase(),
@@ -486,7 +799,7 @@ class AIService {
         };
 
       default:
-        throw UnimplementedError('Function ${functionCall.name} not implemented');
+        return {'error': 'Function ${functionCall.name} not implemented'};
     }
   }
 

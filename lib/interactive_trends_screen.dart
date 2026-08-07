@@ -5,7 +5,6 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'db/persistence_context.dart';
-import 'pref_keys.dart';
 
 class InteractiveTrendsScreen extends StatefulWidget {
   final int profileId;
@@ -48,15 +47,13 @@ class _InteractiveTrendsScreenState extends State<InteractiveTrendsScreen> {
     setState(() => _isLoadingDailyInsight = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
-      final modelName = prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
+      final aiService = AIService.fromPrefs(prefs);
       
-      if (apiKey.isNotEmpty) {
-        final aiService = AIService(apiKey, modelName);
+      if (aiService.isConfigured) {
         final insight = await aiService.getTrendInsights(data, widget.currencySymbol, "Daily (Last 15 Days)");
         setState(() => _dailyTrendAIInsight = insight);
       } else {
-        setState(() => _dailyTrendAIInsight = "AI Key not configured. Please check AI Settings.");
+        setState(() => _dailyTrendAIInsight = "AI settings not configured. Please check AI Settings.");
       }
     } catch (e) {
       setState(() => _dailyTrendAIInsight = "Error generating insight: $e");
@@ -70,15 +67,13 @@ class _InteractiveTrendsScreenState extends State<InteractiveTrendsScreen> {
     setState(() => _isLoadingMonthlyInsight = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
-      final modelName = prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
+      final aiService = AIService.fromPrefs(prefs);
 
-      if (apiKey.isNotEmpty) {
-        final aiService = AIService(apiKey, modelName);
+      if (aiService.isConfigured) {
         final insight = await aiService.getTrendInsights(data, widget.currencySymbol, "Monthly (Last 5 Months)");
         setState(() => _monthlyTrendAIInsight = insight);
       } else {
-        setState(() => _monthlyTrendAIInsight = "AI Key not configured. Please check AI Settings.");
+        setState(() => _monthlyTrendAIInsight = "AI settings not configured. Please check AI Settings.");
       }
     } catch (e) {
       setState(() => _monthlyTrendAIInsight = "Error generating insight: $e");

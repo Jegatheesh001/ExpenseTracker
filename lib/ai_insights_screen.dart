@@ -61,12 +61,11 @@ class _AIInsightsScreenState extends State<AIInsightsScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final apiKey = prefs.getString(PrefKeys.geminiApiKey);
-      final modelName = prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
+      final aiService = AIService.fromPrefs(prefs);
 
-      if (apiKey == null || apiKey.isEmpty) {
+      if (!aiService.isConfigured) {
         setState(() {
-          _error = 'Please set your Gemini API Key in Settings to use AI Insights.';
+          _error = 'Please configure your AI Provider settings in Settings to use AI Insights.';
           _isLoading = false;
         });
         return;
@@ -81,7 +80,6 @@ class _AIInsightsScreenState extends State<AIInsightsScreen> {
         widget.profileId,
       );
 
-      final aiService = AIService(apiKey, modelName);
       final result = await aiService.getSpendingInsights(expenses, widget.currencySymbol);
 
       final nowTimestamp = DateTime.now();

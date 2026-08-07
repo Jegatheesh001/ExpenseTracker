@@ -4,6 +4,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
+import 'package:http/http.dart' as http;
 
 class OCRResult {
   final double? amount;
@@ -26,39 +27,93 @@ class OCRResult {
 class OCRService {
   Future<OCRResult> processImage(String imagePath) async {
     final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
-    final modelName = prefs.getString(PrefKeys.ocrModelName) ?? 'gemini-1.5-flash-latest';
+    final provider = prefs.getString(PrefKeys.aiProvider) ?? 'gemini';
+    final ocrModelName = prefs.getString(PrefKeys.ocrModelName) ??
+        (provider == 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash-latest');
 
-    if (apiKey.isEmpty) {
-      throw Exception('Gemini API Key is not configured in AI Settings.');
+    String rawText = '';
+
+    if (provider == 'openai') {
+      final baseUrl = prefs.getString(PrefKeys.openaiBaseUrl) ?? 'https://api.openai.com/v1';
+      final apiKey = prefs.getString(PrefKeys.openaiApiKey) ?? '';
+
+      var endpoint = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+      if (!endpoint.endsWith('/chat/completions')) {
+        endpoint = endpoint.endsWith('/v1') ? '$endpoint/chat/completions' : '$endpoint/v1/chat/completions';
+      }
+
+      final imageBytes = await File(imagePath).readAsBytes();
+      final base64Image = base64Encode(imageBytes);
+
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (apiKey.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $apiKey';
+      }
+
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: headers,
+        body: jsonEncode({
+          'model': ocrModelName,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'text',
+                  'text': 'Analyze this receipt image and extract the following details in JSON format: '
+                      '{"amount": number, "date": "YYYY-MM-DD", "time": "HH:mm", "merchant": "string", "items": [{"name": "string", "quantity": number, "price": number}]}. '
+                      'The "time" should be in 24-hour format (e.g., "14:30"). '
+                      'If a detail is not found, use null. Only return the JSON object.'
+                },
+                {
+                  'type': 'image_url',
+                  'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
+                }
+              ]
+            }
+          ]
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        rawText = data['choices']?[0]?['message']?['content'] as String? ?? '';
+      } else {
+        throw Exception('OpenAI OCR Error (${response.statusCode}): ${response.body}');
+      }
+    } else {
+      final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
+      if (apiKey.isEmpty) {
+        throw Exception('Gemini API Key is not configured in AI Settings.');
+      }
+
+      final model = GenerativeModel(model: ocrModelName, apiKey: apiKey);
+      final imageBytes = await File(imagePath).readAsBytes();
+
+      final prompt = [
+        Content.multi([
+          TextPart('Analyze this receipt image and extract the following details in JSON format: '
+                   '{"amount": number, "date": "YYYY-MM-DD", "time": "HH:mm", "merchant": "string", "items": [{"name": "string", "quantity": number, "price": number}]}. '
+                   'The "time" should be in 24-hour format (e.g., "14:30"). '
+                   'If a detail is not found, use null. Only return the JSON object.'),
+          DataPart('image/jpeg', imageBytes),
+        ])
+      ];
+
+      final response = await model.generateContent(prompt);
+      rawText = response.text ?? '';
     }
 
-    final model = GenerativeModel(model: modelName, apiKey: apiKey);
-    
-    final imageBytes = await File(imagePath).readAsBytes();
-    
-    final prompt = [
-      Content.multi([
-        TextPart('Analyze this receipt image and extract the following details in JSON format: '
-                 '{"amount": number, "date": "YYYY-MM-DD", "time": "HH:mm", "merchant": "string", "items": [{"name": "string", "quantity": number, "price": number}]}. '
-                 'The "time" should be in 24-hour format (e.g., "14:30"). '
-                 'If a detail is not found, use null. Only return the JSON object.'),
-        DataPart('image/jpeg', imageBytes),
-      ])
-    ];
-
-    final response = await model.generateContent(prompt);
-    final text = response.text;
-
-    if (text == null || text.isEmpty) {
-      throw Exception('Failed to get a response from Gemini OCR.');
+    if (rawText.isEmpty) {
+      throw Exception('Failed to get a response from AI OCR.');
     }
 
     try {
-      // Extract JSON from response (sometimes Gemini adds markdown blocks)
-      final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(text);
+      // Extract JSON from response
+      final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(rawText);
       if (jsonMatch == null) {
-        throw Exception('Invalid response format from Gemini.');
+        throw Exception('Invalid response format from OCR.');
       }
       
       final data = jsonDecode(jsonMatch.group(0)!);
@@ -92,7 +147,7 @@ class OCRService {
         time: data['time'],
         merchant: data['merchant'],
         items: items,
-        rawText: text,
+        rawText: rawText,
       );
     } catch (e) {
       throw Exception('Failed to parse receipt data: $e');
@@ -100,6 +155,6 @@ class OCRService {
   }
 
   void dispose() {
-    // No specific disposal needed for Gemini service
+    // No specific disposal needed
   }
 }

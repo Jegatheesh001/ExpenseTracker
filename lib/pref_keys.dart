@@ -23,4 +23,8 @@ class PrefKeys {
   static const String lastAIInsightsTimestamp = 'lastAIInsightsTimestamp';
   static const String ocrEnabled = 'ocrEnabled';
   static const String ocrModelName = 'ocrModelName';
+  static const String aiProvider = 'aiProvider';
+  static const String openaiBaseUrl = 'openaiBaseUrl';
+  static const String openaiApiKey = 'openaiApiKey';
+  static const String openaiModelName = 'openaiModelName';
 }

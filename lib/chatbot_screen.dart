@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/services/ai_service.dart';
@@ -74,12 +73,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   Future<void> _initAIService() async {
     final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
-    final modelName = prefs.getString(PrefKeys.geminiModelName) ?? defaultModelName;
-    
-    if (apiKey.isNotEmpty) {
+    final service = AIService.fromPrefs(prefs);
+    if (service.isConfigured) {
       setState(() {
-        _aiService = AIService(apiKey, modelName);
+        _aiService = service;
       });
     }
   }
@@ -118,16 +115,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         await _initAIService();
       }
       
-      if (_aiService == null) {
-        throw Exception("AI Service could not be initialized. Please check your API key in settings.");
+      if (_aiService == null || !_aiService!.isConfigured) {
+        throw Exception("AI Service could not be initialized. Please check your AI Settings.");
       }
 
-      final List<Part> parts = [];
-      if (audioPath != null) {
-        final bytes = await File(audioPath).readAsBytes();
-        parts.add(DataPart('audio/m4a', bytes));
-      }
-      
       final prefs = await SharedPreferences.getInstance();
       final currency = prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
       final currencySymbol = CurrencySymbol().getSymbol(currency);
@@ -136,18 +127,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       final contextPrompt = "CONTEXT: User Profile ID: ${widget.profileId}, User Name: $userName, Currency Symbol: $currencySymbol. "
           "INSTRUCTIONS: Always use the currency symbol $currencySymbol for all monetary values.";
       final promptText = audioPath != null ? "$contextPrompt [Listen to this audio and respond]" : "$contextPrompt $messageText";
-      parts.add(TextPart(promptText));
 
-      var response = await _aiService!.chatSession.sendMessage(Content.multi(parts)).timeout(const Duration(seconds: 30));
+      var response = await _aiService!.sendMessage(promptText, audioPath: audioPath).timeout(const Duration(seconds: 30));
 
-      while (true) {
-        final functionCalls = response.candidates.first.content.parts.whereType<FunctionCall>().toList();
-        if (functionCalls.isEmpty) break;
-
-        final functionResponses = <FunctionResponse>[];
+      while (response.hasFunctionCalls) {
+        final functionResponses = <AIFunctionResponse>[];
         
         // Group multiple function calls. If previous message was a tool, append to it.
-        final String newToolMessageContent = functionCalls.map((fc) => "Calling: ${fc.name}\nArgs: ${fc.args}").join("\n\n");
+        final String newToolMessageContent = response.functionCalls.map((fc) => "Calling: ${fc.name}\nArgs: ${fc.args}").join("\n\n");
         
         setState(() {
           if (_chatMessages.isNotEmpty && _chatMessages.last["role"] == "tool") {
@@ -161,20 +148,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         });
         _scrollToBottom();
 
-        for (final functionCall in functionCalls) {
-          if (functionCall.name == 'googleWebSearch') {
-            final bool? confirmed = await _showSearchConfirmationDialog(functionCall.args['query'] as String);
-            if (confirmed != true) {
-              functionResponses.add(FunctionResponse(functionCall.name, {'error': 'User cancelled web search.'}));
-              continue;
-            }
-          }
-
+        for (final functionCall in response.functionCalls) {
           final result = await _aiService!.executeFunctionCall(functionCall);
-          functionResponses.add(FunctionResponse(functionCall.name, result));
+          functionResponses.add(AIFunctionResponse(id: functionCall.id, name: functionCall.name, response: result));
         }
 
-        response = await _aiService!.chatSession.sendMessage(Content.model(functionResponses)).timeout(const Duration(seconds: 30));
+        response = await _aiService!.sendFunctionResponses(functionResponses).timeout(const Duration(seconds: 30));
       }
 
       final responseText = response.text ?? "No response from AI.";

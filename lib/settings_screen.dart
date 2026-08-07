@@ -642,7 +642,7 @@ class SettingsScreenState extends State<SettingsScreen> {
           _buildSectionTitle(context, 'AI'),
           ListTile(
             title: const Text('AI Settings'),
-            subtitle: const Text('Configure Gemini API Key & Model'),
+            subtitle: const Text('Configure AI Provider, API Keys & Models'),
             trailing: const Icon(Icons.psychology),
             onTap: () {
               Navigator.push(
