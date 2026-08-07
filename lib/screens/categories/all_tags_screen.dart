@@ -1,8 +1,8 @@
-import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'db/persistence_context.dart';
-import 'tag_expenses_screen.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/screens/categories/tag_expenses_screen.dart';
 
 class TagInfo {
   final String tagName;

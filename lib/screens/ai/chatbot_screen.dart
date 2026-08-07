@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/services/ai_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:expense_tracker/currency_symbol.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final int profileId;

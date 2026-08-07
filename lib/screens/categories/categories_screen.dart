@@ -1,7 +1,7 @@
-import 'package:expense_tracker/common/widgets.dart';
+import 'package:expense_tracker/widgets/common_widgets.dart';
 import 'package:flutter/material.dart';
-import 'db/entity.dart';
-import 'db/persistence_context.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({Key? key}) : super(key: key);

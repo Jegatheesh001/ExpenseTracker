@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'db/persistence_context.dart';
-import 'db/entity.dart';
-import 'expense_list_view.dart';
-import 'add_expense_screen.dart';
-import 'month_view.dart';
-import 'pref_keys.dart';
-import 'expense_search_delegate.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/widgets/expense_list_view.dart';
+import 'package:expense_tracker/screens/expenses/add_expense_screen.dart';
+import 'package:expense_tracker/widgets/month_view.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/widgets/expense_search_delegate.dart';
 
 class ExpensesScreen extends StatefulWidget {
   final int profileId;

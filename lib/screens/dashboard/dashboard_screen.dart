@@ -1,14 +1,14 @@
-import 'package:expense_tracker/bank_cash_transfer_screen.dart';
-import 'package:expense_tracker/common/widgets.dart';
+import 'package:expense_tracker/screens/transfers/bank_cash_transfer_screen.dart';
+import 'package:expense_tracker/widgets/common_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'db/database_helper.dart';
-import 'db/entity.dart';
-import 'db/persistence_context.dart';
-import 'pref_keys.dart';
-import 'currency_symbol.dart';
-import 'subscriptions_screen.dart';
-import 'subscription_date_utils.dart';
+import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
+import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
+import 'package:expense_tracker/utils/subscription_date_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int profileId;

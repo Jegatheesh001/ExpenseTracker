@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'db/persistence_context.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
 
 class InteractiveTrendsScreen extends StatefulWidget {
   final int profileId;

@@ -7,15 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
-import 'categories_screen.dart'; // Import the new categories screen
-import 'all_tags_screen.dart';
-import 'expense_limit_screen.dart';
-import 'pref_keys.dart';
-import 'currency_symbol.dart';
-import 'data_backup.dart';
-import 'developer_mode_screen.dart';
-import 'package:expense_tracker/ai_settings_screen.dart';
-import 'subscriptions_screen.dart';
+import 'package:expense_tracker/screens/categories/categories_screen.dart'; // Import the new categories screen
+import 'package:expense_tracker/screens/categories/all_tags_screen.dart';
+import 'package:expense_tracker/screens/expenses/expense_limit_screen.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
+import 'package:expense_tracker/services/data_backup.dart';
+import 'package:expense_tracker/screens/settings/developer_mode_screen.dart';
+import 'package:expense_tracker/screens/ai/ai_settings_screen.dart';
+import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;

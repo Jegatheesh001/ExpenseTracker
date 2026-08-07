@@ -1,10 +1,10 @@
-import 'package:expense_tracker/attach_image_screen.dart';
-import 'package:expense_tracker/common/widgets.dart';
-import 'package:expense_tracker/tag_expenses_screen.dart';
+import 'package:expense_tracker/screens/media/attach_image_screen.dart';
+import 'package:expense_tracker/widgets/common_widgets.dart';
+import 'package:expense_tracker/screens/categories/tag_expenses_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
-import 'db/entity.dart';
+import 'package:expense_tracker/db/entity.dart';
 
 class ExpenseListView extends StatelessWidget {
   final List<Expense> expenses;

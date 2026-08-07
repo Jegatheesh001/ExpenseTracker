@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expense_tracker/subscription_date_utils.dart';
+import 'package:expense_tracker/utils/subscription_date_utils.dart';
 
 void main() {
   group('SubscriptionDateUtils Tests', () {

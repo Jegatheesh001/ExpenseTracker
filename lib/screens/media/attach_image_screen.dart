@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
-import 'image_viewer_screen.dart'; // Import the new image viewer screen
+import 'package:expense_tracker/screens/media/image_viewer_screen.dart'; // Import the new image viewer screen
 
 class AttachImageScreen extends StatefulWidget {
   final int expenseId;

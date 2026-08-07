@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:expense_tracker/services/ai_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AIInsightsScreen extends StatefulWidget {

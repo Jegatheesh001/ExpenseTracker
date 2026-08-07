@@ -1,14 +1,14 @@
-import 'package:expense_tracker/all_tags_screen.dart';
-import 'package:expense_tracker/common/widgets.dart';
+import 'package:expense_tracker/screens/categories/all_tags_screen.dart';
+import 'package:expense_tracker/widgets/common_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
-import 'db/entity.dart';
-import 'db/persistence_context.dart';
-import 'add_expense_screen.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/screens/expenses/add_expense_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'pref_keys.dart';
-import 'currency_symbol.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
 
 class TagExpensesScreen extends StatefulWidget {
   final String tag;

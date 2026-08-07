@@ -1,20 +1,20 @@
 import 'dart:async';
-import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 
-import 'db/entity.dart';
-import 'add_expense_screen.dart'; // Import the new screen
-import 'settings_screen.dart'; // Import the new settings screen
-import 'currency_symbol.dart';
-import 'reports_screen.dart';
-import 'data_backup.dart';
-import 'dashboard_screen.dart';
-import 'expenses_screen.dart';
-import 'chatbot_screen.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/screens/expenses/add_expense_screen.dart'; // Import the new screen
+import 'package:expense_tracker/screens/settings/settings_screen.dart'; // Import the new settings screen
+import 'package:expense_tracker/utils/currency_symbol.dart';
+import 'package:expense_tracker/screens/reports/reports_screen.dart';
+import 'package:expense_tracker/services/data_backup.dart';
+import 'package:expense_tracker/screens/dashboard/dashboard_screen.dart';
+import 'package:expense_tracker/screens/expenses/expenses_screen.dart';
+import 'package:expense_tracker/screens/ai/chatbot_screen.dart';
 
 void main() {
   runApp(const MyApp());

@@ -1,11 +1,11 @@
-import 'package:expense_tracker/pref_keys.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'currency_symbol.dart';
-import 'db/persistence_context.dart';
-import 'db/entity.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/db/entity.dart';
 
 class ExpenseSearchDelegate extends SearchDelegate {
   final ScrollController _scrollController = ScrollController();

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'currency_symbol.dart';
-import 'pref_keys.dart';
-import 'db/database_helper.dart';
-import 'db/entity.dart';
-import 'add_subscription_dialog.dart';
-import 'subscription_date_utils.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/widgets/add_subscription_dialog.dart';
+import 'package:expense_tracker/utils/subscription_date_utils.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   final int profileId;

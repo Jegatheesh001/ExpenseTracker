@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'db/database_helper.dart';
-import 'db/entity.dart';
-import 'common/widgets.dart';
-import 'add_expense_screen.dart';
+import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/widgets/common_widgets.dart';
+import 'package:expense_tracker/screens/expenses/add_expense_screen.dart';
 
 class CategoryMonthViewScreen extends StatefulWidget {
   final String category;

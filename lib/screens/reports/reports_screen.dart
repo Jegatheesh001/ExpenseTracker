@@ -1,11 +1,11 @@
-import 'package:expense_tracker/ai_insights_screen.dart';
-import 'package:expense_tracker/category_month_view_screen.dart';
-import 'package:expense_tracker/interactive_trends_screen.dart';
+import 'package:expense_tracker/screens/ai/ai_insights_screen.dart';
+import 'package:expense_tracker/screens/expenses/category_month_view_screen.dart';
+import 'package:expense_tracker/screens/reports/interactive_trends_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'db/persistence_context.dart';
-import 'tag_expenses_screen.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/screens/categories/tag_expenses_screen.dart';
 
 enum ReportType { category, tag }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'pref_keys.dart';
-import 'currency_symbol.dart';
+import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/utils/currency_symbol.dart';
 
 class BankCashTransferScreen extends StatefulWidget {
   final int profileId;
