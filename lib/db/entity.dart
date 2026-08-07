@@ -121,3 +121,122 @@ class Tag {
     return {'tagId': tagId, 'tagName': tagName};
   }
 }
+
+class Subscription {
+  final int? id;
+  final int profileId;
+  final String title;
+  final double amount;
+  final int categoryId;
+  final String category;
+  final String billingCycle; // 'Monthly', 'Yearly', 'Weekly'
+  final DateTime startDate;
+  final DateTime nextBillingDate;
+  final String currency; // 'Rupee', 'Dollar', 'Euro', 'Pound', 'Dirham'
+  final String? paymentMethod;
+  final String? remarks;
+  final bool isActive;
+  final bool autoLogExpense;
+
+  Subscription({
+    this.id,
+    required this.profileId,
+    required this.title,
+    required this.amount,
+    required this.categoryId,
+    required this.category,
+    required this.billingCycle,
+    required this.startDate,
+    required this.nextBillingDate,
+    this.currency = 'Rupee',
+    this.paymentMethod,
+    this.remarks,
+    this.isActive = true,
+    this.autoLogExpense = false,
+  });
+
+  factory Subscription.fromMap(Map<String, dynamic> map) {
+    return Subscription(
+      id: map['id'],
+      profileId: map['profileId'] ?? 0,
+      title: map['title'],
+      amount: (map['amount'] as num).toDouble(),
+      categoryId: map['categoryId'] ?? 0,
+      category: map['category'] ?? 'Others',
+      billingCycle: map['billingCycle'] ?? 'Monthly',
+      startDate: DateTime.parse(map['startDate']),
+      nextBillingDate: DateTime.parse(map['nextBillingDate']),
+      currency: map['currency'] ?? 'Rupee',
+      paymentMethod: map['paymentMethod'],
+      remarks: map['remarks'],
+      isActive: (map['isActive'] ?? 1) == 1,
+      autoLogExpense: (map['autoLogExpense'] ?? 0) == 1,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'profileId': profileId,
+      'title': title,
+      'amount': amount,
+      'categoryId': categoryId,
+      'category': category,
+      'billingCycle': billingCycle,
+      'startDate': startDate.toIso8601String(),
+      'nextBillingDate': nextBillingDate.toIso8601String(),
+      'currency': currency,
+      'paymentMethod': paymentMethod,
+      'remarks': remarks,
+      'isActive': isActive ? 1 : 0,
+      'autoLogExpense': autoLogExpense ? 1 : 0,
+    };
+  }
+
+  double get monthlyAmount {
+    switch (billingCycle.toLowerCase()) {
+      case 'yearly':
+        return amount / 12.0;
+      case 'weekly':
+        return amount * 4.333;
+      case 'monthly':
+      default:
+        return amount;
+    }
+  }
+
+  Subscription copyWith({
+    int? id,
+    int? profileId,
+    String? title,
+    double? amount,
+    int? categoryId,
+    String? category,
+    String? billingCycle,
+    DateTime? startDate,
+    DateTime? nextBillingDate,
+    String? currency,
+    String? paymentMethod,
+    String? remarks,
+    bool? isActive,
+    bool? autoLogExpense,
+  }) {
+    return Subscription(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      title: title ?? this.title,
+      amount: amount ?? this.amount,
+      categoryId: categoryId ?? this.categoryId,
+      category: category ?? this.category,
+      billingCycle: billingCycle ?? this.billingCycle,
+      startDate: startDate ?? this.startDate,
+      nextBillingDate: nextBillingDate ?? this.nextBillingDate,
+      currency: currency ?? this.currency,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      remarks: remarks ?? this.remarks,
+      isActive: isActive ?? this.isActive,
+      autoLogExpense: autoLogExpense ?? this.autoLogExpense,
+    );
+  }
+}
+

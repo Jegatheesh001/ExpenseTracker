@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:expense_tracker/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/db/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataBackup {
@@ -31,6 +32,7 @@ class DataBackup {
         List<Tag> tagsToInsert = [];
         List<Map<String, int>> expenseTagsToInsert = [];
         List<BilledItem> billedItemsToInsert = [];
+        List<Subscription> subscriptionsToInsert = [];
         List<String> errors = [];
 
         final prefs = await SharedPreferences.getInstance();
@@ -87,6 +89,23 @@ class DataBackup {
                 quantity: double.parse(parts[4]),
                 price: double.parse(parts[5]),
               ));
+            } else if (parts[0] == 'SUBSCRIPTION' && parts.length >= 15) {
+              subscriptionsToInsert.add(Subscription(
+                id: int.tryParse(parts[1]),
+                profileId: int.parse(parts[2]),
+                title: parts[3],
+                amount: double.parse(parts[4]),
+                categoryId: int.parse(parts[5]),
+                category: parts[6],
+                billingCycle: parts[7],
+                startDate: DateTime.parse(parts[8]),
+                nextBillingDate: DateTime.parse(parts[9]),
+                currency: parts[10],
+                paymentMethod: parts[11] != 'null' ? parts[11] : null,
+                remarks: parts[12] != 'null' ? parts[12] : null,
+                isActive: parts[13] == '1',
+                autoLogExpense: parts[14] == '1',
+              ));
             } else if (parts.length == 9) {
               bool isActive = parts[6].toUpperCase() == 'Y';
               if(isActive) {
@@ -134,6 +153,9 @@ class DataBackup {
         }
         for (BilledItem item in billedItemsToInsert) {
           await db.saveBilledItem(item);
+        }
+        for (Subscription sub in subscriptionsToInsert) {
+          await DatabaseHelper().saveOrUpdateSubscription(sub);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -203,6 +225,14 @@ class DataBackup {
 
       for (BilledItem item in billedItems) {
         exportContent.writeln('BILLED_ITEM;;${item.id};;${item.expenseId};;${item.itemName};;${item.quantity};;${item.price}');
+      }
+
+      final dbInstance = await DatabaseHelper().database;
+      final subMaps = await dbInstance.query('subscriptions');
+      final subscriptions = subMaps.map((m) => Subscription.fromMap(m)).toList();
+      for (Subscription sub in subscriptions) {
+        exportContent.writeln(
+            'SUBSCRIPTION;;${sub.id};;${sub.profileId};;${sub.title};;${sub.amount};;${sub.categoryId};;${sub.category};;${sub.billingCycle};;${sub.startDate.toIso8601String()};;${sub.nextBillingDate.toIso8601String()};;${sub.currency};;${sub.paymentMethod};;${sub.remarks};;${sub.isActive ? "1" : "0"};;${sub.autoLogExpense ? "1" : "0"}');
       }
 
       if (includeImages) {

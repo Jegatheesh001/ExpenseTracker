@@ -28,7 +28,7 @@ class DatabaseHelper {
     ); // Use getApplicationDocumentsDirectory from path_provider
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -44,6 +44,7 @@ class DatabaseHelper {
     await version2DbChanges(db);
     await version5DbChanges(db);
     await version7DbChanges(db);
+    await version8DbChanges(db);
   }
 
   // Applies database changes for version 2.
@@ -101,6 +102,32 @@ class DatabaseHelper {
     if (oldVersion < 7) {
       await version7DbChanges(db);
     }
+    // Version 8 changes
+    if (oldVersion < 8) {
+      await version8DbChanges(db);
+    }
+  }
+
+  // Applies database changes for version 8.
+  Future<void> version8DbChanges(Database db) async {
+    await db.execute('''
+      CREATE TABLE subscriptions(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        profileId INTEGER DEFAULT 0,
+        title TEXT NOT NULL,
+        amount REAL NOT NULL,
+        categoryId INTEGER DEFAULT 0,
+        category TEXT NOT NULL,
+        billingCycle TEXT NOT NULL,
+        startDate TEXT NOT NULL,
+        nextBillingDate TEXT NOT NULL,
+        currency TEXT DEFAULT 'Rupee',
+        paymentMethod TEXT,
+        remarks TEXT,
+        isActive INTEGER DEFAULT 1,
+        autoLogExpense INTEGER DEFAULT 0
+      )
+    ''');
   }
 
   // Applies database changes for version 7.
@@ -319,7 +346,16 @@ class DatabaseHelper {
     ''';
     final expenseCountResult = await db.rawQuery(expenseCountQuery, [id]);
     final expenseCount = expenseCountResult.first['expenseCount'] as int;
-    if (expenseCount == 0) {
+
+    final subCountQuery = '''
+      SELECT COUNT(*) AS subCount
+      FROM subscriptions
+      WHERE categoryId = ?
+    ''';
+    final subCountResult = await db.rawQuery(subCountQuery, [id]);
+    final subCount = subCountResult.first['subCount'] as int;
+
+    if (expenseCount == 0 && subCount == 0) {
       await db.delete('categories', where: 'categoryId = ?', whereArgs: [id]);
       return true;
     }
@@ -664,5 +700,56 @@ class DatabaseHelper {
     ''', args);
 
     return _mapMapsToExpenses(maps);
+  }
+
+  // --- Subscriptions & Recurring Expenses ---
+
+  Future<int> saveOrUpdateSubscription(Subscription sub) async {
+    final Database db = await database;
+    if (sub.id != null && sub.id! > 0) {
+      return await db.update(
+        'subscriptions',
+        sub.toMap(),
+        where: 'id = ?',
+        whereArgs: [sub.id],
+      );
+    } else {
+      return await db.insert('subscriptions', sub.toMap());
+    }
+  }
+
+  Future<List<Subscription>> getSubscriptions([int? profileId]) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = profileId != null
+        ? await db.query(
+            'subscriptions',
+            where: 'profileId = ?',
+            whereArgs: [profileId],
+            orderBy: 'nextBillingDate asc',
+          )
+        : await db.query(
+            'subscriptions',
+            orderBy: 'nextBillingDate asc',
+          );
+    return maps.map((m) => Subscription.fromMap(m)).toList();
+  }
+
+  Future<void> deleteSubscription(int id) async {
+    final Database db = await database;
+    await db.delete(
+      'subscriptions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> toggleSubscriptionStatus(int id, bool isActive) async {
+    final Database db = await database;
+    await db.update(
+      'subscriptions',
+      {'isActive': isActive ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

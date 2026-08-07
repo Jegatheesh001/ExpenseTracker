@@ -2,9 +2,13 @@ import 'package:expense_tracker/bank_cash_transfer_screen.dart';
 import 'package:expense_tracker/common/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'db/database_helper.dart';
+import 'db/entity.dart';
 import 'db/persistence_context.dart';
 import 'pref_keys.dart';
 import 'currency_symbol.dart';
+import 'subscriptions_screen.dart';
+import 'subscription_date_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int profileId;
@@ -29,7 +33,11 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _monthlyChange = 0.0;
   double _cashBalance = 0.0;
   double _bankBalance = 0.0;
+  double _monthlySubscriptionTotal = 0.0;
+  int _upcomingSubscriptionsCount = 0;
+  List<Subscription> _dueAutoLogSubscriptions = [];
   String _currencySymbol = '₹';
+  String _profileCurrency = 'Rupee';
   late SharedPreferences _prefs;
   String _username = '';
   String _tipOfTheDay = '';
@@ -144,6 +152,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   void _loadCurrency() {
     final currency = _prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
     setState(() {
+      _profileCurrency = currency;
       _currencySymbol = CurrencySymbol().getSymbol(currency);
     });
   }
@@ -171,9 +180,34 @@ class DashboardScreenState extends State<DashboardScreen> {
     final currentMonthExp = await PersistenceContext().getExpenseSumByMonth(now, widget.profileId);
     final lastMonthExp = await PersistenceContext().getExpenseSumByMonth(lastMonth, widget.profileId);
 
+    // Load Subscriptions
+    double subTotal = 0.0;
+    int upcomingCount = 0;
+    try {
+      final subs = await DatabaseHelper().getSubscriptions(widget.profileId);
+      final activeSubs = subs.where((s) => s.isActive).toList();
+      subTotal = activeSubs.fold(0.0, (sum, s) => sum + s.monthlyAmount);
+
+      final in7Days = today.add(const Duration(days: 7));
+      upcomingCount = activeSubs.where((s) {
+        final due = DateTime(
+            s.nextBillingDate.year, s.nextBillingDate.month, s.nextBillingDate.day);
+        return !due.isAfter(in7Days);
+      }).length;
+
+      _dueAutoLogSubscriptions = activeSubs.where((s) {
+        if (!s.autoLogExpense) return false;
+        final due = DateTime(
+            s.nextBillingDate.year, s.nextBillingDate.month, s.nextBillingDate.day);
+        return !due.isAfter(today);
+      }).toList();
+    } catch (_) {}
+
     setState(() {
       _todayExpense = todayExp;
       _monthlyExpense = currentMonthExp;
+      _monthlySubscriptionTotal = subTotal;
+      _upcomingSubscriptionsCount = upcomingCount;
       
       if (yesterdayExp > 0) {
         _todayChange = ((todayExp - yesterdayExp) / yesterdayExp) * 100;
@@ -250,12 +284,240 @@ class DashboardScreenState extends State<DashboardScreen> {
                   amount: _bankBalance,
                   iconColor: Colors.blueAccent,
                 ),
+                const SizedBox(height: 15),
+                _buildSubscriptionsCard(),
                 const SizedBox(height: 30),
                 _buildFinTipCard(),
                 const SizedBox(
                     height: 100), // Extra space for FAB and Bottom Nav
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _autoLogDueSubscriptions() async {
+    if (_dueAutoLogSubscriptions.isEmpty) return;
+
+    final mismatched = _dueAutoLogSubscriptions.where((s) => s.currency != _profileCurrency).toList();
+    if (mismatched.isNotEmpty) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Currency Mismatch'),
+            ],
+          ),
+          content: Text(
+            '${mismatched.length} subscription(s) use a different currency than Profile #${widget.profileId} ($_profileCurrency).\n\n'
+            'Logging them will record their amounts directly into your expenses. Do you want to proceed?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Proceed Auto-Logging'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
+    int count = 0;
+    final now = DateTime.now();
+
+    for (final sub in _dueAutoLogSubscriptions) {
+      final newExpense = Expense(
+        profileId: sub.profileId,
+        categoryId: sub.categoryId,
+        category: sub.category,
+        amount: sub.amount,
+        remarks: 'Auto-Logged Subscription: ${sub.title}',
+        expenseDate: now,
+        entryDate: now,
+        paymentMethod: sub.paymentMethod,
+        tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
+      );
+
+      await DatabaseHelper().saveOrUpdateExpense(newExpense);
+
+      final nextDue = SubscriptionDateUtils.advanceNextBillingDate(
+        SubscriptionDateUtils.catchUpNextBillingDate(sub.nextBillingDate, sub.billingCycle),
+        sub.billingCycle,
+      );
+
+      final updatedSub = sub.copyWith(nextBillingDate: nextDue);
+      await DatabaseHelper().saveOrUpdateSubscription(updatedSub);
+      count++;
+    }
+
+    widget.onWalletAmountChange();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully auto-logged $count subscription expense(s)!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      refresh();
+    }
+  }
+
+  Widget _buildSubscriptionsCard() {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      color: theme.brightness == Brightness.dark
+          ? const Color(0xFF1F2B36)
+          : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SubscriptionsScreen(
+                profileId: widget.profileId,
+                currencySymbol: _currencySymbol,
+                onWalletAmountChange: widget.onWalletAmountChange,
+              ),
+            ),
+          );
+          refresh();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.repeat, color: theme.colorScheme.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Recurring Subscriptions',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Estimated / Month',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$_currencySymbol ${_monthlySubscriptionTotal.toStringAsFixed(1)}',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_upcomingSubscriptionsCount > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.notifications_active, size: 14, color: Colors.amber.shade900),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$_upcomingSubscriptionsCount due',
+                            style: TextStyle(
+                              color: Colors.amber.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Text(
+                      'No payments due soon',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+              if (_dueAutoLogSubscriptions.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_dueAutoLogSubscriptions.length} subscription(s) due for auto-logging',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: _autoLogDueSubscriptions,
+                        style: ElevatedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                        ),
+                        child: const Text('Log All Now', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

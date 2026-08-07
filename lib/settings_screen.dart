@@ -15,6 +15,7 @@ import 'currency_symbol.dart';
 import 'data_backup.dart';
 import 'developer_mode_screen.dart';
 import 'package:expense_tracker/ai_settings_screen.dart';
+import 'subscriptions_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -574,6 +575,22 @@ class SettingsScreenState extends State<SettingsScreen> {
             onTap: _showProfileSwitchConfirmationDialog,
           ),
           _buildSectionTitle(context, 'Management'),
+          ListTile(
+            title: const Text('Subscriptions & Recurring'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SubscriptionsScreen(
+                    profileId: _profileId,
+                    currencySymbol: CurrencySymbol().getSymbol(_currentCurrency),
+                    onWalletAmountChange: widget.onWalletAmountUpdated,
+                  ),
+                ),
+              );
+            },
+          ),
           ListTile(
             title: const Text('Categories'),
             trailing: const Icon(Icons.chevron_right),
