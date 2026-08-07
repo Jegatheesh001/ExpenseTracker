@@ -346,7 +346,7 @@ class DashboardScreenState extends State<DashboardScreen> {
         category: sub.category,
         amount: sub.amount,
         remarks: 'Auto-Logged Subscription: ${sub.title}',
-        expenseDate: now,
+        expenseDate: sub.nextBillingDate,
         entryDate: now,
         paymentMethod: sub.paymentMethod,
         tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],

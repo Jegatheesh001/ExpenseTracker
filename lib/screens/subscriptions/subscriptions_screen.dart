@@ -193,28 +193,288 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
     if (!mounted) return;
 
-    final confirm = await showDialog<bool>(
+    final selectedDate = await showDialog<DateTime>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log Expense Now'),
-        content: Text(
-          'Create an expense entry for "${sub.title}" of $subSymbol${sub.amount.toStringAsFixed(2)} for today?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.check),
-            label: const Text('Log Expense'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        DateTime chosenDate = sub.nextBillingDate;
+        String mode = 'subscription'; // 'subscription', 'today', 'custom'
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final subDateStr = DateFormat('MMM dd, yyyy').format(sub.nextBillingDate);
+            final todayStr = DateFormat('MMM dd, yyyy').format(DateTime.now());
+            final chosenStr = DateFormat('MMM dd, yyyy').format(chosenDate);
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.receipt_long, color: Colors.teal),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Log Expense',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                sub.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                sub.category,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).textTheme.bodySmall?.color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          '$subSymbol${sub.amount.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Expense Date:',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: () {
+                      setDialogState(() {
+                        mode = 'subscription';
+                        chosenDate = sub.nextBillingDate;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: mode == 'subscription'
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade400,
+                          width: mode == 'subscription' ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        color: mode == 'subscription'
+                            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            mode == 'subscription'
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            color: mode == 'subscription'
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Subscription Due Date',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                                Text(
+                                  subDateStr,
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Auto-Deducted',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      setDialogState(() {
+                        mode = 'today';
+                        chosenDate = DateTime.now();
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: mode == 'today'
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade400,
+                          width: mode == 'today' ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        color: mode == 'today'
+                            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            mode == 'today'
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            color: mode == 'today'
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Today',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                                Text(
+                                  todayStr,
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: chosenDate,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          mode = 'custom';
+                          chosenDate = picked;
+                        });
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: mode == 'custom'
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.grey.shade400,
+                          width: mode == 'custom' ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        color: mode == 'custom'
+                            ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            mode == 'custom'
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            color: mode == 'custom'
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Custom Date',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                                Text(
+                                  mode == 'custom' ? chosenStr : 'Pick a date...',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.calendar_month, size: 18, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context, chosenDate),
+                  icon: const Icon(Icons.check),
+                  label: const Text('Log Expense'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (confirm == true) {
+    if (selectedDate != null) {
       final now = DateTime.now();
       final newExpense = Expense(
         profileId: sub.profileId,
@@ -222,7 +482,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         category: sub.category,
         amount: sub.amount,
         remarks: 'Recurring Subscription: ${sub.title}',
-        expenseDate: now,
+        expenseDate: selectedDate,
         entryDate: now,
         paymentMethod: sub.paymentMethod,
         tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
@@ -242,10 +502,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       widget.onWalletAmountChange?.call();
 
       if (mounted) {
+        final formattedDate = DateFormat('MMM dd, yyyy').format(selectedDate);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Logged ${sub.title} as expense! Next due date updated to ${DateFormat('MMM dd').format(nextDue)}.',
+              'Logged ${sub.title} expense for $formattedDate! Next due date updated to ${DateFormat('MMM dd').format(nextDue)}.',
             ),
             backgroundColor: Colors.green,
           ),
@@ -427,12 +688,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Your Subscriptions',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                         SegmentedButton<String>(
                           segments: const [
                             ButtonSegment(value: 'All', label: Text('All')),
@@ -662,7 +917,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                           ),
                                           Text(
-                                            sub.isActive ? 'Active' : 'Paused',
+                                            sub.isActive ? '' : 'Paused',
                                             style: const TextStyle(fontSize: 12),
                                           ),
                                         ],
