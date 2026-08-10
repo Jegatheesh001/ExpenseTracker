@@ -6,8 +6,9 @@ plugins {
     id 'org.jetbrains.kotlin.android'
     id 'dev.flutter.flutter-gradle-plugin'
 }
-import java.util.Properties
-import java.io.FileInputStream
+
+def compileSdkVersion = 36
+def targetSdkVersion = 36
 
 // Load keystore properties
 def keystorePropertiesFile = rootProject.file("key.properties")
@@ -18,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.jegatheesh.expenseTracker"
-    compileSdk flutter.compileSdkVersion
+    compileSdk compileSdkVersion
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -36,7 +37,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk flutter.minSdkVersion
-        targetSdk flutter.targetSdkVersion
+        targetSdk targetSdkVersion
         versionCode flutter.versionCode
         versionName flutter.versionName
     }
