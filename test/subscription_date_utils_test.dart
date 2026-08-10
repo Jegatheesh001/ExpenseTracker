@@ -74,5 +74,25 @@ void main() {
       final nextDue = SubscriptionDateUtils.advanceNextBillingDate(caughtUp, 'Monthly');
       expect(nextDue, DateTime(2026, 9, 7));
     });
+
+    test('Skipping subscription advances next due date to next billing cycle', () {
+      final currentDue = DateTime(2026, 8, 15);
+      final nextDue = SubscriptionDateUtils.catchUpNextBillingDate(
+        SubscriptionDateUtils.advanceNextBillingDate(currentDue, 'Monthly'),
+        'Monthly',
+        targetDate: DateTime(2026, 8, 10),
+      );
+      expect(nextDue, DateTime(2026, 9, 15));
+    });
+
+    test('Skipping overdue subscription advances to upcoming cycle', () {
+      final overdue = DateTime(2026, 7, 1);
+      final nextDue = SubscriptionDateUtils.catchUpNextBillingDate(
+        SubscriptionDateUtils.advanceNextBillingDate(overdue, 'Monthly'),
+        'Monthly',
+        targetDate: DateTime(2026, 8, 10),
+      );
+      expect(nextDue, DateTime(2026, 9, 1));
+    });
   });
 }

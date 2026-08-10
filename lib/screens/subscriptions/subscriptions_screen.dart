@@ -27,7 +27,7 @@ class SubscriptionsScreen extends StatefulWidget {
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   List<Subscription> _subscriptions = [];
   bool _isLoading = true;
-  String _filter = 'All'; // 'All', 'Active', 'Paused'
+  String _filter = 'All'; // 'All', 'Active', 'Paused', 'Due'
   bool _showCurrentProfileOnly = false;
   String _profileCurrency = 'Rupee';
 
@@ -76,6 +76,18 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       return list.where((s) => s.isActive).toList();
     } else if (_filter == 'Paused') {
       return list.where((s) => !s.isActive).toList();
+    } else if (_filter == 'Due') {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final in7Days = today.add(const Duration(days: 7));
+      final dueList = list.where((s) {
+        if (!s.isActive) return false;
+        final due = DateTime(
+            s.nextBillingDate.year, s.nextBillingDate.month, s.nextBillingDate.day);
+        return !due.isAfter(in7Days);
+      }).toList();
+      dueList.sort((a, b) => a.nextBillingDate.compareTo(b.nextBillingDate));
+      return dueList;
     }
     return list;
   }
@@ -516,6 +528,63 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     }
   }
 
+  Future<void> _skipSubscription(Subscription sub) async {
+    DateTime nextDue = SubscriptionDateUtils.advanceNextBillingDate(
+      sub.nextBillingDate,
+      sub.billingCycle,
+    );
+    nextDue = SubscriptionDateUtils.catchUpNextBillingDate(nextDue, sub.billingCycle);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.skip_next, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Skip Subscription'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to skip the current due date for "${sub.title}"?\n\n'
+          'The next due date will be set to ${DateFormat('MMM dd, yyyy').format(nextDue)} without recording an expense.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && sub.id != null) {
+      final updatedSub = sub.copyWith(nextBillingDate: nextDue);
+      await DatabaseHelper().saveOrUpdateSubscription(updatedSub);
+
+      if (mounted) {
+        final formattedDate = DateFormat('MMM dd, yyyy').format(nextDue);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Skipped ${sub.title}. Next due date updated to $formattedDate.',
+            ),
+            backgroundColor: Colors.blue,
+          ),
+        );
+        _loadSubscriptions();
+      }
+    }
+  }
+
   Widget _buildSummaryCard(ThemeData theme) {
     return Container(
       width: double.infinity,
@@ -665,13 +734,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscriptions & Recurring'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Add Subscription',
-            onPressed: () => _openAddEditSheet(),
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -693,6 +755,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                             ButtonSegment(value: 'All', label: Text('All')),
                             ButtonSegment(value: 'Active', label: Text('Active')),
                             ButtonSegment(value: 'Paused', label: Text('Paused')),
+                            ButtonSegment(value: 'Due', label: Text('Due')),
                           ],
                           selected: {_filter},
                           onSelectionChanged: (set) {
@@ -750,7 +813,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                             Text(
                               _filter == 'All'
                                   ? 'No subscriptions added yet'
-                                  : 'No $_filter subscriptions found',
+                                  : _filter == 'Due'
+                                      ? 'No subscriptions due soon'
+                                      : 'No $_filter subscriptions found',
                               style: theme.textTheme.bodyLarge?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -924,29 +989,52 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                                       ),
                                       Row(
                                         children: [
-                                          if (sub.isActive)
-                                            OutlinedButton.icon(
-                                              onPressed: () => _logSubscriptionAsExpense(sub),
-                                              icon: const Icon(Icons.bolt, size: 16),
-                                              label: const Text(
-                                                'Log Expense',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                              style: OutlinedButton.styleFrom(
+                                          Wrap(
+                                            spacing: 4,
+                                            runSpacing: 4,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              if (sub.isActive) ...[
+                                                OutlinedButton.icon(
+                                                  onPressed: () => _logSubscriptionAsExpense(sub),
+                                                  icon: const Icon(Icons.bolt, size: 16),
+                                                  label: const Text(
+                                                    'Log',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  style: OutlinedButton.styleFrom(
+                                                    visualDensity: VisualDensity.compact,
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 4),
+                                                  ),
+                                                ),
+                                                OutlinedButton.icon(
+                                                  onPressed: () => _skipSubscription(sub),
+                                                  icon: const Icon(Icons.skip_next, size: 16),
+                                                  label: const Text(
+                                                    'Skip',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  style: OutlinedButton.styleFrom(
+                                                    visualDensity: VisualDensity.compact,
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8, vertical: 4),
+                                                  ),
+                                                ),
+                                              ],
+                                              IconButton(
+                                                icon: const Icon(Icons.edit_outlined, size: 20),
+                                                onPressed: () => _openAddEditSheet(sub),
+                                                tooltip: 'Edit',
                                                 visualDensity: VisualDensity.compact,
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10, vertical: 4),
                                               ),
-                                            ),
-                                          IconButton(
-                                            icon: const Icon(Icons.edit_outlined, size: 20),
-                                            onPressed: () => _openAddEditSheet(sub),
-                                            tooltip: 'Edit',
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-                                            onPressed: () => _deleteSubscription(sub),
-                                            tooltip: 'Delete',
+                                              IconButton(
+                                                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                                onPressed: () => _deleteSubscription(sub),
+                                                tooltip: 'Delete',
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
