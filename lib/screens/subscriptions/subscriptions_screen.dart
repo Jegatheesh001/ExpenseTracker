@@ -12,12 +12,14 @@ class SubscriptionsScreen extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
   final VoidCallback? onWalletAmountChange;
+  final String initialFilter;
 
   const SubscriptionsScreen({
     super.key,
     required this.profileId,
     required this.currencySymbol,
     this.onWalletAmountChange,
+    this.initialFilter = 'All',
   });
 
   @override
@@ -27,13 +29,14 @@ class SubscriptionsScreen extends StatefulWidget {
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   List<Subscription> _subscriptions = [];
   bool _isLoading = true;
-  String _filter = 'All'; // 'All', 'Active', 'Paused', 'Due'
+  late String _filter; // 'All', 'Active', 'Paused', 'Due'
   bool _showCurrentProfileOnly = false;
   String _profileCurrency = 'Rupee';
 
   @override
   void initState() {
     super.initState();
+    _filter = widget.initialFilter;
     _loadSubscriptions();
   }
 
@@ -93,8 +96,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   }
 
   double get _totalMonthlySpend {
-    return _profileFilteredSubscriptions
-        .where((s) => s.isActive)
+    return _subscriptions
+        .where((s) => s.profileId == widget.profileId && s.isActive)
         .fold(0.0, (sum, item) => sum + item.monthlyAmount);
   }
 

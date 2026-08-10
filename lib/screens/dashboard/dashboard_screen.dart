@@ -184,9 +184,11 @@ class DashboardScreenState extends State<DashboardScreen> {
     double subTotal = 0.0;
     int upcomingCount = 0;
     try {
-      final subs = await DatabaseHelper().getSubscriptions(widget.profileId);
+      final subs = await DatabaseHelper().getSubscriptions(); // Fetch across all profiles
       final activeSubs = subs.where((s) => s.isActive).toList();
-      subTotal = activeSubs.fold(0.0, (sum, s) => sum + s.monthlyAmount);
+
+      final currentProfileActiveSubs = activeSubs.where((s) => s.profileId == widget.profileId).toList();
+      subTotal = currentProfileActiveSubs.fold(0.0, (sum, s) => sum + s.monthlyAmount);
 
       final in7Days = today.add(const Duration(days: 7));
       upcomingCount = activeSubs.where((s) {
@@ -246,8 +248,26 @@ class DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            icon: Badge(
+              isLabelVisible: _upcomingSubscriptionsCount > 0,
+              label: Text('$_upcomingSubscriptionsCount'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            tooltip: 'Due Notifications',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SubscriptionsScreen(
+                    profileId: widget.profileId,
+                    currencySymbol: _currencySymbol,
+                    onWalletAmountChange: widget.onWalletAmountChange,
+                    initialFilter: 'Due',
+                  ),
+                ),
+              );
+              refresh();
+            },
           ),
         ],
       ),
@@ -301,7 +321,9 @@ class DashboardScreenState extends State<DashboardScreen> {
   Future<void> _autoLogDueSubscriptions() async {
     if (_dueAutoLogSubscriptions.isEmpty) return;
 
-    final mismatched = _dueAutoLogSubscriptions.where((s) => s.currency != _profileCurrency).toList();
+    final mismatched = _dueAutoLogSubscriptions
+        .where((s) => s.currency != _profileCurrency || s.profileId != widget.profileId)
+        .toList();
     if (mismatched.isNotEmpty) {
       final confirm = await showDialog<bool>(
         context: context,
@@ -310,12 +332,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange),
               SizedBox(width: 8),
-              Text('Currency Mismatch'),
+              Text('Currency / Profile Notice'),
             ],
           ),
           content: Text(
-            '${mismatched.length} subscription(s) use a different currency than Profile #${widget.profileId} ($_profileCurrency).\n\n'
-            'Logging them will record their amounts directly into your expenses. Do you want to proceed?',
+            '${mismatched.length} subscription(s) belong to other profiles or use different currencies.\n\n'
+            'Logging them will record their expenses directly into their respective profiles with their specified currencies. Do you want to proceed?',
           ),
           actions: [
             TextButton(
