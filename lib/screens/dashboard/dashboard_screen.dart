@@ -42,6 +42,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   String _username = '';
   String _tipOfTheDay = '';
   bool _isBalanceVisible = true;
+  int _refreshGeneration = 0;
 
   // New text editing controllers for balance management dialog
   late final TextEditingController _cashAmountController = TextEditingController();
@@ -52,6 +53,17 @@ class DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     refresh();
     _loadTip();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profileId != widget.profileId) {
+      // IndexedStack preserves this State while the selected profile changes.
+      // Reload every profile-scoped value instead of leaving the previous
+      // profile's balances and spending visible.
+      refresh();
+    }
   }
 
   void _loadTip() {
@@ -68,12 +80,16 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> refresh() async {
+    final generation = ++_refreshGeneration;
     _prefs = await SharedPreferences.getInstance();
+    if (!mounted || generation != _refreshGeneration) return;
+
+    final profileId = widget.profileId;
     await _loadBalanceVisibility();
     await _loadUsername();
-    await _loadBalances();
-    await _loadExpenses();
-    _loadCurrency();
+    await _loadBalances(profileId, generation);
+    await _loadExpenses(profileId, generation);
+    _loadCurrency(profileId, generation);
   }
 
   Future<void> _loadBalanceVisibility() async {
@@ -142,15 +158,17 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _loadBalances() async {
+  Future<void> _loadBalances(int profileId, int generation) async {
+    if (!mounted || generation != _refreshGeneration) return;
     setState(() {
-      _cashBalance = _prefs.getDouble('${PrefKeys.cashAmount}-${widget.profileId}') ?? 0.0;
-      _bankBalance = _prefs.getDouble('${PrefKeys.bankAmount}-${widget.profileId}') ?? 0.0;
+      _cashBalance = _prefs.getDouble('${PrefKeys.cashAmount}-$profileId') ?? 0.0;
+      _bankBalance = _prefs.getDouble('${PrefKeys.bankAmount}-$profileId') ?? 0.0;
     });
   }
 
-  void _loadCurrency() {
-    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
+  void _loadCurrency(int profileId, int generation) {
+    if (!mounted || generation != _refreshGeneration) return;
+    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
     setState(() {
       _profileCurrency = currency;
       _currencySymbol = CurrencySymbol().getSymbol(currency);
@@ -168,17 +186,17 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _loadExpenses() async {
+  Future<void> _loadExpenses(int profileId, int generation) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final lastMonth = DateTime(now.year, now.month - 1, 1);
 
-    final todayExp = await PersistenceContext().getExpenseSumByDate(today, widget.profileId);
-    final yesterdayExp = await PersistenceContext().getExpenseSumByDate(yesterday, widget.profileId);
+    final todayExp = await PersistenceContext().getExpenseSumByDate(today, profileId);
+    final yesterdayExp = await PersistenceContext().getExpenseSumByDate(yesterday, profileId);
     
-    final currentMonthExp = await PersistenceContext().getExpenseSumByMonth(now, widget.profileId);
-    final lastMonthExp = await PersistenceContext().getExpenseSumByMonth(lastMonth, widget.profileId);
+    final currentMonthExp = await PersistenceContext().getExpenseSumByMonth(now, profileId);
+    final lastMonthExp = await PersistenceContext().getExpenseSumByMonth(lastMonth, profileId);
 
     // Load Subscriptions
     double subTotal = 0.0;
@@ -187,7 +205,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       final subs = await DatabaseHelper().getSubscriptions(); // Fetch across all profiles
       final activeSubs = subs.where((s) => s.isActive).toList();
 
-      final currentProfileActiveSubs = activeSubs.where((s) => s.profileId == widget.profileId).toList();
+      final currentProfileActiveSubs = activeSubs.where((s) => s.profileId == profileId).toList();
       subTotal = currentProfileActiveSubs.fold(0.0, (sum, s) => sum + s.monthlyAmount);
 
       final in7Days = today.add(const Duration(days: 7));
@@ -205,6 +223,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       }).toList();
     } catch (_) {}
 
+    if (!mounted || generation != _refreshGeneration) return;
     setState(() {
       _todayExpense = todayExp;
       _monthlyExpense = currentMonthExp;
@@ -1053,7 +1072,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     await _prefs.setDouble('${PrefKeys.walletAmount}-${widget.profileId}', newCashAmount + newBankAmount);
     
     // Update local state and refresh dashboard data
-    await _loadBalances(); // This will call setstate
+    await _loadBalances(widget.profileId, ++_refreshGeneration);
     widget.onWalletAmountChange();
   }
 }
