@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
+import 'package:expense_tracker/utils/secure_storage_helper.dart';
 
 class AISettingsScreen extends StatefulWidget {
   const AISettingsScreen({super.key});
@@ -32,34 +33,39 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
 
   Future<void> _loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _aiProvider = _prefs.getString(PrefKeys.aiProvider) ?? 'gemini';
-      _geminiApiKeyController.text = _prefs.getString(PrefKeys.geminiApiKey) ?? '';
-      _geminiModelNameController.text = _prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
+    final geminiKey = await SecureStorageHelper.getApiKey(PrefKeys.geminiApiKey);
+    final openaiKey = await SecureStorageHelper.getApiKey(PrefKeys.openaiApiKey);
 
-      _openaiBaseUrlController.text = _prefs.getString(PrefKeys.openaiBaseUrl) ?? 'https://api.openai.com/v1';
-      _openaiApiKeyController.text = _prefs.getString(PrefKeys.openaiApiKey) ?? '';
-      _openaiModelNameController.text = _prefs.getString(PrefKeys.openaiModelName) ?? 'gpt-4o-mini';
+    if (mounted) {
+      setState(() {
+        _aiProvider = _prefs.getString(PrefKeys.aiProvider) ?? 'gemini';
+        _geminiApiKeyController.text = geminiKey;
+        _geminiModelNameController.text = _prefs.getString(PrefKeys.geminiModelName) ?? 'gemini-1.5-flash-latest';
 
-      final savedOcrModel = _prefs.getString(PrefKeys.ocrModelName);
-      if (savedOcrModel != null && savedOcrModel.isNotEmpty) {
-        _ocrModelNameController.text = savedOcrModel;
-      } else {
-        _ocrModelNameController.text = _aiProvider == 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash-latest';
-      }
+        _openaiBaseUrlController.text = _prefs.getString(PrefKeys.openaiBaseUrl) ?? 'https://api.openai.com/v1';
+        _openaiApiKeyController.text = openaiKey;
+        _openaiModelNameController.text = _prefs.getString(PrefKeys.openaiModelName) ?? 'gpt-4o-mini';
 
-      _ocrEnabled = _prefs.getBool(PrefKeys.ocrEnabled) ?? false;
-    });
+        final savedOcrModel = _prefs.getString(PrefKeys.ocrModelName);
+        if (savedOcrModel != null && savedOcrModel.isNotEmpty) {
+          _ocrModelNameController.text = savedOcrModel;
+        } else {
+          _ocrModelNameController.text = _aiProvider == 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash-latest';
+        }
+
+        _ocrEnabled = _prefs.getBool(PrefKeys.ocrEnabled) ?? false;
+      });
+    }
   }
 
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
       await _prefs.setString(PrefKeys.aiProvider, _aiProvider);
-      await _prefs.setString(PrefKeys.geminiApiKey, _geminiApiKeyController.text.trim());
+      await SecureStorageHelper.setApiKey(PrefKeys.geminiApiKey, _geminiApiKeyController.text.trim());
       await _prefs.setString(PrefKeys.geminiModelName, _geminiModelNameController.text.trim());
 
       await _prefs.setString(PrefKeys.openaiBaseUrl, _openaiBaseUrlController.text.trim());
-      await _prefs.setString(PrefKeys.openaiApiKey, _openaiApiKeyController.text.trim());
+      await SecureStorageHelper.setApiKey(PrefKeys.openaiApiKey, _openaiApiKeyController.text.trim());
       await _prefs.setString(PrefKeys.openaiModelName, _openaiModelNameController.text.trim());
 
       await _prefs.setString(PrefKeys.ocrModelName, _ocrModelNameController.text.trim());
@@ -67,7 +73,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI Settings saved successfully')),
+          const SnackBar(content: Text('AI Settings saved securely')),
         );
         Navigator.pop(context);
       }
@@ -187,8 +193,18 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                     prefixIcon: Icon(Icons.dns),
                   ),
                   validator: (value) {
-                    if (_aiProvider == 'openai' && (value == null || value.trim().isEmpty)) {
-                      return 'Please enter a Base URL';
+                    if (_aiProvider == 'openai') {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Please enter a Base URL';
+                      }
+                      final uri = Uri.tryParse(value.trim());
+                      if (uri == null || !uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
+                        return 'Please enter a valid HTTP/HTTPS URL';
+                      }
+                      final isLocal = uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '10.0.2.2';
+                      if (!isLocal && uri.scheme != 'https') {
+                        return 'Remote endpoints must use HTTPS to protect your data';
+                      }
                     }
                     return null;
                   },
@@ -254,7 +270,29 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.shield_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Privacy Note: Using AI features transmits selected expense amounts, categories, and receipt images to your configured AI provider. API keys are stored in device secure hardware.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saveSettings,
                 style: ElevatedButton.styleFrom(

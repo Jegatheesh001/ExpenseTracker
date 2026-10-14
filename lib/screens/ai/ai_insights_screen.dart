@@ -61,7 +61,7 @@ class _AIInsightsScreenState extends State<AIInsightsScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final aiService = AIService.fromPrefs(prefs);
+      final aiService = await AIService.fromPrefs(prefs);
 
       if (!aiService.isConfigured) {
         setState(() {

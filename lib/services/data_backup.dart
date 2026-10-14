@@ -14,6 +14,56 @@ import 'package:expense_tracker/db/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataBackup {
+  static bool _isAllowedPreferenceImport(String key) {
+    const safeExactKeys = {
+      PrefKeys.username,
+      PrefKeys.isDarkMode,
+      PrefKeys.showExpStatusBar,
+      PrefKeys.dailyBackupReminderEnabled,
+      PrefKeys.lastBackupReminderTimestamp,
+      PrefKeys.lastBackupTimestamp,
+      PrefKeys.balanceVisible,
+      PrefKeys.profileId,
+      PrefKeys.monthlyLimit,
+      PrefKeys.dailyLimit,
+      PrefKeys.ocrEnabled,
+      PrefKeys.ocrModelName,
+      PrefKeys.aiProvider,
+      PrefKeys.geminiModelName,
+      PrefKeys.openaiModelName,
+    };
+
+    if (safeExactKeys.contains(key)) return true;
+
+    // Profile-specific keys
+    if (key.startsWith('${PrefKeys.selectedCurrency}-') ||
+        key.startsWith('${PrefKeys.walletAmount}-') ||
+        key.startsWith('${PrefKeys.cashAmount}-') ||
+        key.startsWith('${PrefKeys.bankAmount}-')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static bool _isSensitivePreferenceKey(String key) {
+    if (key.startsWith('${PrefKeys.lastAIInsights}_')) return true;
+    if (key == PrefKeys.geminiApiKey ||
+        key == PrefKeys.openaiApiKey ||
+        key == PrefKeys.openaiBaseUrl ||
+        key == PrefKeys.isDeveloperMode) {
+      return true;
+    }
+    final lower = key.toLowerCase();
+    if (lower.contains('apikey') ||
+        lower.contains('secret') ||
+        lower.contains('token') ||
+        lower.contains('password')) {
+      return true;
+    }
+    return false;
+  }
+
   Future<void> importData(BuildContext context, VoidCallback refreshMainPage) async {
     // Picking a file from the device
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -47,6 +97,12 @@ class DataBackup {
             if (parts.length == 2) { // SharedPreferences: Key;;Value
               final key = parts[0];
               final valueStr = parts[1];
+
+              // Security check: Ignore disallowed or sensitive keys from untrusted backup
+              if (!_isAllowedPreferenceImport(key)) {
+                continue;
+              }
+
               if (valueStr.toLowerCase() == 'true' || valueStr.toLowerCase() == 'false') {
                 await prefs.setBool(key, valueStr.toLowerCase() == 'true');
               } else if (int.tryParse(valueStr) != null) {
@@ -68,9 +124,24 @@ class DataBackup {
                 });
               }
             } else if (parts.length == 4 && parts[0] == 'IMAGE') {
-              final expenseId = int.parse(parts[1]);
-              final imageName = parts[2];
+              final expenseId = int.tryParse(parts[1]);
+              final rawImageName = parts[2];
               final base64String = parts[3];
+
+              if (expenseId == null || expenseId <= 0) {
+                errors.add('Invalid expenseId for image: ${parts[1]}');
+                continue;
+              }
+
+              final safeImageName = basename(rawImageName).trim();
+              if (safeImageName.isEmpty ||
+                  safeImageName == '.' ||
+                  safeImageName == '..' ||
+                  rawImageName.contains('/') ||
+                  rawImageName.contains('\\')) {
+                errors.add('Invalid or dangerous image file name rejected: $rawImageName');
+                continue;
+              }
 
               final decodedBytes = base64Decode(base64String);
               final directory = await getApplicationDocumentsDirectory();
@@ -78,7 +149,16 @@ class DataBackup {
               if (!await imagesDirectory.exists()) {
                 await imagesDirectory.create(recursive: true);
               }
-              final imageFile = File(join(imagesDirectory.path, imageName));
+
+              final imageFile = File(join(imagesDirectory.path, safeImageName));
+              // Verify path stays strictly within the target attachments directory
+              final canonicalDest = canonicalize(imageFile.path);
+              final canonicalDir = canonicalize(imagesDirectory.path);
+              if (!canonicalDest.startsWith(canonicalDir)) {
+                errors.add('Path traversal attempted for image: $rawImageName');
+                continue;
+              }
+
               await imageFile.writeAsBytes(decodedBytes);
 
             } else if (parts.length == 6 && parts[0] == 'BILLED_ITEM') {
@@ -192,11 +272,11 @@ class DataBackup {
 
       StringBuffer exportContent = StringBuffer();
 
-      // 2. Fetch data from SharedPreferences
+      // 2. Fetch data from SharedPreferences (excluding sensitive credentials & internal configs)
       final prefs = await SharedPreferences.getInstance();
       final keys = prefs.getKeys();
       for (String key in keys) {
-        if (key.startsWith('${PrefKeys.lastAIInsights}_')) {
+        if (_isSensitivePreferenceKey(key)) {
           continue;
         }
         final value = prefs.get(key);

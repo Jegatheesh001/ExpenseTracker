@@ -505,10 +505,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
       await DatabaseHelper().saveOrUpdateExpense(newExpense);
 
-      // Advance next billing date to next cycle (catching up if overdue)
-      final nextDue = SubscriptionDateUtils.advanceNextBillingDate(
-        SubscriptionDateUtils.catchUpNextBillingDate(sub.nextBillingDate, sub.billingCycle),
+      // Advance next billing date to next upcoming cycle
+      final nextDue = SubscriptionDateUtils.getNextRenewalDate(
+        sub.nextBillingDate,
         sub.billingCycle,
+        anchorDay: sub.startDate.day,
       );
 
       final updatedSub = sub.copyWith(nextBillingDate: nextDue);
@@ -532,11 +533,11 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   }
 
   Future<void> _skipSubscription(Subscription sub) async {
-    DateTime nextDue = SubscriptionDateUtils.advanceNextBillingDate(
+    final nextDue = SubscriptionDateUtils.getNextRenewalDate(
       sub.nextBillingDate,
       sub.billingCycle,
+      anchorDay: sub.startDate.day,
     );
-    nextDue = SubscriptionDateUtils.catchUpNextBillingDate(nextDue, sub.billingCycle);
 
     final confirm = await showDialog<bool>(
       context: context,

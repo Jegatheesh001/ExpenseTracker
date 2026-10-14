@@ -395,9 +395,10 @@ class DashboardScreenState extends State<DashboardScreen> {
 
       await DatabaseHelper().saveOrUpdateExpense(newExpense);
 
-      final nextDue = SubscriptionDateUtils.advanceNextBillingDate(
-        SubscriptionDateUtils.catchUpNextBillingDate(sub.nextBillingDate, sub.billingCycle),
+      final nextDue = SubscriptionDateUtils.getNextRenewalDate(
+        sub.nextBillingDate,
         sub.billingCycle,
+        anchorDay: sub.startDate.day,
       );
 
       final updatedSub = sub.copyWith(nextBillingDate: nextDue);

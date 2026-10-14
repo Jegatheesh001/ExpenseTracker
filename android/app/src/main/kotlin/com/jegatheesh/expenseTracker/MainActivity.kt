@@ -28,7 +28,9 @@ class MainActivity : FlutterActivity() {
         if (Intent.ACTION_VIEW == appLinkAction && appLinkData != null) {
             val feature = appLinkData.getQueryParameter("featureName")
             if (feature == "wallet") {
-                MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, CHANNEL).invokeMethod("getWalletAmount", null)
+                flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
+                    MethodChannel(messenger, CHANNEL).invokeMethod("getWalletAmount", null)
+                }
             }
         }
     }

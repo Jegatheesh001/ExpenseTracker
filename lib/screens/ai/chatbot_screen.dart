@@ -73,8 +73,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   Future<void> _initAIService() async {
     final prefs = await SharedPreferences.getInstance();
-    final service = AIService.fromPrefs(prefs);
-    if (service.isConfigured) {
+    final service = await AIService.fromPrefs(prefs);
+    if (mounted && service.isConfigured) {
       setState(() {
         _aiService = service;
       });

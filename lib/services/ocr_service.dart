@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:http/http.dart' as http;
+import 'package:expense_tracker/utils/secure_storage_helper.dart';
 
 class OCRResult {
   final double? amount;
@@ -35,11 +36,17 @@ class OCRService {
 
     if (provider == 'openai') {
       final baseUrl = prefs.getString(PrefKeys.openaiBaseUrl) ?? 'https://api.openai.com/v1';
-      final apiKey = prefs.getString(PrefKeys.openaiApiKey) ?? '';
+      final apiKey = await SecureStorageHelper.getApiKey(PrefKeys.openaiApiKey);
 
       var endpoint = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
       if (!endpoint.endsWith('/chat/completions')) {
         endpoint = endpoint.endsWith('/v1') ? '$endpoint/chat/completions' : '$endpoint/v1/chat/completions';
+      }
+
+      final uri = Uri.parse(endpoint);
+      final isLocal = uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '10.0.2.2';
+      if (!isLocal && uri.scheme != 'https') {
+        throw Exception('Security Error: Insecure HTTP connection rejected. Remote AI endpoints must use HTTPS.');
       }
 
       final imageBytes = await File(imagePath).readAsBytes();
@@ -51,7 +58,7 @@ class OCRService {
       }
 
       final response = await http.post(
-        Uri.parse(endpoint),
+        uri,
         headers: headers,
         body: jsonEncode({
           'model': ocrModelName,
@@ -83,7 +90,7 @@ class OCRService {
         throw Exception('OpenAI OCR Error (${response.statusCode}): ${response.body}');
       }
     } else {
-      final apiKey = prefs.getString(PrefKeys.geminiApiKey) ?? '';
+      final apiKey = await SecureStorageHelper.getApiKey(PrefKeys.geminiApiKey);
       if (apiKey.isEmpty) {
         throw Exception('Gemini API Key is not configured in AI Settings.');
       }

@@ -47,7 +47,7 @@ class _InteractiveTrendsScreenState extends State<InteractiveTrendsScreen> {
     setState(() => _isLoadingDailyInsight = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final aiService = AIService.fromPrefs(prefs);
+      final aiService = await AIService.fromPrefs(prefs);
       
       if (aiService.isConfigured) {
         final insight = await aiService.getTrendInsights(data, widget.currencySymbol, "Daily (Last 15 Days)");
@@ -67,7 +67,7 @@ class _InteractiveTrendsScreenState extends State<InteractiveTrendsScreen> {
     setState(() => _isLoadingMonthlyInsight = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final aiService = AIService.fromPrefs(prefs);
+      final aiService = await AIService.fromPrefs(prefs);
 
       if (aiService.isConfigured) {
         final insight = await aiService.getTrendInsights(data, widget.currencySymbol, "Monthly (Last 5 Months)");

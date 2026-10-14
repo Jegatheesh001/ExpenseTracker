@@ -38,7 +38,11 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
   List<Category> _categories = [];
   Category? _selectedCategory;
 
-  DateTime _startDate = DateTime.now();
+  DateTime _startDate = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+  );
   DateTime _nextBillingDate = DateTime.now().add(const Duration(days: 30));
 
   String? _selectedPaymentMethod;
@@ -123,7 +127,11 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
 
   void _recalculateNextBillingDate() {
     setState(() {
-      _nextBillingDate = SubscriptionDateUtils.calculateNextBillingDate(_startDate, _selectedCycle);
+      _nextBillingDate = SubscriptionDateUtils.calculateNextBillingDate(
+        _startDate,
+        _selectedCycle,
+        anchorDay: _startDate.day,
+      );
     });
   }
 
@@ -181,8 +189,8 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
       categoryId: _selectedCategory!.categoryId,
       category: _selectedCategory!.category,
       billingCycle: _selectedCycle,
-      startDate: _startDate,
-      nextBillingDate: _nextBillingDate,
+      startDate: DateTime(_startDate.year, _startDate.month, _startDate.day),
+      nextBillingDate: DateTime(_nextBillingDate.year, _nextBillingDate.month, _nextBillingDate.day),
       currency: _selectedCurrency,
       paymentMethod: _selectedPaymentMethod,
       remarks: _remarksController.text.trim().isEmpty
