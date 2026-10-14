@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:intl/intl.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -335,6 +336,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             _dashboardKey.currentState?.refresh();
           } else if (index == 1) {
             _expensesKey.currentState?.refresh();
+          } else if (index == 4) {
+            _settingsKey.currentState?.refresh();
           }
         },
         items: const [
@@ -451,6 +454,15 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
 
   Future<void> _showExportOptionsDialog() async {
+    await _prefs.reload();
+    final int? lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+    String lastBackup = 'Never';
+    if (lastBackupTimestamp != null) {
+      final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(lastBackupTimestamp);
+      lastBackup = DateFormat('dd-MM-yyyy hh:mm aa').format(lastBackupDate);
+    }
+    if (!mounted) return;
+
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -466,17 +478,28 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             ),
             TextButton(
               child: const Text('Without Images'),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                DataBackup().exportData(context, includeImages: false);
+                await DataBackup().exportData(context, includeImages: false);
+                await _prefs.reload();
+                _settingsKey.currentState?.refresh();
               },
             ),
             TextButton(
               child: const Text('With Images'),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                DataBackup().exportData(context, includeImages: true);
+                await DataBackup().exportData(context, includeImages: true);
+                await _prefs.reload();
+                _settingsKey.currentState?.refresh();
               },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+              child: Text(
+                'Last backup: $lastBackup',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
           ],
         );

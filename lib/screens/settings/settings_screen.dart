@@ -78,6 +78,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   // Loads saved settings (theme mode and currency) from shared preferences.
   Future<void> _loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
+    await _prefs.reload();
     setState(() {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
       _username = _prefs.getString(PrefKeys.username) ?? '';
@@ -462,6 +463,8 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _showExportOptionsDialog() async {
+    await _loadSettings();
+    if (!mounted) return;
     return showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -485,6 +488,7 @@ class SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 await DataBackup().exportData(context, includeImages: false);
+                await _prefs.reload();
                 setState(() {
                   _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
                 });
@@ -495,6 +499,7 @@ class SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 await DataBackup().exportData(context, includeImages: true);
+                await _prefs.reload();
                 setState(() {
                   _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
                 });
