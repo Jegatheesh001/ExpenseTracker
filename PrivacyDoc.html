@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Expense Tracker</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --surface: #ffffff;
+      --background: #f8fafc;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --card-bg: #ffffff;
+      --tag-bg: #eff6ff;
+      --tag-text: #1d4ed8;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --primary: #3b82f6;
+        --primary-dark: #60a5fa;
+        --surface: #1e293b;
+        --background: #0f172a;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --card-bg: #1e293b;
+        --tag-bg: #1e3a8a;
+        --tag-text: #93c5fd;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.65;
+      background-color: var(--background);
+      color: var(--text-main);
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 40px 32px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 24px 16px;
+      }
+    }
+
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+
+    .badge {
+      display: inline-block;
+      background-color: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .meta {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      margin: 36px 0 16px 0;
+      color: var(--primary);
+      border-left: 4px solid var(--primary);
+      padding-left: 12px;
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 20px 0 8px 0;
+      color: var(--text-main);
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: var(--text-muted);
+    }
+
+    ul, ol {
+      margin: 0 0 16px 24px;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    strong {
+      color: var(--text-main);
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    a:hover {
+      color: var(--primary-dark);
+    }
+
+    .highlight-box {
+      background-color: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 20px 0;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+      color: var(--tag-text);
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--tag-bg);
+      color: var(--tag-text);
+      font-weight: 600;
+    }
+
+    td {
+      color: var(--text-muted);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    footer {
+      margin-top: 48px;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Official Policy</div>
+      <h1>Privacy Policy for Expense Tracker</h1>
+      <div class="meta"><strong>Effective Date:</strong> October 01, 2026</div>
+      <div class="meta"><strong>Application:</strong> Expense Tracker (<code>com.jegatheesh.expenseTracker</code>)</div>
+      <div class="meta"><strong>Developer:</strong> Jegatheesh</div>
+    </header>
+
+    <div class="highlight-box">
+      <p>🛡️ <strong>Privacy Summary:</strong> Expense Tracker is designed as an offline-first app. Your financial records, wallet balances, expenses, and receipt photos remain strictly on your device. We do not operate user accounts, sell personal data, or run advertisement tracking networks.</p>
+    </div>
+
+    <h2>1. Introduction</h2>
+    <p>Welcome to <strong>Expense Tracker</strong> ("the App"). We are committed to safeguarding your privacy. This policy outlines how information is handled when you use the Expense Tracker mobile application on Android.</p>
+
+    <h2>2. Data Collection &amp; Processing</h2>
+    <p>We believe your personal financial data belongs solely to you. Below is an overview of what data the application interacts with:</p>
+
+    <h3>2.1 Financial and Transaction Records (100% Local)</h3>
+    <ul>
+      <li><strong>Data Handled:</strong> Expense amounts, currencies, transaction dates, categories, custom tags, remarks, cash/bank account balances, monthly budgets, and subscription schedules.</li>
+      <li><strong>Storage:</strong> Stored locally on your device within an SQLite database and local preferences.</li>
+      <li><strong>Sharing:</strong> Never sent to developer servers. There are no developer-operated cloud databases storing your transactions.</li>
+    </ul>
+
+    <h3>2.2 Receipts and Photo Attachments</h3>
+    <ul>
+      <li><strong>Data Handled:</strong> Photographs or images of receipts, invoices, or bills you choose to attach to your expenses.</li>
+      <li><strong>Storage:</strong> Saved in the app's sandboxed local internal directory on your device.</li>
+      <li><strong>Transmission:</strong> Remains strictly on your device unless you initiate AI Receipt Scanning (OCR), which transmits the specific selected image over encrypted HTTPS to Google Gemini or OpenAI for text extraction.</li>
+    </ul>
+
+    <h3>2.3 Audio and Voice Interaction</h3>
+    <ul>
+      <li><strong>Data Handled:</strong> Voice recordings captured via the device microphone.</li>
+      <li><strong>Usage:</strong> Used exclusively when you tap the microphone to dictate queries or voice inputs in the AI assistant. Audio data is streamed for transcription and response generation and is not stored or shared with unauthorized entities.</li>
+    </ul>
+
+    <h3>2.4 Shared Content (Intent Receivers)</h3>
+    <ul>
+      <li><strong>Data Handled:</strong> Transaction text, SMS excerpts, or notes you share into Expense Tracker from other apps via the Android "Share" menu.</li>
+      <li><strong>Usage:</strong> Processed entirely locally to parse amounts and descriptions to pre-fill expense forms.</li>
+    </ul>
+
+    <h3>2.5 API Keys and Credentials</h3>
+    <ul>
+      <li><strong>Data Handled:</strong> User-provided API keys (such as Google Gemini or OpenAI API keys).</li>
+      <li><strong>Storage:</strong> Encrypted securely using hardware-backed Android Keystore storage (<code>flutter_secure_storage</code>). We cannot access or view your keys.</li>
+    </ul>
+
+    <h2>3. Third-Party Services and AI Integration</h2>
+    <p>Expense Tracker offers optional AI-powered features (such as receipt scanning, chat assistance with "Anila", and automated trend analysis). These features communicate directly via secure HTTPS:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service Provider</th>
+          <th>Feature</th>
+          <th>Data Handled</th>
+          <th>Privacy Information</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Google Generative AI (Gemini)</strong></td>
+          <td>Receipt OCR, Chatbot, Spending Insights</td>
+          <td>User prompt, selected receipt image, anonymized expense summaries</td>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></td>
+        </tr>
+        <tr>
+          <td><strong>OpenAI API</strong> (Optional)</td>
+          <td>Alternative Chatbot &amp; OCR</td>
+          <td>User prompt, selected receipt image (if configured)</td>
+          <td><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI Privacy Policy</a></td>
+        </tr>
+        <tr>
+          <td><strong>Google Cloud Text-to-Speech</strong> (Optional)</td>
+          <td>Chatbot Voice Playback</td>
+          <td>Text response strings</td>
+          <td><a href="https://cloud.google.com/terms/cloud-privacy-notice" target="_blank" rel="noopener">Google Cloud Privacy</a></td>
+        </tr>
+        <tr>
+          <td><strong>Google ML Kit</strong></td>
+          <td>Language Identification</td>
+          <td>Processed <strong>100% on-device</strong></td>
+          <td><a href="https://developers.google.com/ml-kit/terms" target="_blank" rel="noopener">Google ML Kit Terms</a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>Note on Advertising &amp; Analytics:</strong> Expense Tracker does not contain third-party ad networks (e.g., Google AdMob) or third-party behavioral analytics tracking SDKs (e.g., Firebase Analytics, Facebook SDK).</p>
+
+    <h2>4. Device Permissions</h2>
+    <p>The app requests the following system permissions to operate:</p>
+    <ul>
+      <li><code>android.permission.RECORD_AUDIO</code>: Required only when using voice input in the AI assistant.</li>
+      <li><code>android.permission.INTERNET</code> &amp; <code>ACCESS_NETWORK_STATE</code>: Required to send HTTPS requests to AI endpoints (Google Gemini / OpenAI / Google TTS).</li>
+      <li><strong>Camera and Media Access:</strong> Needed to capture receipt photos or attach bills from your photo gallery and import/export backup zip files.</li>
+    </ul>
+
+    <h2>5. Data Retention &amp; Deletion (Play Store Compliance)</h2>
+    <p>Because your data is stored locally on your device:</p>
+    <ul>
+      <li><strong>In-App Deletion:</strong> You can completely purge your data anytime by opening <strong>Settings &rarr; Danger Zone &rarr; Delete All Data</strong> and typing <code>delete</code>. This immediately and irreversibly wipes the database, preferences, and all attachment files.</li>
+      <li><strong>Uninstalling the App:</strong> Uninstalling Expense Tracker removes all internal sandbox data, databases, and application preferences from your device.</li>
+      <li><strong>Local Backups:</strong> Any exported <code>.zip</code> backups created using the "Backup Data" feature are controlled entirely by you and can be deleted via your phone's file manager.</li>
+    </ul>
+
+    <h2>6. Security</h2>
+    <p>We implement multiple security safeguards:</p>
+    <ul>
+      <li><strong>Sandbox Protection:</strong> All records are protected by Android's application sandbox.</li>
+      <li><strong>Secure Credential Storage:</strong> API keys are encrypted using the Android Keystore.</li>
+      <li><strong>Encrypted Transport:</strong> All outgoing network connections to AI providers are strictly forced over HTTPS/TLS.</li>
+    </ul>
+
+    <h2>7. Children's Privacy</h2>
+    <p>The App is not directed to children under 13 (or under 16 in the European Union). We do not knowingly collect or maintain personal data from children.</p>
+
+    <h2>8. Your Rights (GDPR &amp; CCPA/CPRA)</h2>
+    <p>Depending on your jurisdiction, you have the following rights:</p>
+    <ul>
+      <li><strong>Access &amp; Portability:</strong> Export all your financial records and receipts anytime via <code>Backup Data</code>.</li>
+      <li><strong>Erasure:</strong> Permanently delete all records in one tap using <code>Delete All Data</code>.</li>
+      <li><strong>No Sale of Data:</strong> We do not sell or monetize your personal or financial information.</li>
+    </ul>
+
+    <h2>9. Contact Us</h2>
+    <p>If you have any questions or concerns regarding this Privacy Policy, please contact:</p>
+    <ul>
+      <li><strong>Developer:</strong> Jegatheesh</li>
+      <li><strong>GitHub:</strong> <a href="https://github.com/Jegatheesh001/ExpenseTracker" target="_blank" rel="noopener">github.com/Jegatheesh001/ExpenseTracker</a></li>
+      <li><strong>Support &amp; Issues:</strong> <a href="https://github.com/Jegatheesh001/ExpenseTracker/issues" target="_blank" rel="noopener">Issue Tracker</a></li>
+      <li><strong>Email:</strong> <code>apps.jegatheesh@gmail.com</code></li>
+    </ul>
+
+    <footer>
+      <p>&copy; 2026 Expense Tracker. All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>
