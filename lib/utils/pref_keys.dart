@@ -27,4 +27,12 @@ class PrefKeys {
   static const String openaiBaseUrl = 'openaiBaseUrl';
   static const String openaiApiKey = 'openaiApiKey';
   static const String openaiModelName = 'openaiModelName';
+  // Notifications
+  static const String dailyReminderEnabled = 'dailyReminderEnabled';
+  static const String dailyReminderHour = 'dailyReminderHour';
+  static const String dailyReminderMinute = 'dailyReminderMinute';
+  static const String subscriptionRemindersEnabled = 'subscriptionRemindersEnabled';
+  static const String subscriptionReminderAdvanceDays = 'subscriptionReminderAdvanceDays';
+  static const String subscriptionReminderHour = 'subscriptionReminderHour';
+  static const String subscriptionReminderMinute = 'subscriptionReminderMinute';
 }

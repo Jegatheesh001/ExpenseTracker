@@ -16,8 +16,11 @@ import 'package:expense_tracker/services/data_backup.dart';
 import 'package:expense_tracker/screens/dashboard/dashboard_screen.dart';
 import 'package:expense_tracker/screens/expenses/expenses_screen.dart';
 import 'package:expense_tracker/screens/ai/chatbot_screen.dart';
+import 'package:expense_tracker/services/notification_service.dart';
+import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -119,10 +122,48 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   @override
   void initState() {
     super.initState();
+    _initNotifications();
     _loadPageContent();
     _handleCopiedTextFromSharing();
     _initAppLinks();
     platform.setMethodCallHandler(_handleMethod);
+  }
+
+  Future<void> _initNotifications() async {
+    await NotificationService().init(onSelectNotification: (payload) {
+      if (!mounted) return;
+      if (payload == 'daily_reminder') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AddExpenseScreen(
+              onWalletAmountChange: _loadWalletAmount,
+            ),
+          ),
+        ).then((result) {
+          if (result == true) {
+            _loadTodaysExpenses();
+          }
+        });
+      } else if (payload != null && payload.startsWith('subscription')) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SubscriptionsScreen(
+              profileId: _profileId,
+              currencySymbol: _currencySymbol,
+              onWalletAmountChange: _loadWalletAmount,
+              initialFilter: 'Due',
+            ),
+          ),
+        ).then((_) {
+          _dashboardKey.currentState?.refresh();
+        });
+      }
+    });
+
+    await NotificationService().requestPermissions();
+    await NotificationService().syncAllNotifications();
   }
 
   Future<void> _initAppLinks() async {

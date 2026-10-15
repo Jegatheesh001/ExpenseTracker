@@ -380,6 +380,7 @@ class DatabaseHelper {
   Future<void> deleteAllExpenseData() async {
     final Database db = await database;
     await db.transaction((txn) async {
+      await txn.delete('subscriptions');
       await txn.delete('billed_items');
       await txn.delete('expense_tags');
       await txn.delete('tags');
@@ -704,15 +705,32 @@ class DatabaseHelper {
 
   // --- Subscriptions & Recurring Expenses ---
 
+  Future<int> saveSubscription(Subscription sub) async {
+    final Database db = await database;
+    return await db.insert(
+      'subscriptions',
+      sub.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<int> saveOrUpdateSubscription(Subscription sub) async {
     final Database db = await database;
     if (sub.id != null && sub.id! > 0) {
-      return await db.update(
+      final rowsUpdated = await db.update(
         'subscriptions',
         sub.toMap(),
         where: 'id = ?',
         whereArgs: [sub.id],
       );
+      if (rowsUpdated == 0) {
+        return await db.insert(
+          'subscriptions',
+          sub.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return rowsUpdated;
     } else {
       return await db.insert('subscriptions', sub.toMap());
     }

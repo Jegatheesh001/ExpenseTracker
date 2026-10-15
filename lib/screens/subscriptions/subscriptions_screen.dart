@@ -7,6 +7,7 @@ import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/widgets/add_subscription_dialog.dart';
 import 'package:expense_tracker/utils/subscription_date_utils.dart';
+import 'package:expense_tracker/services/notification_service.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   final int profileId;
@@ -57,6 +58,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           _isLoading = false;
         });
       }
+      // Reschedule subscription notifications whenever subscription data updates
+      NotificationService().rescheduleAllSubscriptionReminders();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -161,6 +164,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
     if (confirm == true && sub.id != null) {
       await DatabaseHelper().deleteSubscription(sub.id!);
+      await NotificationService().cancelSubscriptionReminder(sub.id!);
       _loadSubscriptions();
     }
   }
@@ -730,6 +734,115 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  Future<void> _showQuickNotificationConfigDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool enabled = prefs.getBool(PrefKeys.subscriptionRemindersEnabled) ?? true;
+    int advanceDays = prefs.getInt(PrefKeys.subscriptionReminderAdvanceDays) ?? 1;
+
+    if (!mounted) return;
+
+    final bool? saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.notifications_active, color: Colors.teal),
+                  SizedBox(width: 8),
+                  Text('Renewal Reminders'),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Enable Renewal Alerts',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Get notified before subscriptions renew'),
+                      value: enabled,
+                      onChanged: (val) {
+                        setDialogState(() => enabled = val);
+                      },
+                    ),
+                    if (enabled) ...[
+                      const Divider(),
+                      const Text(
+                        'Remind me:',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      RadioListTile<int>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('On renewal day (9:00 AM)'),
+                        value: 0,
+                        groupValue: advanceDays,
+                        onChanged: (val) => setDialogState(() => advanceDays = val!),
+                      ),
+                      RadioListTile<int>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('1 day before renewal (9:00 AM)'),
+                        value: 1,
+                        groupValue: advanceDays,
+                        onChanged: (val) => setDialogState(() => advanceDays = val!),
+                      ),
+                      RadioListTile<int>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('2 days before renewal (9:00 AM)'),
+                        value: 2,
+                        groupValue: advanceDays,
+                        onChanged: (val) => setDialogState(() => advanceDays = val!),
+                      ),
+                      RadioListTile<int>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('3 days before renewal (9:00 AM)'),
+                        value: 3,
+                        groupValue: advanceDays,
+                        onChanged: (val) => setDialogState(() => advanceDays = val!),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == true) {
+      await prefs.setBool(PrefKeys.subscriptionRemindersEnabled, enabled);
+      await prefs.setInt(PrefKeys.subscriptionReminderAdvanceDays, advanceDays);
+      if (enabled) {
+        await NotificationService().requestPermissions();
+      }
+      await NotificationService().rescheduleAllSubscriptionReminders();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(enabled
+                ? 'Subscription renewal alerts active!'
+                : 'Subscription alerts disabled'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -738,6 +851,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscriptions & Recurring'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active_outlined),
+            tooltip: 'Renewal Reminder Settings',
+            onPressed: _showQuickNotificationConfigDialog,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

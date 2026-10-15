@@ -135,4 +135,20 @@ class PersistenceContext {
   Future<List<Expense>> searchExpensesByProfileId(String query, int profileId) async {
     return await DatabaseHelper().searchExpenses(query, profileId: profileId);
   }
+
+  Future<int> saveSubscription(Subscription sub) async {
+    return await DatabaseHelper().saveSubscription(sub);
+  }
+
+  Future<int> saveOrUpdateSubscription(Subscription sub) async {
+    return await DatabaseHelper().saveOrUpdateSubscription(sub);
+  }
+
+  Future<List<Subscription>> getSubscriptions([int? profileId]) async {
+    return await DatabaseHelper().getSubscriptions(profileId);
+  }
+
+  Future<void> deleteSubscription(int id) async {
+    await DatabaseHelper().deleteSubscription(id);
+  }
 }

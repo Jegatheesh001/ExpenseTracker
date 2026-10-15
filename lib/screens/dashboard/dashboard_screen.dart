@@ -9,6 +9,7 @@ import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/utils/currency_symbol.dart';
 import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 import 'package:expense_tracker/utils/subscription_date_utils.dart';
+import 'package:expense_tracker/services/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int profileId;
@@ -407,6 +408,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
 
     widget.onWalletAmountChange();
+    NotificationService().rescheduleAllSubscriptionReminders();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

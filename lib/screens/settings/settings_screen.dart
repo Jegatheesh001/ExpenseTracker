@@ -16,6 +16,7 @@ import 'package:expense_tracker/services/data_backup.dart';
 import 'package:expense_tracker/screens/settings/developer_mode_screen.dart';
 import 'package:expense_tracker/screens/ai/ai_settings_screen.dart';
 import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
+import 'package:expense_tracker/services/notification_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -60,6 +61,13 @@ class SettingsScreenState extends State<SettingsScreen> {
   String _username = '';
   bool _isDeveloperMode = false;
 
+  // Notification settings
+  bool _isDailyReminderEnabled = false;
+  int _dailyReminderHour = 21;
+  int _dailyReminderMinute = 0;
+  bool _isSubscriptionRemindersEnabled = true;
+  int _subscriptionReminderAdvanceDays = 1;
+
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _cashAmountController = TextEditingController();
   final TextEditingController _bankAmountController = TextEditingController();
@@ -89,6 +97,11 @@ class SettingsScreenState extends State<SettingsScreen> {
       _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
       _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
       _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+      _isDailyReminderEnabled = _prefs.getBool(PrefKeys.dailyReminderEnabled) ?? false;
+      _dailyReminderHour = _prefs.getInt(PrefKeys.dailyReminderHour) ?? 21;
+      _dailyReminderMinute = _prefs.getInt(PrefKeys.dailyReminderMinute) ?? 0;
+      _isSubscriptionRemindersEnabled = _prefs.getBool(PrefKeys.subscriptionRemindersEnabled) ?? true;
+      _subscriptionReminderAdvanceDays = _prefs.getInt(PrefKeys.subscriptionReminderAdvanceDays) ?? 1;
 
       double walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
 
@@ -445,9 +458,12 @@ class SettingsScreenState extends State<SettingsScreen> {
                           if (await attachmentsDir.exists()) {
                             await attachmentsDir.delete(recursive: true);
                           }
+                          await NotificationService().cancelAllNotifications();
                           
                           widget.onDeleteAllData();
-                          Navigator.of(context).pop();
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
                         }
                       : null,
                   child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -516,6 +532,194 @@ class SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  String _formatReminderTime(int hour, int minute) {
+    final now = DateTime.now();
+    final dt = DateTime(now.year, now.month, now.day, hour, minute);
+    return DateFormat('hh:mm a').format(dt);
+  }
+
+  String _getAdvanceDaysLabel(int days) {
+    if (days == 0) return 'On renewal day (9:00 AM)';
+    if (days == 1) return '1 day before renewal (9:00 AM)';
+    return '$days days before renewal (9:00 AM)';
+  }
+
+  Future<void> _toggleDailyReminder(bool value) async {
+    setState(() {
+      _isDailyReminderEnabled = value;
+    });
+    await _prefs.setBool(PrefKeys.dailyReminderEnabled, value);
+    if (value) {
+      await NotificationService().requestPermissions();
+    }
+    await NotificationService().scheduleDailyReminder(
+      enabled: value,
+      hour: _dailyReminderHour,
+      minute: _dailyReminderMinute,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value
+              ? 'Daily reminder scheduled for ${_formatReminderTime(_dailyReminderHour, _dailyReminderMinute)}'
+              : 'Daily reminder turned off'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickDailyReminderTime() async {
+    final TimeOfDay initialTime = TimeOfDay(
+      hour: _dailyReminderHour,
+      minute: _dailyReminderMinute,
+    );
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (pickedTime != null) {
+      setState(() {
+        _dailyReminderHour = pickedTime.hour;
+        _dailyReminderMinute = pickedTime.minute;
+      });
+      await _prefs.setInt(PrefKeys.dailyReminderHour, pickedTime.hour);
+      await _prefs.setInt(PrefKeys.dailyReminderMinute, pickedTime.minute);
+      if (_isDailyReminderEnabled) {
+        await NotificationService().scheduleDailyReminder(
+          enabled: true,
+          hour: pickedTime.hour,
+          minute: pickedTime.minute,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Reminder time set to ${_formatReminderTime(pickedTime.hour, pickedTime.minute)}',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleSubscriptionReminders(bool value) async {
+    setState(() {
+      _isSubscriptionRemindersEnabled = value;
+    });
+    await _prefs.setBool(PrefKeys.subscriptionRemindersEnabled, value);
+    if (value) {
+      await NotificationService().requestPermissions();
+    }
+    await NotificationService().rescheduleAllSubscriptionReminders();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value
+              ? 'Subscription renewal alerts enabled'
+              : 'Subscription renewal alerts turned off'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showSubscriptionAdvanceDaysDialog() async {
+    int tempDays = _subscriptionReminderAdvanceDays;
+    final bool? saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Subscription Alert Notice'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<int>(
+                    title: const Text('On renewal day (9:00 AM)'),
+                    value: 0,
+                    groupValue: tempDays,
+                    onChanged: (val) => setDialogState(() => tempDays = val!),
+                  ),
+                  RadioListTile<int>(
+                    title: const Text('1 day before renewal (9:00 AM)'),
+                    value: 1,
+                    groupValue: tempDays,
+                    onChanged: (val) => setDialogState(() => tempDays = val!),
+                  ),
+                  RadioListTile<int>(
+                    title: const Text('2 days before renewal (9:00 AM)'),
+                    value: 2,
+                    groupValue: tempDays,
+                    onChanged: (val) => setDialogState(() => tempDays = val!),
+                  ),
+                  RadioListTile<int>(
+                    title: const Text('3 days before renewal (9:00 AM)'),
+                    value: 3,
+                    groupValue: tempDays,
+                    onChanged: (val) => setDialogState(() => tempDays = val!),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved == true && mounted) {
+      setState(() {
+        _subscriptionReminderAdvanceDays = tempDays;
+      });
+      await _prefs.setInt(
+        PrefKeys.subscriptionReminderAdvanceDays,
+        tempDays,
+      );
+      await NotificationService().rescheduleAllSubscriptionReminders();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Alert timing updated to ${_getAdvanceDaysLabel(tempDays)}',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendTestNotification() async {
+    await NotificationService().requestPermissions();
+    await NotificationService().showInstantNotification(
+      title: 'Expense Tracker Alert 🔔',
+      body: 'Notifications are working perfectly on your device!',
+      payload: 'test_notification',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Test notification sent! Check your notification bar.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.teal,
+        ),
+      );
+    }
   }
 
   Widget _buildSectionTitle(BuildContext context, String title) {
@@ -660,6 +864,56 @@ class SettingsScreenState extends State<SettingsScreen> {
               });
               _prefs.setBool(PrefKeys.dailyBackupReminderEnabled, value);
             },
+          ),
+          _buildSectionTitle(context, 'Notifications'),
+          SwitchListTile(
+            title: const Text('Daily Expense Reminder'),
+            subtitle: Text(
+              _isDailyReminderEnabled
+                  ? 'Daily at ${_formatReminderTime(_dailyReminderHour, _dailyReminderMinute)}'
+                  : 'Get reminded to log today\'s expenses',
+            ),
+            secondary: const Icon(Icons.alarm),
+            value: _isDailyReminderEnabled,
+            onChanged: _toggleDailyReminder,
+          ),
+          if (_isDailyReminderEnabled)
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 72, right: 16),
+              title: const Text('Reminder Time'),
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.schedule, size: 18),
+                label: Text(
+                  _formatReminderTime(_dailyReminderHour, _dailyReminderMinute),
+                ),
+                onPressed: _pickDailyReminderTime,
+              ),
+              onTap: _pickDailyReminderTime,
+            ),
+          SwitchListTile(
+            title: const Text('Subscription Due Alerts'),
+            subtitle: Text(
+              _isSubscriptionRemindersEnabled
+                  ? _getAdvanceDaysLabel(_subscriptionReminderAdvanceDays)
+                  : 'Notify before upcoming renewals',
+            ),
+            secondary: const Icon(Icons.notifications_active_outlined),
+            value: _isSubscriptionRemindersEnabled,
+            onChanged: _toggleSubscriptionReminders,
+          ),
+          if (_isSubscriptionRemindersEnabled)
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 72, right: 16),
+              title: const Text('Alert Notice Timing'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showSubscriptionAdvanceDaysDialog,
+            ),
+          ListTile(
+            title: const Text('Send Test Notification'),
+            subtitle: const Text('Test alert tone and notification banner'),
+            leading: const Icon(Icons.notification_add_outlined),
+            trailing: const Icon(Icons.send_rounded),
+            onTap: _sendTestNotification,
           ),
           _buildSectionTitle(context, 'AI'),
           ListTile(

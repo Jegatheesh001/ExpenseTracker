@@ -13,6 +13,7 @@ import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DataBackup {
@@ -35,6 +36,13 @@ class DataBackup {
       PrefKeys.aiProvider,
       PrefKeys.geminiModelName,
       PrefKeys.openaiModelName,
+      PrefKeys.dailyReminderEnabled,
+      PrefKeys.dailyReminderHour,
+      PrefKeys.dailyReminderMinute,
+      PrefKeys.subscriptionRemindersEnabled,
+      PrefKeys.subscriptionReminderAdvanceDays,
+      PrefKeys.subscriptionReminderHour,
+      PrefKeys.subscriptionReminderMinute,
     };
 
     if (safeExactKeys.contains(key)) return true;
@@ -207,6 +215,12 @@ class DataBackup {
           }
         }
 
+        try {
+          await NotificationService().syncAllNotifications();
+        } catch (e) {
+          debugPrint('Error syncing notifications after restore: $e');
+        }
+
         if (!context.mounted) return;
         _hideLoadingDialog(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -221,6 +235,12 @@ class DataBackup {
         // Legacy .txt file (streamed line-by-line so it never exhausts memory)
         statusNotifier.value = 'Restoring database records...';
         final errors = await _parseAndInsertDataStream(File(pickedFilePath), statusNotifier);
+
+        try {
+          await NotificationService().syncAllNotifications();
+        } catch (e) {
+          debugPrint('Error syncing notifications after restore: $e');
+        }
 
         if (!context.mounted) return;
         _hideLoadingDialog(context);
@@ -357,21 +377,36 @@ class DataBackup {
             price: double.parse(parts[5]),
           ));
         } else if (parts[0] == 'SUBSCRIPTION' && parts.length >= 15) {
+          final subId = int.tryParse(parts[1]);
+          final profileId = int.tryParse(parts[2]) ?? 0;
+          final title = parts[3];
+          final amount = double.tryParse(parts[4]) ?? 0.0;
+          final categoryId = int.tryParse(parts[5]) ?? 0;
+          final category = parts[6];
+          final billingCycle = parts[7];
+          final startDate = DateTime.tryParse(parts[8]) ?? DateTime.now();
+          final nextBillingDate = DateTime.tryParse(parts[9]) ?? DateTime.now();
+          final currency = parts[10].isNotEmpty && parts[10] != 'null' ? parts[10] : 'Rupee';
+          final paymentMethod = (parts[11] != 'null' && parts[11].trim().isNotEmpty) ? parts[11] : null;
+          final remarks = (parts[12] != 'null' && parts[12].trim().isNotEmpty) ? parts[12] : null;
+          final isActive = parts[13] == '1';
+          final autoLogExpense = parts[14] == '1';
+
           subscriptionsToInsert.add(Subscription(
-            id: int.tryParse(parts[1]),
-            profileId: int.parse(parts[2]),
-            title: parts[3],
-            amount: double.parse(parts[4]),
-            categoryId: int.parse(parts[5]),
-            category: parts[6],
-            billingCycle: parts[7],
-            startDate: DateTime.parse(parts[8]),
-            nextBillingDate: DateTime.parse(parts[9]),
-            currency: parts[10],
-            paymentMethod: parts[11] != 'null' ? parts[11] : null,
-            remarks: parts[12] != 'null' ? parts[12] : null,
-            isActive: parts[13] == '1',
-            autoLogExpense: parts[14] == '1',
+            id: subId,
+            profileId: profileId,
+            title: title,
+            amount: amount,
+            categoryId: categoryId,
+            category: category,
+            billingCycle: billingCycle,
+            startDate: startDate,
+            nextBillingDate: nextBillingDate,
+            currency: currency,
+            paymentMethod: paymentMethod,
+            remarks: remarks,
+            isActive: isActive,
+            autoLogExpense: autoLogExpense,
           ));
         } else if (parts.length == 9) {
           bool isActive = parts[6].toUpperCase() == 'Y';
