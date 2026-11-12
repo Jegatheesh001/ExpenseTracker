@@ -183,7 +183,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
 
     final subscription = Subscription(
       id: widget.subscriptionToEdit?.id,
-      profileId: widget.profileId,
+      profileId: widget.subscriptionToEdit?.profileId ?? widget.profileId,
       title: _titleController.text.trim(),
       amount: amount,
       categoryId: _selectedCategory!.categoryId,

@@ -107,5 +107,26 @@ void main() {
       expect(updated.nextBillingDate, DateTime(2026, 3, 1));
       expect(updated.isActive, false);
     });
+
+    test('Subscription map preserves restore identity fields', () {
+      final subscription = Subscription(
+        id: 10,
+        profileId: 2,
+        title: 'Gym',
+        amount: 1200.0,
+        categoryId: 5,
+        category: 'Health',
+        billingCycle: 'Monthly',
+        startDate: DateTime(2026, 1, 1),
+        nextBillingDate: DateTime(2026, 2, 1),
+      );
+
+      final updateMap = subscription.toMap();
+
+      expect(updateMap['id'], 10);
+      expect(updateMap['profileId'], 2);
+      expect(updateMap['title'], 'Gym');
+      expect(updateMap['amount'], 1200.0);
+    });
   });
 }

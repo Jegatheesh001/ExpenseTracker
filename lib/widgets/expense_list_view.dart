@@ -11,14 +11,16 @@ class ExpenseListView extends StatelessWidget {
   final String currencySymbol;
   final Future<void> Function(Expense) onDelete;
   final Future<void> Function(Expense) onEdit;
+  final String emptyMessage;
 
   const ExpenseListView({
-    Key? key,
+    super.key,
     required this.expenses,
     required this.currencySymbol,
     required this.onDelete,
     required this.onEdit,
-  }) : super(key: key);
+    this.emptyMessage = 'No expenses yet',
+  });
 
   void _showDeleteConfirmation(BuildContext context, Expense expense) {
     showDialog(
@@ -57,20 +59,21 @@ class ExpenseListView extends StatelessWidget {
               spacing: 2.0,
               runSpacing: 0.0,
               children: tags
-                  .map((tag) => RawChip(
-                label: Text(tag),
-                labelStyle: const TextStyle(fontSize: 12),
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close the dialog
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          TagExpensesScreen(tag: tag),
+                  .map(
+                    (tag) => RawChip(
+                      label: Text(tag),
+                      labelStyle: const TextStyle(fontSize: 12),
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close the dialog
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TagExpensesScreen(tag: tag),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ))
+                  )
                   .toList(),
             ),
             Align(
@@ -79,7 +82,7 @@ class ExpenseListView extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Close'),
               ),
-            )
+            ),
           ],
         );
       },
@@ -89,96 +92,108 @@ class ExpenseListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (expenses.isEmpty) {
-      return const Expanded(
-        child: Center(
-          child: Text('No expenses yet'),
-        ),
-      );
+      return Expanded(child: Center(child: Text(emptyMessage)));
     }
     return Expanded(
-      child: MediaQuery.removePadding( // <--- ADD THIS WRAPPER
+      child: MediaQuery.removePadding(
+        // <--- ADD THIS WRAPPER
         context: context,
         removeTop: true, // Forces removal of top system padding
         child: ListView.builder(
-        itemCount: expenses.length,
-        itemBuilder: (context, index) {
-          final expense = expenses[index];
-          final formattedDate = DateFormat('hh:mm a').format(expense.expenseDate);
+          padding: const EdgeInsets.only(bottom: 144),
+          itemCount: expenses.length,
+          itemBuilder: (context, index) {
+            final expense = expenses[index];
+            final formattedDate = DateFormat(
+              'hh:mm a',
+            ).format(expense.expenseDate);
 
-          return Slidable(
-            key: ValueKey(expense.id),
-            endActionPane: ActionPane(
-              motion: const ScrollMotion(),
-              children: [
-                SlidableAction(
-                  onPressed: (context) => onEdit(expense),
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  icon: Icons.edit,
-                  label: 'Edit',
-                ),
-                SlidableAction(
-                  onPressed: (context) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AttachImageScreen(expenseId: expense.id!),
-                      ),
-                    );
-                  },
-                  backgroundColor: Colors.grey,
-                  foregroundColor: Colors.white,
-                  icon: Icons.attach_file,
-                  label: 'Attach',
-                ),
-                SlidableAction(
-                  onPressed: (context) {
-                    _showDeleteConfirmation(context, expense);
-                  },
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  icon: Icons.delete,
-                  label: 'Delete',
-                ),
-              ],
-            ),
-            child: GestureDetector(
-              onDoubleTap: () => onEdit(expense),
-              child: Card(
-                elevation: 1,
-                margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Icon(getIconForCategory(expense.category)),
-                  ),
-                  title: Text(expense.remarks, style: Theme.of(context).textTheme.titleMedium),
-                  subtitle: Row(
-                mainAxisSize: MainAxisSize.min,
+            return Slidable(
+              key: ValueKey(expense.id),
+              endActionPane: ActionPane(
+                motion: const ScrollMotion(),
                 children: [
-                  Text('${expense.category} • $formattedDate'),
-                  if (expense.tags.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => _showTagsDialog(context, expense.tags),
-                      child: Icon(Icons.label_outline, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
-                    ),
-                  ],
+                  SlidableAction(
+                    onPressed: (context) => onEdit(expense),
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    icon: Icons.edit,
+                    label: 'Edit',
+                  ),
+                  SlidableAction(
+                    onPressed: (context) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              AttachImageScreen(expenseId: expense.id!),
+                        ),
+                      );
+                    },
+                    backgroundColor: Colors.grey,
+                    foregroundColor: Colors.white,
+                    icon: Icons.attach_file,
+                    label: 'Attach',
+                  ),
+                  SlidableAction(
+                    onPressed: (context) {
+                      _showDeleteConfirmation(context, expense);
+                    },
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete,
+                    label: 'Delete',
+                  ),
                 ],
               ),
-                  trailing: Text(
-                    '$currencySymbol${expense.amount.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+              child: GestureDetector(
+                onDoubleTap: () => onEdit(expense),
+                child: Card(
+                  elevation: 1,
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 8.0,
+                    vertical: 4.0,
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(getIconForCategory(expense.category)),
+                    ),
+                    title: Text(
+                      expense.remarks,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    subtitle: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${expense.category} • $formattedDate'),
+                        if (expense.tags.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => _showTagsDialog(context, expense.tags),
+                            child: Icon(
+                              Icons.label_outline,
+                              size: 16,
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    trailing: Text(
+                      '$currencySymbol${expense.amount.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -2,31 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/utils/expense_category_filter.dart';
 
 class MonthView extends StatefulWidget {
   final DateTime selectedDate;
   final String currencySymbol;
   final int profileId;
+  final int? categoryId;
+  final String? categoryName;
   final Future<void> Function(Expense) onEdit;
   final void Function(double) onTotalChanged;
   final Future<void> Function(Expense) updateWalletOnExpenseDeletion;
 
   const MonthView({
-    Key? key,
+    super.key,
     required this.selectedDate,
     required this.currencySymbol,
     required this.profileId,
+    this.categoryId,
+    this.categoryName,
     required this.onEdit,
     required this.onTotalChanged,
     required this.updateWalletOnExpenseDeletion,
-  }) : super(key: key);
+  });
 
   @override
-  _MonthViewState createState() => _MonthViewState();
+  State<MonthView> createState() => _MonthViewState();
 }
 
 class _MonthViewState extends State<MonthView> {
   late Future<Map<DateTime, List<Expense>>> _groupedExpenses;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -37,29 +43,54 @@ class _MonthViewState extends State<MonthView> {
   @override
   void didUpdateWidget(MonthView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.selectedDate != oldWidget.selectedDate) {
+    if (widget.selectedDate != oldWidget.selectedDate ||
+        widget.profileId != oldWidget.profileId ||
+        widget.categoryId != oldWidget.categoryId) {
       _groupedExpenses = _fetchAndGroupExpenses();
     }
   }
 
   Future<Map<DateTime, List<Expense>>> _fetchAndGroupExpenses() async {
-    final firstDayOfMonth = DateTime(widget.selectedDate.year, widget.selectedDate.month, 1);
-    final lastDayOfMonth = DateTime(widget.selectedDate.year, widget.selectedDate.month + 1, 0);
+    final loadGeneration = ++_loadGeneration;
+    final firstDayOfMonth = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+      1,
+    );
+    final lastDayOfMonth = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month + 1,
+      0,
+    );
 
-    final expenses = await DatabaseHelper().getExpensesByDate(firstDayOfMonth, lastDayOfMonth, widget.profileId);
+    final loadedExpenses = await DatabaseHelper().getExpensesByDate(
+      firstDayOfMonth,
+      lastDayOfMonth,
+      widget.profileId,
+    );
+    final expenses = filterExpensesByCategory(
+      loadedExpenses,
+      widget.categoryId,
+    );
     final groupedExpenses = <DateTime, List<Expense>>{};
     double total = 0;
 
     for (final expense in expenses) {
       total += expense.amount;
-      final day = DateTime(expense.expenseDate.year, expense.expenseDate.month, expense.expenseDate.day);
+      final day = DateTime(
+        expense.expenseDate.year,
+        expense.expenseDate.month,
+        expense.expenseDate.day,
+      );
       if (groupedExpenses.containsKey(day)) {
         groupedExpenses[day]!.add(expense);
       } else {
         groupedExpenses[day] = [expense];
       }
     }
-    widget.onTotalChanged(total);
+    if (mounted && loadGeneration == _loadGeneration) {
+      widget.onTotalChanged(total);
+    }
     return groupedExpenses;
   }
 
@@ -80,7 +111,14 @@ class _MonthViewState extends State<MonthView> {
         } else if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No expenses for this month.'));
+          final categoryName = widget.categoryName;
+          return Center(
+            child: Text(
+              categoryName == null
+                  ? 'No expenses for this month.'
+                  : 'No $categoryName expenses for this month.',
+            ),
+          );
         }
 
         final groupedExpenses = snapshot.data!;
@@ -89,73 +127,87 @@ class _MonthViewState extends State<MonthView> {
 
         return MediaQuery.removePadding(
           context: context,
-          removeTop: true, child: ListView.builder(
-          itemCount: sortedDates.length,
-          itemBuilder: (context, index) {
-            final date = sortedDates[index];
-            final expensesForDay = groupedExpenses[date]!;
-            final totalForDay = expensesForDay.fold(0.0, (sum, item) => sum + item.amount);
+          removeTop: true,
+          child: ListView.builder(
+            padding: const EdgeInsets.only(bottom: 144),
+            itemCount: sortedDates.length,
+            itemBuilder: (context, index) {
+              final date = sortedDates[index];
+              final expensesForDay = groupedExpenses[date]!;
+              final totalForDay = expensesForDay.fold(
+                0.0,
+                (sum, item) => sum + item.amount,
+              );
 
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 6.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(2.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Chip(
-                          label: Text(
-                            DateFormat('dd MMM, yyyy').format(date),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        Text(
-                          '${widget.currencySymbol}${totalForDay.toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: expensesForDay.length,
-                    itemBuilder: (context, expenseIndex) {
-                      final expense = expensesForDay[expenseIndex];
-                      return GestureDetector(
-                        onLongPress: () => _showDeleteConfirmation(context, expense),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.only(left: 16.0, right: 0.0),
-                          title: Text(expense.remarks),
-                          subtitle: Row(
-                            children: [
-                              Text(
-                                '${widget.currencySymbol}${expense.amount.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+              return Card(
+                margin: const EdgeInsets.symmetric(
+                  vertical: 4.0,
+                  horizontal: 6.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Chip(
+                            label: Text(
+                              DateFormat('dd MMM, yyyy').format(date),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 8),
-                              Text('[${expense.category}]'),
-                            ],
+                            ),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => widget.onEdit(expense),
+                          Text(
+                            '${widget.currencySymbol}${totalForDay.toStringAsFixed(2)}',
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        )
+                        ],
+                      ),
+                    ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: expensesForDay.length,
+                      itemBuilder: (context, expenseIndex) {
+                        final expense = expensesForDay[expenseIndex];
+                        return GestureDetector(
+                          onLongPress: () =>
+                              _showDeleteConfirmation(context, expense),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.only(
+                              left: 16.0,
+                              right: 0.0,
+                            ),
+                            title: Text(expense.remarks),
+                            subtitle: Row(
+                              children: [
+                                Text(
+                                  '${widget.currencySymbol}${expense.amount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text('[${expense.category}]'),
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => widget.onEdit(expense),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
