@@ -4,7 +4,6 @@ import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 
 import 'package:expense_tracker/db/entity.dart';
@@ -17,6 +16,7 @@ import 'package:expense_tracker/screens/dashboard/dashboard_screen.dart';
 import 'package:expense_tracker/screens/expenses/expenses_screen.dart';
 import 'package:expense_tracker/screens/ai/chatbot_screen.dart';
 import 'package:expense_tracker/services/notification_service.dart';
+import 'package:expense_tracker/services/assistant_action_service.dart';
 import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 
 void main() async {
@@ -94,9 +94,12 @@ class ExpenseHomePage extends StatefulWidget {
 }
 
 class _ExpenseHomePageState extends State<ExpenseHomePage> {
-  final GlobalKey<DashboardScreenState> _dashboardKey = GlobalKey<DashboardScreenState>();
-  final GlobalKey<ExpensesScreenState> _expensesKey = GlobalKey<ExpensesScreenState>();
-  final GlobalKey<SettingsScreenState> _settingsKey = GlobalKey<SettingsScreenState>();
+  final GlobalKey<DashboardScreenState> _dashboardKey =
+      GlobalKey<DashboardScreenState>();
+  final GlobalKey<ExpensesScreenState> _expensesKey =
+      GlobalKey<ExpensesScreenState>();
+  final GlobalKey<SettingsScreenState> _settingsKey =
+      GlobalKey<SettingsScreenState>();
 
   int _selectedIndex = 0;
 
@@ -113,155 +116,194 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   late SharedPreferences _prefs;
   int _profileId = 0;
   final _appLinks = AppLinks();
+  final _assistantActionService = const AssistantActionService();
   StreamSubscription<Uri>? _uriLinkSubscription;
   late StreamSubscription _intentSub;
-
-
-  static const platform = MethodChannel('com.jegatheesh.expenseTracker/channel');
+  Uri? _pendingAppLink;
+  bool _pageContentReady = false;
+  bool _isHandlingAssistantAction = false;
 
   @override
   void initState() {
     super.initState();
     _initNotifications();
-    _loadPageContent();
     _handleCopiedTextFromSharing();
     _initAppLinks();
-    platform.setMethodCallHandler(_handleMethod);
+    _loadPageContent();
   }
 
   Future<void> _initNotifications() async {
-    await NotificationService().init(onSelectNotification: (payload) {
-      if (!mounted) return;
-      if (payload == 'daily_reminder') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddExpenseScreen(
-              onWalletAmountChange: _loadWalletAmount,
+    await NotificationService().init(
+      onSelectNotification: (payload) {
+        if (!mounted) return;
+        if (payload == 'daily_reminder') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  AddExpenseScreen(onWalletAmountChange: _loadWalletAmount),
             ),
-          ),
-        ).then((result) {
-          if (result == true) {
-            _loadTodaysExpenses();
-          }
-        });
-      } else if (payload != null && payload.startsWith('subscription')) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SubscriptionsScreen(
-              profileId: _profileId,
-              currencySymbol: _currencySymbol,
-              onWalletAmountChange: _loadWalletAmount,
-              initialFilter: 'Due',
+          ).then((result) {
+            if (result == true) {
+              _loadTodaysExpenses();
+            }
+          });
+        } else if (payload != null && payload.startsWith('subscription')) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SubscriptionsScreen(
+                profileId: _profileId,
+                currencySymbol: _currencySymbol,
+                onWalletAmountChange: _loadWalletAmount,
+                initialFilter: 'Due',
+              ),
             ),
-          ),
-        ).then((_) {
-          _dashboardKey.currentState?.refresh();
-        });
-      }
-    });
+          ).then((_) {
+            _dashboardKey.currentState?.refresh();
+          });
+        }
+      },
+    );
 
     await NotificationService().requestPermissions();
     await NotificationService().syncAllNotifications();
   }
 
-  Future<void> _initAppLinks() async {
-    // Handle incoming links when the app is already running
-    _uriLinkSubscription = _appLinks.uriLinkStream.listen((uri) {
-      if (!mounted) return;
-      _handleUri(uri);
-    }, onError: (err) {
-      debugPrint('uriLinkStream error: $err');
-    });
-
-    // Handle the initial link when the app is opened from a cold start
-    try {
-      final initialUri = await _appLinks.getInitialLink();
-      if (!mounted) return;
-      _handleUri(initialUri);
-    } on PlatformException {
-      debugPrint('Failed to get initial URI.');
-    } on FormatException catch (e) {
-      debugPrint('Malformed initial URI: ${e.message}');
-    }
+  void _initAppLinks() {
+    _uriLinkSubscription = _appLinks.uriLinkStream.listen(
+      (uri) {
+        if (!mounted) return;
+        _queueOrHandleUri(uri);
+      },
+      onError: (err) {
+        debugPrint('uriLinkStream error: $err');
+      },
+    );
   }
 
-  void _handleUri(Uri? uri) {
-    if (uri != null && uri.scheme == 'app' && uri.host == 'com.jegatheesh.expenseTracker') {
-      if (uri.path == '/open' && uri.queryParameters['featureName'] == 'wallet') {
-        _showWalletBalance();
+  void _queueOrHandleUri(Uri uri) {
+    if (!_pageContentReady) {
+      _pendingAppLink = uri;
+      return;
+    }
+    unawaited(_handleUri(uri));
+  }
+
+  Future<void> _handleUri(Uri uri) async {
+    if (_isHandlingAssistantAction) return;
+    final request = _assistantActionService.parse(uri);
+    if (request == null) return;
+
+    _isHandlingAssistantAction = true;
+    try {
+      switch (request) {
+        case WalletBalanceRequest():
+          _showWalletBalance();
+          break;
+        case AddExpenseRequest():
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddExpenseScreen(
+                onWalletAmountChange: _loadWalletAmount,
+                initialAmount: request.amount,
+                initialRemarks: request.remarks,
+                initialCategoryName: request.categoryName,
+                isAssistantDraft: true,
+              ),
+            ),
+          );
+          if (result == true) {
+            _loadTodaysExpenses();
+          }
+          break;
+        case InvalidAssistantActionRequest():
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(request.message)));
+          break;
       }
+    } finally {
+      _isHandlingAssistantAction = false;
     }
   }
 
   void _showWalletBalance() {
-    // This reuses the logic you already had for displaying the wallet amount
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Wallet Amount: $_currencySymbol${_walletAmount.toStringAsFixed(2)}')),
+      SnackBar(
+        content: Text(
+          'Wallet Amount: $_currencySymbol${_walletAmount.toStringAsFixed(2)}',
+        ),
+      ),
     );
   }
 
-  Future<dynamic> _handleMethod(MethodCall call) async {
-    switch (call.method) {
-      case 'getWalletAmount':
-        _showWalletBalance();
-        break;
-      default:
-        throw MissingPluginException();
-    }
-  }
-
   /// Initializes all the necessary data for the home page.
-  void _loadPageContent() async {
+  Future<void> _loadPageContent() async {
     _prefs = await SharedPreferences.getInstance();
     await _loadSelectedProfile();
     await _loadCurrency();
-    _loadWalletAmount();
-    _loadExpStatusBar();
-    _checkBackupReminder();
+    await _loadWalletAmount();
+    await _loadExpStatusBar();
+    if (!mounted) return;
+
+    _pageContentReady = true;
+    final pendingAppLink = _pendingAppLink;
+    _pendingAppLink = null;
+    if (pendingAppLink != null) {
+      await _handleUri(pendingAppLink);
+    } else {
+      _checkBackupReminder();
+    }
   }
 
   /// Handles profile change event from settings.
   Future<void> _onProfileChange() async {
     await _loadSelectedProfile();
     await _loadCurrency();
-    _loadWalletAmount();
+    await _loadWalletAmount();
     // Reload today's expenses to reflect the new profile's data.
     _loadTodaysExpenses();
   }
 
   // Loads the selected currency from shared preferences.
   Future<void> _loadCurrency() async {
-    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
-    _loadCurrencySymbol(currency);
+    final currency =
+        _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
+    await _loadCurrencySymbol(currency);
   }
 
   // Loads the wallet amount from shared preferences.
   Future<void> _loadWalletAmount() async {
+    if (!mounted) return;
     setState(() {
       // Using the same key as in SettingsScreen
-      _walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
+      _walletAmount =
+          _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
     });
     _settingsKey.currentState?.refresh();
   }
 
   // Determines the currency symbol based on the selected currency.
   Future<void> _loadCurrencySymbol(currency) async {
-    String currencySymbol = CurrencySymbol().getSymbol(currency);
+    final currencySymbol = CurrencySymbol().getSymbol(currency);
+    if (!mounted) return;
     setState(() {
       _currencySymbol = currencySymbol;
     });
   }
 
   Future<void> _loadExpStatusBar() async {
-    bool status = _prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
+    final status = _prefs.getBool(PrefKeys.showExpStatusBar) ?? false;
+    if (!mounted) return;
     setState(() {
       _showExpStatusBar = status;
     });
   }
 
   Future<void> _loadSelectedProfile() async {
+    if (!mounted) return;
     setState(() {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
     });
@@ -300,9 +342,8 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddExpenseScreen(
-          onWalletAmountChange: _loadWalletAmount,
-        ),
+        builder: (context) =>
+            AddExpenseScreen(onWalletAmountChange: _loadWalletAmount),
       ),
     );
     if (result == true) {
@@ -310,11 +351,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     }
   }
 
- Future<void> _editExpense(Expense expense) async {
+  Future<void> _editExpense(Expense expense) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddExpenseScreen(expenseToEdit: expense, onWalletAmountChange: _loadWalletAmount),
+        builder: (context) => AddExpenseScreen(
+          expenseToEdit: expense,
+          onWalletAmountChange: _loadWalletAmount,
+        ),
       ),
     );
     if (result == true) {
@@ -352,7 +396,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
           SettingsScreen(
             key: _settingsKey,
-            onThemeToggle: context.findAncestorStateOfType<_MyAppState>()?._toggleTheme ?? () {},
+            onThemeToggle:
+                context.findAncestorStateOfType<_MyAppState>()?._toggleTheme ??
+                () {},
             onCurrencyToggle: _loadCurrency,
             onStatusBarToggle: _toggleExpStatusBar,
             onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
@@ -387,11 +433,26 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt_rounded), label: 'Expenses'),
-          BottomNavigationBarItem(icon: Icon(Icons.face_retouching_natural), label: 'Ask Anila'),
-          BottomNavigationBarItem(icon: Icon(Icons.pie_chart_rounded), label: 'Reports'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.grid_view_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list_alt_rounded),
+            label: 'Expenses',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.face_retouching_natural),
+            label: 'Ask Anila',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.pie_chart_rounded),
+            label: 'Reports',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
     );
@@ -415,9 +476,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   void retrieveSharedContent(List<SharedMediaFile> value) {
     if (value.isEmpty) return;
     String content = value.first.path;
+    final sharedUri = Uri.tryParse(content);
+    if (sharedUri != null &&
+        _assistantActionService.parse(sharedUri) != null) {
+      return;
+    }
     ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(content)));
+      context,
+    ).showSnackBar(SnackBar(content: Text(content)));
     final RegExp regExp = RegExp(
       r"^Purchase of ([A-Z]{3}) (\d+\.\d{2}) with (Debit|Credit|Visa|MasterCard) Card ending (\d{4}) at (.*?), (DXB|SHJ|AUH|DUBAI|SHARJAH|ESHARJAH|ABU DHABI|LONDON)\..*",
       caseSensitive: false,
@@ -436,7 +502,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       );
       _editExpense(expense);
     } else {
-      final RegExp upiTransRegex = RegExp(r'Sent Rs\.(?<amount>\d+\.\d{2})\s*\nFrom (?<from>.*?)\nTo (?<to>.*?)\nOn (?<date>\d{2}/\d{2}/\d{2})', multiLine: true);
+      final RegExp upiTransRegex = RegExp(
+        r'Sent Rs\.(?<amount>\d+\.\d{2})\s*\nFrom (?<from>.*?)\nTo (?<to>.*?)\nOn (?<date>\d{2}/\d{2}/\d{2})',
+        multiLine: true,
+      );
       final RegExpMatch? matchFound = upiTransRegex.firstMatch(content);
       if (matchFound != null) {
         var expense = Expense(
@@ -455,10 +524,19 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   }
 
   void _checkBackupReminder() async {
-    bool isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
+    bool isBackupReminderEnabled =
+        _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
     if (isBackupReminderEnabled) {
-      int? lastReminderTimestamp = _prefs.getInt(PrefKeys.lastBackupReminderTimestamp);
-      if (lastReminderTimestamp == null || DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastReminderTimestamp)).inHours >= 24) {
+      int? lastReminderTimestamp = _prefs.getInt(
+        PrefKeys.lastBackupReminderTimestamp,
+      );
+      if (lastReminderTimestamp == null ||
+          DateTime.now()
+                  .difference(
+                    DateTime.fromMillisecondsSinceEpoch(lastReminderTimestamp),
+                  )
+                  .inHours >=
+              24) {
         _showBackupReminderDialog();
       }
     }
@@ -470,7 +548,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Backup Reminder'),
-          content: const Text('It\'s been a while since your last backup. Would you like to back up your data now?'),
+          content: const Text(
+            'It\'s been a while since your last backup. Would you like to back up your data now?',
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Backup Now'),
@@ -482,7 +562,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             TextButton(
               child: const Text('Remind Later'),
               onPressed: () {
-                _prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+                _prefs.setInt(
+                  PrefKeys.lastBackupReminderTimestamp,
+                  DateTime.now().millisecondsSinceEpoch,
+                );
                 Navigator.of(dialogContext).pop();
               },
             ),
@@ -501,10 +584,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   Future<void> _showExportOptionsDialog() async {
     await _prefs.reload();
-    final int? lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+    final int? lastBackupTimestamp = _prefs.getInt(
+      PrefKeys.lastBackupTimestamp,
+    );
     String lastBackup = 'Never';
     if (lastBackupTimestamp != null) {
-      final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(lastBackupTimestamp);
+      final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(
+        lastBackupTimestamp,
+      );
       lastBackup = DateFormat('dd-MM-yyyy hh:mm aa').format(lastBackupDate);
     }
     if (!mounted) return;
@@ -541,7 +628,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               },
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+              padding: const EdgeInsets.only(
+                right: 16.0,
+                top: 8.0,
+                bottom: 8.0,
+              ),
               child: Text(
                 'Last backup: $lastBackup',
                 style: Theme.of(context).textTheme.bodySmall,

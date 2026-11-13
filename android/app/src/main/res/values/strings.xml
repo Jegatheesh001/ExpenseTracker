@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wallet_balance_short_label">Wallet balance</string>
+    <string name="wallet_balance_long_label">Show wallet balance</string>
+    <string name="wallet_balance_widget_description">Current wallet, cash, and bank balances</string>
+    <string name="wallet_balance_locked">Unlock your phone to hear your wallet balance.</string>
+
+    <string-array name="wallet_balance_queries">
+        <item>what is my wallet balance</item>
+        <item>what\'s my wallet balance</item>
+        <item>show my wallet balance</item>
+        <item>tell me my wallet balance</item>
+        <item>how much money do I have</item>
+        <item>give me my wallet balance</item>
+    </string-array>
+
+    <string-array name="add_expense_queries">
+        <item>add $expenseName in $categoryName for $amount</item>
+        <item>add $expenseName in $categoryName it is $amount</item>
+        <item>add $expenseName in $categoryName it\'s $amount</item>
+        <item>add $expenseName in $categoryName costing $amount</item>
+        <item>add $expenseName to $categoryName for $amount</item>
+        <item>log $expenseName in $categoryName for $amount</item>
+        <item>record $expenseName under $categoryName for $amount</item>
+        <item>add an expense for $expenseName in $categoryName for $amount</item>
+    </string-array>
+</resources>

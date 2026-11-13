@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <capability
+        android:name="custom.actions.intent.GET_WALLET_BALANCE"
+        app:queryPatterns="@array/wallet_balance_queries">
+        <app-widget
+            android:identifier="WALLET_BALANCE_WIDGET"
+            android:targetClass="com.jegatheesh.expenseTracker.WalletBalanceWidgetProvider"
+            android:targetPackage="com.jegatheesh.expenseTracker">
+            <extra
+                android:name="hasTts"
+                android:value="true" />
+        </app-widget>
+    </capability>
+
+    <capability
+        android:name="custom.actions.intent.ADD_EXPENSE"
+        app:queryPatterns="@array/add_expense_queries">
+        <intent>
+            <url-template android:value="app://com.jegatheesh.expensetracker/add-expense{?expenseName,categoryName,amount}" />
+            <parameter
+                android:name="expenseName"
+                android:key="expenseName"
+                android:mimeType="https://schema.org/Text"
+                android:required="true" />
+            <parameter
+                android:name="categoryName"
+                android:key="categoryName"
+                android:mimeType="https://schema.org/Text"
+                android:required="true" />
+            <parameter
+                android:name="amount"
+                android:key="amount"
+                android:mimeType="https://schema.org/Number"
+                android:required="true" />
+        </intent>
+    </capability>
+</shortcuts>

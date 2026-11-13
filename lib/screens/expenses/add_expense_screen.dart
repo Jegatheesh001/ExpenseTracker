@@ -15,11 +15,27 @@ import 'package:path/path.dart' as path;
 
 enum PaymentMethod { cash, bank, none }
 
+String _normalizeCategoryName(String value) {
+  return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+}
+
 class AddExpenseScreen extends StatefulWidget {
-  const AddExpenseScreen({Key? key, this.expenseToEdit, required this.onWalletAmountChange,}) : super(key: key);
+  const AddExpenseScreen({
+    super.key,
+    this.expenseToEdit,
+    required this.onWalletAmountChange,
+    this.initialAmount,
+    this.initialRemarks,
+    this.initialCategoryName,
+    this.isAssistantDraft = false,
+  });
 
   final Expense? expenseToEdit;
   final VoidCallback onWalletAmountChange;
+  final double? initialAmount;
+  final String? initialRemarks;
+  final String? initialCategoryName;
+  final bool isAssistantDraft;
 
   @override
   // ignore: library_private_types_in_public_api
@@ -48,12 +64,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _tempImagePath;
   bool _ocrEnabledInSettings = false;
   List<BilledItem> _billedItems = [];
+  String? _unmatchedAssistantCategory;
 
-  void _showAddEditItemDialog({BilledItem? item, int? index, VoidCallback? onSaved}) {
+  void _showAddEditItemDialog({
+    BilledItem? item,
+    int? index,
+    VoidCallback? onSaved,
+  }) {
     final nameController = TextEditingController(text: item?.itemName ?? '');
-    final quantityController = TextEditingController(text: item?.quantity.toString() ?? '1');
-    final priceController = TextEditingController(text: item?.price.toString() ?? '');
-    final totalController = TextEditingController(text: (item != null) ? (item.quantity * item.price).toStringAsFixed(2) : '0.00');
+    final quantityController = TextEditingController(
+      text: item?.quantity.toString() ?? '1',
+    );
+    final priceController = TextEditingController(
+      text: item?.price.toString() ?? '',
+    );
+    final totalController = TextEditingController(
+      text: (item != null)
+          ? (item.quantity * item.price).toStringAsFixed(2)
+          : '0.00',
+    );
 
     void updateTotal() {
       final q = double.tryParse(quantityController.text) ?? 0.0;
@@ -79,12 +108,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 ),
                 TextField(
                   controller: quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(labelText: 'Quantity'),
                 ),
                 TextField(
                   controller: priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: const InputDecoration(labelText: 'Price'),
                 ),
                 TextField(
@@ -103,7 +136,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             TextButton(
               onPressed: () {
                 final name = nameController.text.trim();
-                final quantity = double.tryParse(quantityController.text) ?? 1.0;
+                final quantity =
+                    double.tryParse(quantityController.text) ?? 1.0;
                 final price = double.tryParse(priceController.text) ?? 0.0;
 
                 if (name.isNotEmpty) {
@@ -169,7 +203,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     children: [
                       Row(
                         children: [
-                          const Text('Billed Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text(
+                            'Billed Items',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           IconButton(
                             onPressed: () {
@@ -177,7 +217,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 onSaved: () => setStateSheet(() {}),
                               );
                             },
-                            icon: const Icon(Icons.add_circle, color: Colors.blue),
+                            icon: const Icon(
+                              Icons.add_circle,
+                              color: Colors.blue,
+                            ),
                             tooltip: 'Add Item',
                           ),
                         ],
@@ -197,7 +240,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (_billedItems.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text('No billed items.', style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+                      child: Text(
+                        'No billed items.',
+                        style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   Flexible(
                     child: ListView.builder(
@@ -208,13 +255,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(item.itemName),
-                          subtitle: Text('${item.quantity} x $_currencySymbol${item.price}'),
+                          subtitle: Text(
+                            '${item.quantity} x $_currencySymbol${item.price}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('$_currencySymbol${(item.quantity * item.price).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(
+                                '$_currencySymbol${(item.quantity * item.price).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                               IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     _billedItems.removeAt(index);
@@ -242,10 +300,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text(
+                            'Total Amount',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           Text(
                             '$_currencySymbol${_billedItems.fold(0.0, (sum, item) => sum + (item.quantity * item.price)).toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.blue),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.blue,
+                            ),
                           ),
                         ],
                       ),
@@ -263,25 +331,61 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void initState() {
-    expenseToEdit = widget.expenseToEdit;
     super.initState();
+    expenseToEdit = widget.expenseToEdit;
+    if (expenseToEdit == null) {
+      final initialAmount = widget.initialAmount;
+      if (initialAmount != null &&
+          initialAmount.isFinite &&
+          initialAmount > 0) {
+        _amountController.text = initialAmount.toStringAsFixed(2);
+      }
+      final initialRemarks = widget.initialRemarks?.trim();
+      if (initialRemarks != null && initialRemarks.isNotEmpty) {
+        _remarksController.text = initialRemarks;
+      }
+    }
     _loadCategories().then((_) {
+      if (!mounted) return;
       if (expenseToEdit != null) {
         setState(() {
           _selectedDate = expenseToEdit!.expenseDate;
           if (expenseToEdit!.paymentMethod != null) {
             try {
-              _selectedPaymentMethod = PaymentMethod.values.firstWhere((e) => e.toString() == 'PaymentMethod.${expenseToEdit!.paymentMethod}');
+              _selectedPaymentMethod = PaymentMethod.values.firstWhere(
+                (e) =>
+                    e.toString() ==
+                    'PaymentMethod.${expenseToEdit!.paymentMethod}',
+              );
             } catch (e) {
               _selectedPaymentMethod = null;
             }
-          } else if (expenseToEdit != null && expenseToEdit!.paymentMethod == null) {
+          } else if (expenseToEdit != null &&
+              expenseToEdit!.paymentMethod == null) {
             _selectedPaymentMethod = PaymentMethod.none;
           }
         });
         _loadExpense(expenseToEdit!);
       } else {
-        _selectedPaymentMethod = PaymentMethod.cash;
+        final initialCategoryName = widget.initialCategoryName?.trim();
+        Category? initialCategory;
+        if (initialCategoryName != null && initialCategoryName.isNotEmpty) {
+          for (final category in _categories) {
+            if (_normalizeCategoryName(category.category) ==
+                _normalizeCategoryName(initialCategoryName)) {
+              initialCategory = category;
+              break;
+            }
+          }
+        }
+        setState(() {
+          _selectedPaymentMethod = PaymentMethod.cash;
+          _selectedCategory = initialCategory;
+          _userManuallySelectedCategory = initialCategory != null;
+          _unmatchedAssistantCategory = initialCategory == null
+              ? initialCategoryName
+              : null;
+        });
       }
     });
     _loadSelectedProfile().then((_) {
@@ -293,6 +397,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _loadOCRSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _ocrEnabledInSettings = prefs.getBool(PrefKeys.ocrEnabled) ?? false;
     });
@@ -310,10 +415,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
     autoSuggestCategoryBasedOnRemarks();
   }
+
   Future<void> autoSuggestCategoryBasedOnRemarks() async {
     // If no category is selected, suggest one based on remarks
     if (_remarksController.text.isNotEmpty && _selectedCategory == null) {
-      final category = await PersistenceContext().getCategoryForRemark(_remarksController.text);
+      final category = await PersistenceContext().getCategoryForRemark(
+        _remarksController.text,
+      );
       if (mounted) {
         setState(() {
           _selectedCategory = category;
@@ -324,7 +432,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _loadCurrencySymbol(profileId) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentCurrency = prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
+    final currentCurrency =
+        prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
+    if (!mounted) return;
     setState(() {
       _currencySymbol = CurrencySymbol().getSymbol(currentCurrency);
     });
@@ -333,6 +443,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   // Loads categories from the persistence context.
   Future<void> _loadCategories() async {
     final loadedCategories = await PersistenceContext().getCategories();
+    if (!mounted) return;
     setState(() {
       _categories.addAll(loadedCategories);
     });
@@ -340,6 +451,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _loadSelectedProfile() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
     });
@@ -352,7 +464,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _tagsController.text = expense.tags.join(', ');
     if (expense.paymentMethod != null) {
       try {
-        _selectedPaymentMethod = PaymentMethod.values.firstWhere((e) => e.toString() == 'PaymentMethod.${expense.paymentMethod}');
+        _selectedPaymentMethod = PaymentMethod.values.firstWhere(
+          (e) => e.toString() == 'PaymentMethod.${expense.paymentMethod}',
+        );
       } catch (e) {
         _selectedPaymentMethod = null;
       }
@@ -385,9 +499,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     }
 
     final suggestions = await PersistenceContext().getTagsForRemark(remarks);
-    final currentTags = _tagsController.text.split(',').map((t) => t.trim().toLowerCase()).toSet();
+    final currentTags = _tagsController.text
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .toSet();
 
-    final filteredSuggestions = suggestions.where((tag) => !currentTags.contains(tag.toLowerCase())).toList();
+    final filteredSuggestions = suggestions
+        .where((tag) => !currentTags.contains(tag.toLowerCase()))
+        .toList();
 
     setState(() {
       _suggestedTags = filteredSuggestions;
@@ -395,7 +514,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   void _addTagToController(String tag) {
-    final currentTags = _tagsController.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    final currentTags = _tagsController.text
+        .split(',')
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
     if (!currentTags.map((t) => t.toLowerCase()).contains(tag.toLowerCase())) {
       currentTags.add(tag);
       final newText = '${currentTags.join(', ')}, ';
@@ -412,7 +535,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void _addExpense(BuildContext context) async {
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     final remarks = _remarksController.text;
-    final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final tags = _tagsController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
     await autoSuggestCategoryBasedOnRemarks();
     final category = _selectedCategory?.category;
@@ -432,27 +559,39 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Validate cash/bank value based on selection
       final prefs = await SharedPreferences.getInstance();
       if (_selectedPaymentMethod == PaymentMethod.cash) {
-        double currentCash = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-        if (expenseToEdit != null && expenseToEdit!.paymentMethod == PaymentMethod.cash.name) {
+        double currentCash =
+            prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+        if (expenseToEdit != null &&
+            expenseToEdit!.paymentMethod == PaymentMethod.cash.name) {
           currentCash += expenseToEdit!.amount;
         }
         if (amount > currentCash) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Insufficient cash balance. Available: $_currencySymbol${currentCash.toStringAsFixed(2)}')),
+              SnackBar(
+                content: Text(
+                  'Insufficient cash balance. Available: $_currencySymbol${currentCash.toStringAsFixed(2)}',
+                ),
+              ),
             );
           }
           return;
         }
       } else if (_selectedPaymentMethod == PaymentMethod.bank) {
-        double currentBank = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
-        if (expenseToEdit != null && expenseToEdit!.paymentMethod == PaymentMethod.bank.name) {
+        double currentBank =
+            prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+        if (expenseToEdit != null &&
+            expenseToEdit!.paymentMethod == PaymentMethod.bank.name) {
           currentBank += expenseToEdit!.amount;
         }
         if (amount > currentBank) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Insufficient bank balance. Available: $_currencySymbol${currentBank.toStringAsFixed(2)}')),
+              SnackBar(
+                content: Text(
+                  'Insufficient bank balance. Available: $_currencySymbol${currentBank.toStringAsFixed(2)}',
+                ),
+              ),
             );
           }
           return;
@@ -476,44 +615,56 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       // Show confirmation dialog only if it's an update (expenseToEdit is not null)
       bool confirmUpdate = true;
       if (expenseToEdit != null && expenseToEdit!.id != null) {
-        confirmUpdate = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Confirm Update'),
-              content: const Text('Are you sure you want to update this expense?'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () {
-                    Navigator.of(context).pop(false); // User cancelled
-                  },
-                ),
-                TextButton(
-                  child: const Text('Update'),
-                  onPressed: () {
-                    Navigator.of(context).pop(true); // User confirmed
-                  },
-                ),
-              ],
-            );
-          },
-        ) ?? false; // Default to false if dialog is dismissed
+        confirmUpdate =
+            await showDialog<bool>(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Text('Confirm Update'),
+                  content: const Text(
+                    'Are you sure you want to update this expense?',
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      child: const Text('Cancel'),
+                      onPressed: () {
+                        Navigator.of(context).pop(false); // User cancelled
+                      },
+                    ),
+                    TextButton(
+                      child: const Text('Update'),
+                      onPressed: () {
+                        Navigator.of(context).pop(true); // User confirmed
+                      },
+                    ),
+                  ],
+                );
+              },
+            ) ??
+            false; // Default to false if dialog is dismissed
       }
 
       if (confirmUpdate) {
-        final int id = await PersistenceContext().saveOrUpdateExpense(newExpense);
+        final int id = await PersistenceContext().saveOrUpdateExpense(
+          newExpense,
+        );
         await _updateBalances(amount);
 
         // Auto attach image if scanned (only if it's a new image, not a rescan of an existing one)
         if (_tempImagePath != null) {
           try {
             final directory = await getApplicationDocumentsDirectory();
-            final String attachmentsRoot = path.join(directory.path, 'attachments', id.toString());
-            
+            final String attachmentsRoot = path.join(
+              directory.path,
+              'attachments',
+              id.toString(),
+            );
+
             // Check if _tempImagePath is already inside the attachments directory for this expense
             // If it is, it's a rescan of an existing image, so we shouldn't copy it (to avoid self-copy issues or corruption)
-            if (!path.absolute(_tempImagePath!).startsWith(path.absolute(attachmentsRoot))) {
+            if (!path
+                .absolute(_tempImagePath!)
+                .startsWith(path.absolute(attachmentsRoot))) {
               final imagesDirectory = Directory(attachmentsRoot);
               if (!await imagesDirectory.exists()) {
                 await imagesDirectory.create(recursive: true);
@@ -534,14 +685,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   // Deletes the current expense being edited.
   Future<void> _deleteCurrentExpense(BuildContext context) async {
-    if (widget.expenseToEdit == null || widget.expenseToEdit!.id == null) return;
+    if (widget.expenseToEdit == null || widget.expenseToEdit!.id == null)
+      return;
 
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirm Delete'),
-          content: const Text('Are you sure you want to delete this expense? This action cannot be undone.'),
+          content: const Text(
+            'Are you sure you want to delete this expense? This action cannot be undone.',
+          ),
           actions: <Widget>[
             TextButton(
               child: const Text('Cancel'),
@@ -577,14 +731,19 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           await prefs.setDouble(amountKey, currentAmount + amountToRefund);
 
           // also update the combined wallet amount
-          double cashAmount = prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-          double bankAmount = prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
-          await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
+          double cashAmount =
+              prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+          double bankAmount =
+              prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+          await prefs.setDouble(
+            '${PrefKeys.walletAmount}-$_profileId',
+            cashAmount + bankAmount,
+          );
 
           widget.onWalletAmountChange(); // Update wallet display on home screen
         }
       }
-      
+
       await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
       Navigator.pop(context, true); // Signal deletion
     }
@@ -617,7 +776,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Replace Billed Items?'),
-          content: const Text('Billed items already exist. Scanning will replace them. Do you want to proceed?'),
+          content: const Text(
+            'Billed items already exist. Scanning will replace them. Do you want to proceed?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -643,7 +804,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       if (mounted) {
         setState(() {
           // If we are editing an existing expense or rescanning, only update items
-          bool isEditMode = existingImagePath != null || (expenseToEdit != null && expenseToEdit!.id != null);
+          bool isEditMode =
+              existingImagePath != null ||
+              (expenseToEdit != null && expenseToEdit!.id != null);
 
           if (!isEditMode) {
             if (result.amount != null) {
@@ -695,9 +858,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         setState(() {
           _isProcessingOCR = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error scanning receipt: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error scanning receipt: $e')));
       }
     }
   }
@@ -706,13 +869,21 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text((expenseToEdit != null && expenseToEdit!.id != null) ? 'Edit Expense' : 'Add Expense'),
+        title: Text(
+          (expenseToEdit != null && expenseToEdit!.id != null)
+              ? 'Edit Expense'
+              : 'Add Expense',
+        ),
         actions: [
           if (_ocrEnabledInSettings)
             IconButton(
-              icon: _isProcessingOCR 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.document_scanner_outlined),
+              icon: _isProcessingOCR
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.document_scanner_outlined),
               tooltip: 'Scan Receipt',
               onPressed: _isProcessingOCR ? null : _scanReceipt,
             ),
@@ -724,12 +895,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => AttachImageScreen(
-                      expenseId: widget.expenseToEdit!.id!,
-                    ),
+                    builder: (context) =>
+                        AttachImageScreen(expenseId: widget.expenseToEdit!.id!),
                   ),
                 ).then((result) {
-                  if (result != null && result is Map && result['action'] == 'rescan') {
+                  if (result != null &&
+                      result is Map &&
+                      result['action'] == 'rescan') {
                     _scanReceipt(existingImagePath: result['imagePath']);
                   }
                   // Refresh billed items or state if needed when returning from attachments
@@ -747,9 +919,35 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               // --- Category and Date Card ---
+              if (widget.isAssistantDraft) ...[
+                Card(
+                  key: const Key('assistant_expense_review'),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.record_voice_over),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _unmatchedAssistantCategory == null
+                                ? 'Review the voice-entered details before saving.'
+                                : 'Category "$_unmatchedAssistantCategory" was not found. Select a category before saving.',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Card(
                 elevation: 0,
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceVariant.withOpacity(0.5),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -757,19 +955,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                           labelText: 'Category',
-                          border: InputBorder.none, // Cleaner look inside a card
+                          border:
+                              InputBorder.none, // Cleaner look inside a card
                         ),
                         initialValue: _selectedCategory?.categoryId,
                         items: _categories
-                            .map((Category category) => DropdownMenuItem<int>(
-                                  value: category.categoryId,
-                                  child: Text(category.category),
-                                ))
+                            .map(
+                              (Category category) => DropdownMenuItem<int>(
+                                value: category.categoryId,
+                                child: Text(category.category),
+                              ),
+                            )
                             .toList(),
                         onChanged: (int? newValue) {
                           setState(() {
                             _userManuallySelectedCategory = true;
-                            _selectedCategory = _categories.firstWhere((cat) => cat.categoryId == newValue);
+                            _selectedCategory = _categories.firstWhere(
+                              (cat) => cat.categoryId == newValue,
+                            );
                           });
                         },
                       ),
@@ -782,7 +985,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           border: InputBorder.none,
                         ),
                         controller: TextEditingController(
-                            text: DateFormat('dd MMMM yyyy, hh:mm aa').format(_selectedDate)),
+                          text: DateFormat(
+                            'dd MMMM yyyy, hh:mm aa',
+                          ).format(_selectedDate),
+                        ),
                         onTap: () async {
                           final pickedDate = await showDatePicker(
                             context: context,
@@ -794,32 +1000,34 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             // ignore: use_build_context_synchronously
                             final pickedTime = await showTimePicker(
                               context: context,
-                              initialTime: TimeOfDay.fromDateTime(_selectedDate),
+                              initialTime: TimeOfDay.fromDateTime(
+                                _selectedDate,
+                              ),
                             );
-                            
+
                             if (pickedTime != null) {
-                                setState(() {
-                                  _selectedDate = DateTime(
-                                    pickedDate.year,
-                                    pickedDate.month,
-                                    pickedDate.day,
-                                    pickedTime.hour,
-                                    pickedTime.minute,
-                                    _selectedDate.second
-                                  );
-                                });
+                              setState(() {
+                                _selectedDate = DateTime(
+                                  pickedDate.year,
+                                  pickedDate.month,
+                                  pickedDate.day,
+                                  pickedTime.hour,
+                                  pickedTime.minute,
+                                  _selectedDate.second,
+                                );
+                              });
                             } else {
-                                // user cancelled time picker, so only date changes, time remains same as before
-                                setState(() {
-                                    _selectedDate = DateTime(
-                                        pickedDate.year,
-                                        pickedDate.month,
-                                        pickedDate.day,
-                                        _selectedDate.hour,
-                                        _selectedDate.minute,
-                                        _selectedDate.second
-                                    );
-                                });
+                              // user cancelled time picker, so only date changes, time remains same as before
+                              setState(() {
+                                _selectedDate = DateTime(
+                                  pickedDate.year,
+                                  pickedDate.month,
+                                  pickedDate.day,
+                                  _selectedDate.hour,
+                                  _selectedDate.minute,
+                                  _selectedDate.second,
+                                );
+                              });
                             }
                           }
                         },
@@ -838,15 +1046,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   labelText: 'Amount',
                   prefixText: '$_currencySymbol ',
                   border: const OutlineInputBorder(),
-                  helper: (expenseToEdit != null &&
-                          (double.tryParse(_amountController.text) ?? -1.0) != expenseToEdit!.amount)
+                  helper:
+                      (expenseToEdit != null &&
+                          (double.tryParse(_amountController.text) ?? -1.0) !=
+                              expenseToEdit!.amount)
                       ? Text(
                           'Old amount: $_currencySymbol${expenseToEdit!.amount.toStringAsFixed(2)}',
-                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
                         )
                       : null,
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onChanged: (_) {
                   setState(() {});
                 },
@@ -880,15 +1096,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   child: Wrap(
                     spacing: 8.0,
                     children: _suggestedTags
-                        .map((tag) => ActionChip(
-                              label: Text(tag),
-                              onPressed: () => _addTagToController(tag),
-                            ))
+                        .map(
+                          (tag) => ActionChip(
+                            label: Text(tag),
+                            onPressed: () => _addTagToController(tag),
+                          ),
+                        )
                         .toList(),
                   ),
                 ),
               const SizedBox(height: 16.0),
-              
+
               // --- Tags Field (using RawAutocomplete as before) ---
               RawAutocomplete<String>(
                 textEditingController: _tagsController,
@@ -897,7 +1115,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (textEditingValue.text.isEmpty) {
                     return const Iterable<String>.empty();
                   }
-                  String currentTag = textEditingValue.text.split(',').last.trim();
+                  String currentTag = textEditingValue.text
+                      .split(',')
+                      .last
+                      .trim();
                   if (currentTag.isEmpty) {
                     return const Iterable<String>.empty();
                   }
@@ -905,7 +1126,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 },
                 onSelected: (String selection) {
                   final text = _previousTagText;
-                  List<String> tags = text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                  List<String> tags = text
+                      .split(',')
+                      .map((e) => e.trim())
+                      .where((e) => e.isNotEmpty)
+                      .toList();
                   if (!text.endsWith(', ') && tags.isNotEmpty) {
                     tags.removeLast();
                   }
@@ -918,45 +1143,53 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     selection: TextSelection.collapsed(offset: newText.length),
                   );
                 },
-                fieldViewBuilder: (BuildContext context, TextEditingController textEditingController,
-                    FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                  return TextFormField(
-                    controller: textEditingController,
-                    focusNode: focusNode,
-                    decoration: const InputDecoration(
-                      labelText: 'Tags (Optional, comma-separated)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.text,
-                  );
-                },
-                optionsViewBuilder: (BuildContext context, AutocompleteOnSelected<String> onSelected, Iterable<String> options) {
-                  return Align(
-                    alignment: Alignment.topLeft,
-                    child: Material(
-                      elevation: 4.0,
-                      child: SizedBox(
-                        height: 200.0,
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: options.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final String option = options.elementAt(index);
-                            return InkWell(
-                              onTap: () {
-                                _previousTagText = _tagsController.text;
-                                onSelected(option);
-                              },
-                              child: ListTile(
-                                title: Text(option),
-                              ),
-                            );
-                          },
+                fieldViewBuilder:
+                    (
+                      BuildContext context,
+                      TextEditingController textEditingController,
+                      FocusNode focusNode,
+                      VoidCallback onFieldSubmitted,
+                    ) {
+                      return TextFormField(
+                        controller: textEditingController,
+                        focusNode: focusNode,
+                        decoration: const InputDecoration(
+                          labelText: 'Tags (Optional, comma-separated)',
+                          border: OutlineInputBorder(),
                         ),
-                      ),
-                    ),
-                  );
-                },
+                        keyboardType: TextInputType.text,
+                      );
+                    },
+                optionsViewBuilder:
+                    (
+                      BuildContext context,
+                      AutocompleteOnSelected<String> onSelected,
+                      Iterable<String> options,
+                    ) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                          elevation: 4.0,
+                          child: SizedBox(
+                            height: 200.0,
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: options.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final String option = options.elementAt(index);
+                                return InkWell(
+                                  onTap: () {
+                                    _previousTagText = _tagsController.text;
+                                    onSelected(option);
+                                  },
+                                  child: ListTile(title: Text(option)),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
               ),
               const SizedBox(height: 16.0),
 
@@ -997,7 +1230,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.0),
                         child: Text('None'),
-                      )
+                      ),
                     ],
                   ),
                 ],
@@ -1005,8 +1238,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 24),
 
               // --- Action Buttons ---
-              if (expenseToEdit != null && expenseToEdit!.categoryId != 0 && expenseToEdit!.profileId != _profileId) ...[
-                FilledButton( 
+              if (expenseToEdit != null &&
+                  expenseToEdit!.categoryId != 0 &&
+                  expenseToEdit!.profileId != _profileId) ...[
+                FilledButton(
                   onPressed: null,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1023,7 +1258,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: Text(
-                    (expenseToEdit != null && expenseToEdit!.categoryId != 0) ? 'Update Expense' : 'Add Expense',
+                    (expenseToEdit != null && expenseToEdit!.categoryId != 0)
+                        ? 'Update Expense'
+                        : 'Add Expense',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
@@ -1037,7 +1274,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     side: const BorderSide(color: Colors.red),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Delete Expense', style: TextStyle(fontSize: 16)),
+                  child: const Text(
+                    'Delete Expense',
+                    style: TextStyle(fontSize: 16),
+                  ),
                 ),
               ],
             ],
@@ -1049,7 +1289,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _updateBalances(double amount) async {
     if (_selectedPaymentMethod == null) return;
-    
+
     final prefs = await SharedPreferences.getInstance();
     String cashAmountKey = '${PrefKeys.cashAmount}-$_profileId';
     String bankAmountKey = '${PrefKeys.bankAmount}-$_profileId';
@@ -1081,8 +1321,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     // Save the updated amounts
     await prefs.setDouble(cashAmountKey, cashAmount);
     await prefs.setDouble(bankAmountKey, bankAmount);
-    await prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', cashAmount + bankAmount);
-    
+    await prefs.setDouble(
+      '${PrefKeys.walletAmount}-$_profileId',
+      cashAmount + bankAmount,
+    );
+
     widget.onWalletAmountChange();
   }
 }
