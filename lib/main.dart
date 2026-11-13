@@ -296,6 +296,20 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _expensesKey.currentState?.refresh();
   }
 
+  Future<void> _addExpense() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddExpenseScreen(
+          onWalletAmountChange: _loadWalletAmount,
+        ),
+      ),
+    );
+    if (result == true) {
+      _loadTodaysExpenses();
+    }
+  }
+
  Future<void> _editExpense(Expense expense) async {
     final result = await Navigator.push(
       context,
@@ -332,6 +346,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             profileId: _profileId,
             currencySymbol: _currencySymbol,
             onWalletAmountChange: _loadWalletAmount,
+            onAddExpense: _addExpense,
           ),
           ChatbotScreen(profileId: _profileId),
           ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
@@ -348,20 +363,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           ),
         ],
       ),
-      floatingActionButton: (_selectedIndex != 2 && _selectedIndex != 4)
+      floatingActionButton:
+          (_selectedIndex != 1 && _selectedIndex != 2 && _selectedIndex != 4)
           ? FloatingActionButton(
-              onPressed: () async {
-                final bool result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => AddExpenseScreen(
-                            onWalletAmountChange: _loadWalletAmount,
-                          )),
-                );
-                if (result == true) {
-                  _loadTodaysExpenses();
-                }
-              },
+              onPressed: _addExpense,
               tooltip: 'Add Expense',
               child: const Icon(Icons.add),
             )
@@ -405,7 +410,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
       ReceiveSharingIntent.instance.reset();
     });
   }
-  
+
   final DateTime _selectedDate = DateTime.now();
   void retrieveSharedContent(List<SharedMediaFile> value) {
     if (value.isEmpty) return;

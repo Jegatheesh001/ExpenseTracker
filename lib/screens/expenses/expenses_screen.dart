@@ -9,11 +9,13 @@ import 'package:expense_tracker/widgets/month_view.dart';
 import 'package:expense_tracker/utils/expense_category_filter.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/widgets/expense_search_delegate.dart';
+import 'package:expense_tracker/widgets/expense_action_menu.dart';
 
 class ExpensesScreen extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
   final VoidCallback onWalletAmountChange;
+  final VoidCallback onAddExpense;
   final int initialTabIndex;
 
   const ExpensesScreen({
@@ -21,6 +23,7 @@ class ExpensesScreen extends StatefulWidget {
     required this.profileId,
     required this.currencySymbol,
     required this.onWalletAmountChange,
+    required this.onAddExpense,
     this.initialTabIndex = 0,
   });
 
@@ -615,49 +618,23 @@ class ExpensesScreenState extends State<ExpensesScreen> {
             ],
           ),
           Positioned(
-            bottom: 80,
+            bottom: 16,
             right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  heroTag: 'expenses_category_filter_fab',
-                  tooltip: _selectedCategoryName == null
-                      ? 'Filter by category'
-                      : 'Category: $_selectedCategoryName',
-                  onPressed: _showCategoryFilter,
-                  backgroundColor: _selectedCategoryId == null
-                      ? theme.colorScheme.secondaryContainer
-                      : theme.colorScheme.primaryContainer,
-                  foregroundColor: _selectedCategoryId == null
-                      ? theme.colorScheme.onSecondaryContainer
-                      : theme.colorScheme.onPrimaryContainer,
-                  child: Icon(
-                    _selectedCategoryId == null
-                        ? Icons.filter_alt_outlined
-                        : Icons.filter_alt,
+            child: ExpenseActionMenu(
+              activeCategoryName: _selectedCategoryName,
+              onAdd: widget.onAddExpense,
+              onFilter: _showCategoryFilter,
+              onSearch: () {
+                showSearch(
+                  context: context,
+                  delegate: ExpenseSearchDelegate(
+                    profileId: widget.profileId,
+                    currencySymbol: widget.currencySymbol,
+                    onEdit: _editExpense,
+                    onDelete: _deleteExpense,
                   ),
-                ),
-                const SizedBox(height: 12),
-                FloatingActionButton(
-                  heroTag: 'expenses_search_fab',
-                  tooltip: 'Search expenses',
-                  onPressed: () {
-                    showSearch(
-                      context: context,
-                      delegate: ExpenseSearchDelegate(
-                        profileId: widget.profileId,
-                        currencySymbol: widget.currencySymbol,
-                        onEdit: _editExpense,
-                        onDelete: _deleteExpense,
-                      ),
-                    );
-                  },
-                  backgroundColor: theme.colorScheme.secondaryContainer,
-                  foregroundColor: theme.colorScheme.onSecondaryContainer,
-                  child: const Icon(Icons.search),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],
