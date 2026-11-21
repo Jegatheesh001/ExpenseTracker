@@ -10,6 +10,7 @@ import 'package:expense_tracker/utils/currency_symbol.dart';
 import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 import 'package:expense_tracker/utils/subscription_date_utils.dart';
 import 'package:expense_tracker/services/notification_service.dart';
+import 'package:expense_tracker/services/currency_conversion_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int profileId;
@@ -35,10 +36,12 @@ class DashboardScreenState extends State<DashboardScreen> {
   double _cashBalance = 0.0;
   double _bankBalance = 0.0;
   double _monthlySubscriptionTotal = 0.0;
+  int _unpricedSubscriptions = 0;
+  int _dueSubscriptionsNeedingAmount = 0;
+  bool _isLoggingSubscriptions = false;
   int _upcomingSubscriptionsCount = 0;
   List<Subscription> _dueAutoLogSubscriptions = [];
   String _currencySymbol = '₹';
-  String _profileCurrency = 'Rupee';
   late SharedPreferences _prefs;
   String _username = '';
   String _tipOfTheDay = '';
@@ -90,7 +93,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     await _loadUsername();
     await _loadBalances(profileId, generation);
     await _loadExpenses(profileId, generation);
-    _loadCurrency(profileId, generation);
   }
 
   Future<void> _loadBalanceVisibility() async {
@@ -167,15 +169,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  void _loadCurrency(int profileId, int generation) {
-    if (!mounted || generation != _refreshGeneration) return;
-    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
-    setState(() {
-      _profileCurrency = currency;
-      _currencySymbol = CurrencySymbol().getSymbol(currency);
-    });
-  }
-
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
@@ -193,44 +186,83 @@ class DashboardScreenState extends State<DashboardScreen> {
     final yesterday = today.subtract(const Duration(days: 1));
     final lastMonth = DateTime(now.year, now.month - 1, 1);
 
-    final todayExp = await PersistenceContext().getExpenseSumByDate(today, profileId);
-    final yesterdayExp = await PersistenceContext().getExpenseSumByDate(yesterday, profileId);
-    
-    final currentMonthExp = await PersistenceContext().getExpenseSumByMonth(now, profileId);
-    final lastMonthExp = await PersistenceContext().getExpenseSumByMonth(lastMonth, profileId);
+    final todayExp = await PersistenceContext().getExpenseSumByDate(
+      today,
+      profileId,
+    );
+    final yesterdayExp = await PersistenceContext().getExpenseSumByDate(
+      yesterday,
+      profileId,
+    );
 
-    // Load Subscriptions
-    double subTotal = 0.0;
+    final currentMonthExp = await PersistenceContext().getExpenseSumByMonth(
+      now,
+      profileId,
+    );
+    final lastMonthExp = await PersistenceContext().getExpenseSumByMonth(
+      lastMonth,
+      profileId,
+    );
+
+    final currency =
+        _prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
+    final currencies = CurrencySymbol();
+    List<Subscription> monthlySubscriptions = [];
+    List<Subscription> readyToLog = [];
+    int needsAmount = 0;
     int upcomingCount = 0;
     try {
-      final subs = await DatabaseHelper().getSubscriptions(); // Fetch across all profiles
+      final subs = await DatabaseHelper()
+          .getSubscriptions(); // Fetch across all profiles
       final activeSubs = subs.where((s) => s.isActive).toList();
 
-      final currentProfileActiveSubs = activeSubs.where((s) => s.profileId == profileId).toList();
-      subTotal = currentProfileActiveSubs.fold(0.0, (sum, s) => sum + s.monthlyAmount);
+      monthlySubscriptions = activeSubs
+          .where((sub) => sub.profileId == profileId)
+          .toList();
 
       final in7Days = today.add(const Duration(days: 7));
       upcomingCount = activeSubs.where((s) {
         final due = DateTime(
-            s.nextBillingDate.year, s.nextBillingDate.month, s.nextBillingDate.day);
+          s.nextBillingDate.year,
+          s.nextBillingDate.month,
+          s.nextBillingDate.day,
+        );
         return !due.isAfter(in7Days);
       }).length;
 
-      _dueAutoLogSubscriptions = activeSubs.where((s) {
-        if (!s.autoLogExpense) return false;
-        final due = DateTime(
-            s.nextBillingDate.year, s.nextBillingDate.month, s.nextBillingDate.day);
-        return !due.isAfter(today);
-      }).toList();
+      for (final sub in activeSubs) {
+        if (!sub.autoLogExpense) continue;
+        final due = DateUtils.dateOnly(sub.nextBillingDate);
+        if (due.isAfter(today)) continue;
+
+        final ownerCurrency =
+            _prefs.getString('${PrefKeys.selectedCurrency}-${sub.profileId}') ??
+            'Rupee';
+        if (currencies.matches(sub.currency, ownerCurrency) &&
+            sub.amount.isFinite) {
+          readyToLog.add(sub);
+        } else {
+          needsAmount++;
+        }
+      }
     } catch (_) {}
 
     if (!mounted || generation != _refreshGeneration) return;
+    final initialEstimate = CurrencyConversionService.monthlyEstimate(
+      monthlySubscriptions,
+      currency,
+      const {},
+    );
     setState(() {
+      _currencySymbol = currencies.getSymbol(currency);
       _todayExpense = todayExp;
       _monthlyExpense = currentMonthExp;
-      _monthlySubscriptionTotal = subTotal;
+      _monthlySubscriptionTotal = initialEstimate.total;
+      _unpricedSubscriptions = initialEstimate.unavailable;
+      _dueAutoLogSubscriptions = readyToLog;
+      _dueSubscriptionsNeedingAmount = needsAmount;
       _upcomingSubscriptionsCount = upcomingCount;
-      
+
       if (yesterdayExp > 0) {
         _todayChange = ((todayExp - yesterdayExp) / yesterdayExp) * 100;
       } else if (todayExp > 0) {
@@ -238,10 +270,29 @@ class DashboardScreenState extends State<DashboardScreen> {
       }
 
       if (lastMonthExp > 0) {
-        _monthlyChange = ((currentMonthExp - lastMonthExp) / lastMonthExp) * 100;
+        _monthlyChange =
+            ((currentMonthExp - lastMonthExp) / lastMonthExp) * 100;
       } else if (currentMonthExp > 0) {
         _monthlyChange = 100.0;
       }
+    });
+
+    if (initialEstimate.unavailable == 0) return;
+    final rates = await CurrencyConversionService.instance.getRatesForProfile(
+      fromCurrencies: monthlySubscriptions
+          .where((sub) => sub.monthlyAmount.isFinite && sub.monthlyAmount != 0)
+          .map((sub) => sub.currency),
+      profileCurrency: currency,
+    );
+    if (!mounted || generation != _refreshGeneration) return;
+    final estimate = CurrencyConversionService.monthlyEstimate(
+      monthlySubscriptions,
+      currency,
+      rates,
+    );
+    setState(() {
+      _monthlySubscriptionTotal = estimate.total;
+      _unpricedSubscriptions = estimate.unavailable;
     });
   }
 
@@ -339,25 +390,19 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _autoLogDueSubscriptions() async {
-    if (_dueAutoLogSubscriptions.isEmpty) return;
+    if (_isLoggingSubscriptions || _dueAutoLogSubscriptions.isEmpty) return;
 
-    final mismatched = _dueAutoLogSubscriptions
-        .where((s) => s.currency != _profileCurrency || s.profileId != widget.profileId)
-        .toList();
-    if (mismatched.isNotEmpty) {
+    final subscriptions = _dueAutoLogSubscriptions;
+    final otherProfiles = subscriptions
+        .where((sub) => sub.profileId != widget.profileId)
+        .length;
+    if (otherProfiles > 0) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Currency / Profile Notice'),
-            ],
-          ),
+          title: const Text('Log expenses in other profiles?'),
           content: Text(
-            '${mismatched.length} subscription(s) belong to other profiles or use different currencies.\n\n'
-            'Logging them will record their expenses directly into their respective profiles with their specified currencies. Do you want to proceed?',
+            '$otherProfiles subscription(s) will be logged in their owning profiles.',
           ),
           actions: [
             TextButton(
@@ -375,48 +420,80 @@ class DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       );
-      if (confirm != true) return;
+      if (!mounted ||
+          confirm != true ||
+          subscriptions != _dueAutoLogSubscriptions) {
+        return;
+      }
     }
 
-    int count = 0;
-    final now = DateTime.now();
+    if (_isLoggingSubscriptions) return;
+    setState(() => _isLoggingSubscriptions = true);
+    try {
+      int count = 0;
+      final now = DateTime.now();
 
-    for (final sub in _dueAutoLogSubscriptions) {
-      final newExpense = Expense(
-        profileId: sub.profileId,
-        categoryId: sub.categoryId,
-        category: sub.category,
-        amount: sub.amount,
-        remarks: 'Auto-Logged Subscription: ${sub.title}',
-        expenseDate: sub.nextBillingDate,
-        entryDate: now,
-        paymentMethod: sub.paymentMethod,
-        tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
-      );
+      for (final sub in subscriptions) {
+        final ownerCurrency =
+            _prefs.getString('${PrefKeys.selectedCurrency}-${sub.profileId}') ??
+            'Rupee';
+        if (!CurrencySymbol().matches(sub.currency, ownerCurrency)) continue;
+        final newExpense = Expense(
+          profileId: sub.profileId,
+          categoryId: sub.categoryId,
+          category: sub.category,
+          amount: sub.amount,
+          remarks: 'Auto-Logged Subscription: ${sub.title}',
+          expenseDate: sub.nextBillingDate,
+          entryDate: now,
+          paymentMethod: sub.paymentMethod,
+          tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
+        );
 
-      await DatabaseHelper().saveOrUpdateExpense(newExpense);
+        final nextDue = SubscriptionDateUtils.getNextRenewalDate(
+          sub.nextBillingDate,
+          sub.billingCycle,
+          anchorDay: sub.startDate.day,
+        );
 
-      final nextDue = SubscriptionDateUtils.getNextRenewalDate(
-        sub.nextBillingDate,
-        sub.billingCycle,
-        anchorDay: sub.startDate.day,
-      );
+        final logged = await DatabaseHelper().logSubscriptionPayment(
+          subscription: sub,
+          expense: newExpense,
+          nextDue: nextDue,
+        );
+        if (logged) count++;
+      }
 
-      final updatedSub = sub.copyWith(nextBillingDate: nextDue);
-      await DatabaseHelper().saveOrUpdateSubscription(updatedSub);
-      count++;
-    }
-
-    widget.onWalletAmountChange();
-    NotificationService().rescheduleAllSubscriptionReminders();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully auto-logged $count subscription expense(s)!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      refresh();
+      if (count > 0) widget.onWalletAmountChange();
+      NotificationService().rescheduleAllSubscriptionReminders();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              count == 0
+                  ? 'No matching payments were logged. Review what is still due.'
+                  : 'Logged $count subscription payment(s).',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        refresh();
+      }
+    } catch (_) {
+      widget.onWalletAmountChange();
+      NotificationService().rescheduleAllSubscriptionReminders();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Logging stopped. Check which payments are still due.',
+            ),
+          ),
+        );
+        refresh();
+      }
+    } finally {
+      if (mounted) setState(() => _isLoggingSubscriptions = false);
     }
   }
 
@@ -486,6 +563,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                         'Estimated / Month',
                         style: theme.textTheme.bodySmall,
                       ),
+                      if (_unpricedSubscriptions > 0)
+                        Text('Partial estimate', style: theme.textTheme.bodySmall),
                       const SizedBox(height: 4),
                       Text(
                         '$_currencySymbol ${_monthlySubscriptionTotal.toStringAsFixed(1)}',
@@ -527,11 +606,21 @@ class DashboardScreenState extends State<DashboardScreen> {
                     ),
                 ],
               ),
+              if (_dueSubscriptionsNeedingAmount > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Enter the amount paid for $_dueSubscriptionsNeedingAmount foreign subscription(s) in Subscriptions.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
               if (_dueAutoLogSubscriptions.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(10),
@@ -549,13 +638,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       ElevatedButton(
-                        onPressed: _autoLogDueSubscriptions,
+                        onPressed: _isLoggingSubscriptions
+                            ? null
+                            : _autoLogDueSubscriptions,
                         style: ElevatedButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           backgroundColor: theme.colorScheme.primary,
                           foregroundColor: theme.colorScheme.onPrimary,
                         ),
-                        child: const Text('Log All Now', style: TextStyle(fontSize: 12)),
+                        child: const Text(
+                          'Log All Now',
+                          style: TextStyle(fontSize: 12),
+                        ),
                       ),
                     ],
                   ),

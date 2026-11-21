@@ -11,6 +11,11 @@ void main() {
       expect(currencyHelper.getSymbol('Dollar'), '\$');
       expect(currencyHelper.getSymbol('Pound'), '£');
       expect(currencyHelper.getSymbol('Euro'), '€');
+      expect(currencyHelper.getSymbol('INR'), '₹');
+      expect(currencyHelper.getSymbol('AED'), 'د.إ');
+      expect(currencyHelper.getSymbol('USD'), '\$');
+      expect(currencyHelper.getSymbol('GBP'), '£');
+      expect(currencyHelper.getSymbol('EUR'), '€');
       expect(currencyHelper.getSymbol('Unknown'), '₹'); // Default case
     });
 
@@ -20,12 +25,20 @@ void main() {
       expect(currencyHelper.getLabel('Dollar'), 'USD');
       expect(currencyHelper.getLabel('Pound'), 'GBP');
       expect(currencyHelper.getLabel('Euro'), 'EUR');
+      expect(currencyHelper.getLabel('INR'), 'INR');
+      expect(currencyHelper.getLabel('AED'), 'AED');
+      expect(currencyHelper.getLabel('USD'), 'USD');
+      expect(currencyHelper.getLabel('GBP'), 'GBP');
+      expect(currencyHelper.getLabel('EUR'), 'EUR');
       expect(currencyHelper.getLabel('Unknown'), 'INR'); // Default case
     });
 
     test('getCurrencies returns list of supported currencies', () {
       final currencies = currencyHelper.getCurrencies();
-      expect(currencies, containsAll(['Rupee', 'Dirham', 'Dollar', 'Pound', 'Euro']));
+      expect(
+        currencies,
+        containsAll(['Rupee', 'Dirham', 'Dollar', 'Pound', 'Euro']),
+      );
       expect(currencies.length, 5);
     });
   });

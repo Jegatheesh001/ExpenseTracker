@@ -168,7 +168,7 @@ class DatabaseHelper {
     } else {
       expenseId = await saveExpense(expense);
     }
-    await _saveTagsForExpense(expenseId, expense.tags);
+    await _saveTagsForExpense(db, expenseId, expense.tags);
     await _saveBilledItemsForExpense(expenseId, expense.billedItems);
     return expenseId;
   }
@@ -297,12 +297,23 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => maps[i]['tagName']);
   }
 
-  Future<void> _saveTagsForExpense(int expenseId, List<String> tags) async {
-    final Database db = await database;
-    await db.delete('expense_tags', where: 'expenseId = ?', whereArgs: [expenseId]);
+  Future<void> _saveTagsForExpense(
+    DatabaseExecutor db,
+    int expenseId,
+    List<String> tags,
+  ) async {
+    await db.delete(
+      'expense_tags',
+      where: 'expenseId = ?',
+      whereArgs: [expenseId],
+    );
     for (String tagName in tags) {
       int tagId;
-      var existingTag = await db.query('tags', where: 'tagName = ?', whereArgs: [tagName]);
+      var existingTag = await db.query(
+        'tags',
+        where: 'tagName = ?',
+        whereArgs: [tagName],
+      );
       if (existingTag.isNotEmpty) {
         tagId = existingTag.first['tagId'] as int;
       } else {
@@ -734,6 +745,37 @@ class DatabaseHelper {
     } else {
       return await db.insert('subscriptions', sub.toMap());
     }
+  }
+
+  /// Logs one payment and advances its renewal together. A stale attempt
+  /// leaves both records alone.
+  Future<bool> logSubscriptionPayment({
+    required Subscription subscription,
+    required Expense expense,
+    required DateTime nextDue,
+  }) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final updated = await txn.update(
+        'subscriptions',
+        {'nextBillingDate': nextDue.toIso8601String()},
+        where:
+            'id = ? AND profileId = ? AND nextBillingDate = ? '
+            'AND currency = ? AND amount = ?',
+        whereArgs: [
+          subscription.id,
+          subscription.profileId,
+          subscription.nextBillingDate.toIso8601String(),
+          subscription.currency,
+          subscription.amount,
+        ],
+      );
+      if (updated == 0) return false;
+
+      final expenseId = await txn.insert('expenses', expense.toMap());
+      await _saveTagsForExpense(txn, expenseId, expense.tags.toSet().toList());
+      return true;
+    });
   }
 
   Future<List<Subscription>> getSubscriptions([int? profileId]) async {

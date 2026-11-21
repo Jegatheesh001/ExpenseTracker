@@ -4,12 +4,14 @@ import 'package:expense_tracker/utils/currency_symbol.dart';
 import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/utils/subscription_date_utils.dart';
+import 'package:expense_tracker/services/currency_conversion_service.dart';
 
 class AddSubscriptionSheet extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
   final String? currentCurrency;
   final Subscription? subscriptionToEdit;
+  final List<Category>? initialCategories;
 
   const AddSubscriptionSheet({
     super.key,
@@ -17,6 +19,7 @@ class AddSubscriptionSheet extends StatefulWidget {
     required this.currencySymbol,
     this.currentCurrency,
     this.subscriptionToEdit,
+    this.initialCategories,
   });
 
   @override
@@ -52,11 +55,20 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
     'Credit Card',
     'UPI',
     'Bank Transfer',
-    'Other'
+    'Other',
   ];
 
   bool _autoLogExpense = false;
   bool _isLoadingCategories = true;
+  double? _conversionRate;
+  bool _isLoadingRate = false;
+  String? _requestedPair;
+  int _rateGeneration = 0;
+
+  double? get _positiveAmount {
+    final amount = double.tryParse(_amountController.text.trim());
+    return amount != null && amount.isFinite && amount > 0 ? amount : null;
+  }
 
   @override
   void initState() {
@@ -64,8 +76,10 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
     final edit = widget.subscriptionToEdit;
 
     _titleController = TextEditingController(text: edit?.title ?? '');
-    _amountController =
-        TextEditingController(text: edit != null ? edit.amount.toString() : '');
+    _amountController = TextEditingController(
+      text: edit != null ? edit.amount.toString() : '',
+    );
+    _amountController.addListener(_onAmountChanged);
     _remarksController = TextEditingController(text: edit?.remarks ?? '');
 
     if (edit != null) {
@@ -80,12 +94,62 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
       _recalculateNextBillingDate();
     }
 
-    _loadCategories();
+    if (!_currencies.contains(_selectedCurrency)) {
+      _currencies.add(_selectedCurrency);
+    }
+    if (widget.initialCategories != null &&
+        widget.initialCategories!.isNotEmpty) {
+      _categories = widget.initialCategories!;
+      _isLoadingCategories = false;
+      _selectedCategory = _categories.first;
+    } else {
+      _loadCategories();
+    }
+    _updateLiveConversion();
+  }
+
+  void _onAmountChanged() {
+    _updateLiveConversion();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _updateLiveConversion() async {
+    final currencies = CurrencySymbol();
+    final base = currencies.getCode(_selectedCurrency);
+    final quote = currencies.getCode(widget.currentCurrency ?? 'Rupee');
+    if (base == null || quote == null || base == quote) {
+      _requestedPair = null;
+      _conversionRate = null;
+      _isLoadingRate = false;
+      _rateGeneration++;
+      return;
+    }
+
+    final pair = '$base/$quote';
+    if (_requestedPair != pair) {
+      _requestedPair = null;
+      _conversionRate = null;
+      _isLoadingRate = false;
+      _rateGeneration++;
+    }
+    if (_positiveAmount == null || _requestedPair == pair) return;
+
+    final generation = _rateGeneration;
+    _requestedPair = pair;
+    _isLoadingRate = true;
+    final rate = await CurrencyConversionService.instance.getRate(base, quote);
+    if (!mounted || generation != _rateGeneration) return;
+
+    setState(() {
+      _conversionRate = rate;
+      _isLoadingRate = false;
+    });
   }
 
   @override
   void dispose() {
     _titleController.dispose();
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _remarksController.dispose();
     super.dispose();
@@ -142,7 +206,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2050),
     );
-    if (picked != null) {
+    if (mounted && picked != null) {
       setState(() {
         _startDate = picked;
         _recalculateNextBillingDate();
@@ -157,7 +221,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2050),
     );
-    if (picked != null) {
+    if (mounted && picked != null) {
       setState(() {
         _nextBillingDate = picked;
       });
@@ -167,14 +231,16 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
   Future<void> _saveSubscription() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a category')));
       return;
     }
     if (_nextBillingDate.isBefore(_startDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Next due date cannot be before start date')),
+        const SnackBar(
+          content: Text('Next due date cannot be before start date'),
+        ),
       );
       return;
     }
@@ -190,7 +256,11 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
       category: _selectedCategory!.category,
       billingCycle: _selectedCycle,
       startDate: DateTime(_startDate.year, _startDate.month, _startDate.day),
-      nextBillingDate: DateTime(_nextBillingDate.year, _nextBillingDate.month, _nextBillingDate.day),
+      nextBillingDate: DateTime(
+        _nextBillingDate.year,
+        _nextBillingDate.month,
+        _nextBillingDate.day,
+      ),
       currency: _selectedCurrency,
       paymentMethod: _selectedPaymentMethod,
       remarks: _remarksController.text.trim().isEmpty
@@ -205,6 +275,79 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
     if (mounted) {
       Navigator.pop(context, true);
     }
+  }
+
+  Widget _buildLiveConversionHint(ThemeData theme) {
+    final currencyHelper = CurrencySymbol();
+    final profileCurrency = widget.currentCurrency ?? 'Rupee';
+    final subCode = currencyHelper.getCode(_selectedCurrency);
+    final profileCode = currencyHelper.getCode(profileCurrency);
+    final profileSymbol = currencyHelper.getSymbol(profileCurrency);
+
+    final amount = _positiveAmount;
+    if (amount == null ||
+        subCode == null ||
+        profileCode == null ||
+        subCode == profileCode) {
+      return const SizedBox.shrink();
+    }
+
+    if (_isLoadingRate) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, left: 4),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Fetching Frankfurter reference rate...',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final rate = _conversionRate;
+    final converted = rate == null ? null : amount * rate;
+    if (converted == null || !converted.isFinite) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, left: 4),
+        child: Text(
+          'Exchange rate unavailable',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.orange.shade800,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.currency_exchange, size: 14, color: Colors.teal),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              '≈ $profileSymbol${converted.toStringAsFixed(2)} $profileCode via Frankfurter',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.teal.shade700,
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -251,8 +394,9 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.subscriptions_outlined),
                 ),
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Enter subscription name' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter subscription name'
+                    : null,
               ),
               const SizedBox(height: 12),
               Row(
@@ -261,17 +405,24 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                     flex: 1,
                     child: TextFormField(
                       controller: _amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Amount *',
-                        prefixText: '${CurrencySymbol().getSymbol(_selectedCurrency)} ',
+                        prefixText:
+                            '${CurrencySymbol().getSymbol(_selectedCurrency)} ',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.attach_money),
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Enter amount';
-                        if (double.tryParse(val.trim()) == null) return 'Invalid number';
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Enter amount';
+                        }
+                        final amount = double.tryParse(val.trim());
+                        if (amount == null || !amount.isFinite || amount < 0) {
+                          return 'Enter a valid amount of zero or more';
+                        }
                         return null;
                       },
                     ),
@@ -280,46 +431,53 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      value: _selectedCurrency,
+                      initialValue: _selectedCurrency,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Currency',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 15),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 15,
+                        ),
                       ),
                       items: _currencies
-                          .map((curr) => DropdownMenuItem(
-                                value: curr,
-                                child: Text(
-                                  '${CurrencySymbol().getSymbol(curr)} $curr',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ))
+                          .map(
+                            (curr) => DropdownMenuItem(
+                              value: curr,
+                              child: Text(
+                                '${CurrencySymbol().getSymbol(curr)} $curr',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
                             _selectedCurrency = val;
                           });
+                          _updateLiveConversion();
                         }
                       },
                     ),
                   ),
                 ],
               ),
+              _buildLiveConversionHint(theme),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedCycle,
+                initialValue: _selectedCycle,
                 decoration: const InputDecoration(
                   labelText: 'Billing Cycle',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.repeat),
                 ),
                 items: _billingCycles
-                    .map((cycle) => DropdownMenuItem(
-                          value: cycle,
-                          child: Text(cycle),
-                        ))
+                    .map(
+                      (cycle) =>
+                          DropdownMenuItem(value: cycle, child: Text(cycle)),
+                    )
                     .toList(),
                 onChanged: (val) {
                   if (val != null) {
@@ -334,17 +492,19 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
               _isLoadingCategories
                   ? const Center(child: CircularProgressIndicator())
                   : DropdownButtonFormField<Category>(
-                      value: _selectedCategory,
+                      initialValue: _selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'Category *',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category_outlined),
                       ),
                       items: _categories
-                          .map((cat) => DropdownMenuItem<Category>(
-                                value: cat,
-                                child: Text(cat.category),
-                              ))
+                          .map(
+                            (cat) => DropdownMenuItem<Category>(
+                              value: cat,
+                              child: Text(cat.category),
+                            ),
+                          )
                           .toList(),
                       onChanged: (cat) {
                         setState(() {
@@ -392,7 +552,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedPaymentMethod,
+                initialValue: _selectedPaymentMethod,
                 decoration: const InputDecoration(
                   labelText: 'Payment Method (Optional)',
                   border: OutlineInputBorder(),
@@ -405,7 +565,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                   ),
                   ..._paymentMethods.map(
                     (m) => DropdownMenuItem(value: m, child: Text(m)),
-                  )
+                  ),
                 ],
                 onChanged: (val) {
                   setState(() {
