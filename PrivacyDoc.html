@@ -199,55 +199,30 @@
     <header>
       <div class="badge">Official Policy</div>
       <h1>Privacy Policy for Expense Tracker</h1>
-      <div class="meta"><strong>Effective Date:</strong> October 01, 2026</div>
+      <div class="meta"><strong>Effective Date:</strong> November 22, 2026</div>
       <div class="meta"><strong>Application:</strong> Expense Tracker (<code>com.jegatheesh.expenseTracker</code>)</div>
       <div class="meta"><strong>Developer:</strong> Jegatheesh</div>
     </header>
 
     <div class="highlight-box">
-      <p>🛡️ <strong>Privacy Summary:</strong> Expense Tracker is designed as an offline-first app. Your financial records, wallet balances, expenses, and receipt photos remain strictly on your device. We do not operate user accounts, sell personal data, or run advertisement tracking networks.</p>
+      <p>🛡️ <strong>Privacy Summary:</strong> Expense Tracker is an offline-first app with no developer servers, user accounts, ads, or analytics tracking. Your financial records and receipts remain on your device unless you initiate optional AI features, foreign-currency rate lookups, user-shared backups, or Google Assistant queries.</p>
     </div>
 
     <h2>1. Introduction</h2>
-    <p>Welcome to <strong>Expense Tracker</strong> ("the App"). We are committed to safeguarding your privacy. This policy outlines how information is handled when you use the Expense Tracker mobile application on Android.</p>
+    <p>Welcome to <strong>Expense Tracker</strong> ("the App"). This Privacy Policy explains how data is handled in the Expense Tracker Android application in accordance with Google Play User Data standards.</p>
 
     <h2>2. Data Collection &amp; Processing</h2>
-    <p>We believe your personal financial data belongs solely to you. Below is an overview of what data the application interacts with:</p>
-
-    <h3>2.1 Financial and Transaction Records (100% Local)</h3>
     <ul>
-      <li><strong>Data Handled:</strong> Expense amounts, currencies, transaction dates, categories, custom tags, remarks, cash/bank account balances, monthly budgets, and subscription schedules.</li>
-      <li><strong>Storage:</strong> Stored locally on your device within an SQLite database and local preferences.</li>
-      <li><strong>Sharing:</strong> Never sent to developer servers. There are no developer-operated cloud databases storing your transactions.</li>
+      <li><strong>2.1 Financial &amp; Profile Records (Local):</strong> Expenses, amounts, currencies, dates, categories, tags, billed items, cash/bank balances, budgets, and subscriptions across local profiles are stored strictly on-device in SQLite and <code>SharedPreferences</code>. No developer servers store this data.</li>
+      <li><strong>2.2 Receipts &amp; Attachments:</strong> Receipt photos are saved in the app's internal sandbox directory and leave your device only if you run optional AI Receipt Scanning (OCR).</li>
+      <li><strong>2.3 Audio &amp; Voice Interaction:</strong> Voice recordings in the AI chatbot are cached temporarily, sent only when using Google Gemini (not OpenAI-compatible endpoints), and deleted immediately after transmission. When chat audio playback is unmuted, reply text is sent to Google Cloud Text-to-Speech (Gemini) or your configured OpenAI-compatible <code>/audio/speech</code> endpoint.</li>
+      <li><strong>2.4 Shared Content &amp; Assistant Integrations:</strong> Text shared via Android's Share menu or prefilled via Google Assistant App Actions / Android AppFunctions creates a local draft requiring your manual review before saving. Home screen widgets and read-only Assistant/AppFunction queries (balances, budgets, spending summaries, subscriptions, categories) hide or block data while the device is locked; unlocked queries return requested summaries to Google Assistant or the invoking system assistant under their respective policies.</li>
+      <li><strong>2.5 API Keys &amp; Credentials:</strong> User-provided Gemini and OpenAI-compatible API keys are encrypted in Android Keystore (<code>flutter_secure_storage</code>) and never accessible to the developer.</li>
+      <li><strong>2.6 Local Notifications:</strong> Daily reminders and subscription due alerts (displaying title, amount, currency, and due date) are scheduled locally on-device using your device timezone, with no remote push servers.</li>
     </ul>
 
-    <h3>2.2 Receipts and Photo Attachments</h3>
-    <ul>
-      <li><strong>Data Handled:</strong> Photographs or images of receipts, invoices, or bills you choose to attach to your expenses.</li>
-      <li><strong>Storage:</strong> Saved in the app's sandboxed local internal directory on your device.</li>
-      <li><strong>Transmission:</strong> Remains strictly on your device unless you initiate AI Receipt Scanning (OCR), which transmits the specific selected image over encrypted HTTPS to Google Gemini or OpenAI for text extraction.</li>
-    </ul>
-
-    <h3>2.3 Audio and Voice Interaction</h3>
-    <ul>
-      <li><strong>Data Handled:</strong> Voice recordings captured via the device microphone.</li>
-      <li><strong>Usage:</strong> Used exclusively when you tap the microphone to dictate queries or voice inputs in the AI assistant. Audio data is streamed for transcription and response generation and is not stored or shared with unauthorized entities.</li>
-    </ul>
-
-    <h3>2.4 Shared Content (Intent Receivers)</h3>
-    <ul>
-      <li><strong>Data Handled:</strong> Transaction text, SMS excerpts, or notes you share into Expense Tracker from other apps via the Android "Share" menu.</li>
-      <li><strong>Usage:</strong> Processed entirely locally to parse amounts and descriptions to pre-fill expense forms.</li>
-    </ul>
-
-    <h3>2.5 API Keys and Credentials</h3>
-    <ul>
-      <li><strong>Data Handled:</strong> User-provided API keys (such as Google Gemini or OpenAI API keys).</li>
-      <li><strong>Storage:</strong> Encrypted securely using hardware-backed Android Keystore storage (<code>flutter_secure_storage</code>). We cannot access or view your keys.</li>
-    </ul>
-
-    <h2>3. Third-Party Services and AI Integration</h2>
-    <p>Expense Tracker offers optional AI-powered features (such as receipt scanning, chat assistance with "Anila", and automated trend analysis). These features communicate directly via secure HTTPS:</p>
+    <h2>3. Third-Party Services &amp; Network Connections</h2>
+    <p>Optional AI, currency conversion, and assistant features communicate directly from your device without passing through developer servers. The AI chatbot also requests explicit per-session consent before sending data.</p>
 
     <table>
       <thead>
@@ -260,22 +235,28 @@
       </thead>
       <tbody>
         <tr>
-          <td><strong>Google Generative AI (Gemini)</strong></td>
-          <td>Receipt OCR, Chatbot, Spending Insights</td>
-          <td>User prompt, selected receipt image, anonymized expense summaries</td>
+          <td><strong>Google Generative AI (Gemini)</strong> (Optional)</td>
+          <td>OCR, Chatbot ("Anila"), Insights</td>
+          <td>Prompts, voice recordings, selected receipt images, and requested active-profile data (amounts, dates, categories, remarks, items, tags, balances, budgets, subscriptions)</td>
           <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></td>
         </tr>
         <tr>
-          <td><strong>OpenAI API</strong> (Optional)</td>
-          <td>Alternative Chatbot &amp; OCR</td>
-          <td>User prompt, selected receipt image (if configured)</td>
-          <td><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI Privacy Policy</a></td>
+          <td><strong>OpenAI / Custom OpenAI-Compatible Endpoint</strong> (Optional)</td>
+          <td>Chatbot, OCR, Insights, &amp; Chat TTS</td>
+          <td>Text prompts, selected receipt images, requested active-profile data, and unmuted reply text</td>
+          <td><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI Privacy Policy</a> (or your chosen host's policy)</td>
         </tr>
         <tr>
           <td><strong>Google Cloud Text-to-Speech</strong> (Optional)</td>
-          <td>Chatbot Voice Playback</td>
-          <td>Text response strings</td>
+          <td>Gemini Chat Voice Playback</td>
+          <td>Unmuted text response strings</td>
           <td><a href="https://cloud.google.com/terms/cloud-privacy-notice" target="_blank" rel="noopener">Google Cloud Privacy</a></td>
+        </tr>
+        <tr>
+          <td><strong>Frankfurter API</strong> (<code>api.frankfurter.dev</code>)</td>
+          <td>Foreign-Currency Subscription Estimates</td>
+          <td>3-letter ISO currency codes only (no amounts or personal data; cached locally for 12 hours)</td>
+          <td>Public reference rates (no personal data sent)</td>
         </tr>
         <tr>
           <td><strong>Google ML Kit</strong></td>
@@ -283,33 +264,39 @@
           <td>Processed <strong>100% on-device</strong></td>
           <td><a href="https://developers.google.com/ml-kit/terms" target="_blank" rel="noopener">Google ML Kit Terms</a></td>
         </tr>
+        <tr>
+          <td><strong>Google Assistant / Android AppFunctions</strong> (Optional)</td>
+          <td>Voice Queries &amp; Expense Drafts</td>
+          <td>Unlocked wallet, budget, spending summary, or subscription data requested by you</td>
+          <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></td>
+        </tr>
       </tbody>
     </table>
 
-    <p><strong>Note on Advertising &amp; Analytics:</strong> Expense Tracker does not contain third-party ad networks (e.g., Google AdMob) or third-party behavioral analytics tracking SDKs (e.g., Firebase Analytics, Facebook SDK).</p>
+    <p><strong>No Advertising or Analytics:</strong> Expense Tracker contains no third-party ad networks or behavioral analytics/telemetry SDKs.</p>
 
     <h2>4. Device Permissions</h2>
-    <p>The app requests the following system permissions to operate:</p>
+    <p>Only permissions required for active features are requested:</p>
     <ul>
-      <li><code>android.permission.RECORD_AUDIO</code>: Required only when using voice input in the AI assistant.</li>
-      <li><code>android.permission.INTERNET</code> &amp; <code>ACCESS_NETWORK_STATE</code>: Required to send HTTPS requests to AI endpoints (Google Gemini / OpenAI / Google TTS).</li>
-      <li><strong>Camera and Media Access:</strong> Needed to capture receipt photos or attach bills from your photo gallery and import/export backup zip files.</li>
+      <li><code>INTERNET</code> &amp; <code>ACCESS_NETWORK_STATE</code>: Connects over HTTPS to configured AI/TTS providers and <code>api.frankfurter.dev</code> for exchange rates.</li>
+      <li><code>RECORD_AUDIO</code>: Optional voice input in the AI chatbot.</li>
+      <li><code>POST_NOTIFICATIONS</code>, <code>SCHEDULE_EXACT_ALARM</code>, <code>RECEIVE_BOOT_COMPLETED</code>, &amp; <code>VIBRATE</code>: Optional local daily expense and subscription due reminders (including reboot rescheduling).</li>
+      <li><strong>System Camera &amp; File Pickers:</strong> Receipt capture and backup import/export use Android's on-demand system pickers without broad camera or storage manifest permissions.</li>
     </ul>
 
-    <h2>5. Data Retention &amp; Deletion (Play Store Compliance)</h2>
-    <p>Because your data is stored locally on your device:</p>
+    <h2>5. Data Retention &amp; Deletion (Google Play Compliance)</h2>
     <ul>
-      <li><strong>In-App Deletion:</strong> You can completely purge your data anytime by opening <strong>Settings &rarr; Danger Zone &rarr; Delete All Data</strong> and typing <code>delete</code>. This immediately and irreversibly wipes the database, preferences, and all attachment files.</li>
-      <li><strong>Uninstalling the App:</strong> Uninstalling Expense Tracker removes all internal sandbox data, databases, and application preferences from your device.</li>
-      <li><strong>Local Backups:</strong> Any exported <code>.zip</code> backups created using the "Backup Data" feature are controlled entirely by you and can be deleted via your phone's file manager.</li>
+      <li><strong>In-App Deletion:</strong> Open <strong>Settings &rarr; Danger Zone &rarr; Delete All Data</strong> and type <code>delete</code> to irreversibly wipe the SQLite database, preferences (including cached AI insights and exchange rates), receipt attachments, and scheduled notifications. API keys in Android Keystore can be cleared individually in <strong>AI Settings</strong> or removed by uninstalling.</li>
+      <li><strong>Uninstalling &amp; Cloud Backup:</strong> Android OS cloud Auto Backup is disabled (<code>android:allowBackup="false"</code>). Uninstalling removes all internal app data, preferences, attachments, and Keystore keys.</li>
+      <li><strong>User-Controlled Backups:</strong> Exported <code>.txt</code> or <code>.zip</code> backups (which exclude API keys, custom AI URLs, cached insights, and cached exchange rates) are saved or shared via the system Share Sheet strictly to locations you choose.</li>
     </ul>
 
     <h2>6. Security</h2>
-    <p>We implement multiple security safeguards:</p>
     <ul>
-      <li><strong>Sandbox Protection:</strong> All records are protected by Android's application sandbox.</li>
-      <li><strong>Secure Credential Storage:</strong> API keys are encrypted using the Android Keystore.</li>
-      <li><strong>Encrypted Transport:</strong> All outgoing network connections to AI providers are strictly forced over HTTPS/TLS.</li>
+      <li><strong>Sandbox &amp; Backup Isolation:</strong> Protected by the Android app sandbox with cloud Auto Backup disabled.</li>
+      <li><strong>Secure Credential Storage:</strong> API keys are encrypted in Android Keystore.</li>
+      <li><strong>Transport Security:</strong> All remote AI, TTS, and exchange-rate requests enforce HTTPS/TLS (plain HTTP is blocked for remote hosts and permitted only for local self-hosted addresses: <code>localhost</code>, <code>127.0.0.1</code>, <code>10.0.2.2</code>).</li>
+      <li><strong>Lock-Screen Protection:</strong> Home screen widget and Assistant/AppFunction queries hide or refuse financial data while the device is locked.</li>
     </ul>
 
     <h2>7. Children's Privacy</h2>
