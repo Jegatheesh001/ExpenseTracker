@@ -16,6 +16,8 @@ class PrefKeys {
   static const String walletAmount = 'walletAmount';
   static const String cashAmount = 'cashAmount';
   static const String bankAmount = 'bankAmount';
+  static const String pendingSubscriptionWalletDebit =
+      'pendingSubscriptionWalletDebit';
   static const String selectedCurrency =
       'selectedCurrency'; // Default value is Rupee
   static const String monthlyLimit = 'monthlyLimit';

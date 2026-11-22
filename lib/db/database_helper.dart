@@ -1,11 +1,27 @@
-import 'package:sqflite/sqflite.dart';
+import 'dart:io';
+
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/expense_wallet_change.dart';
+import 'package:expense_tracker/db/wallet_write_queue.dart';
+import 'package:expense_tracker/services/expense_attachments.dart';
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:path/path.dart';
-import 'package:expense_tracker/db/entity.dart'; // Assuming Expense model is in main.dart
-import 'package:path_provider/path_provider.dart'; // Import path_provider
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+
+enum SubscriptionPaymentResult { logged, stale, insufficientBalance }
+
+class _InsufficientSubscriptionBalance implements Exception {}
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
+  final WalletWriteQueue _expenseWalletQueue = WalletWriteQueue();
+  Future<void> Function(ExpenseWalletChange)? _recoveryOverride;
+
+  @visibleForTesting
+  DatabaseHelper.forTesting(this._recoveryOverride);
 
   factory DatabaseHelper() {
     return _instance;
@@ -88,7 +104,9 @@ class DatabaseHelper {
     }
     // Version 4 changes
     if (oldVersion < 4) {
-      await db.execute('ALTER TABLE expenses ADD COLUMN profileId INTEGER default 0');
+      await db.execute(
+        'ALTER TABLE expenses ADD COLUMN profileId INTEGER default 0',
+      );
     }
     // Version 5 changes
     if (oldVersion < 5) {
@@ -201,7 +219,7 @@ class DatabaseHelper {
 
     // Safely extract the sum from the result.
     // The result of a SUM query is a list with one map, e.g., [{'total': 123.45}].
-    final double sum = result.first['total'] ?? 0.0;
+    final sum = (result.first['total'] as num?)?.toDouble() ?? 0.0;
 
     return sum;
   }
@@ -210,7 +228,7 @@ class DatabaseHelper {
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,
     DateTime endDate,
-    int profileId
+    int profileId,
   ) async {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -219,11 +237,65 @@ class DatabaseHelper {
       whereArgs: [
         startDate.toIso8601String().substring(0, 10),
         endDate.toIso8601String().substring(0, 10),
-        profileId
+        profileId,
       ],
       orderBy: 'expenseDate desc',
     );
     return _mapMapsToExpenses(maps);
+  }
+
+  Future<Expense?> getExpenseById(int expenseId, int profileId) async {
+    final db = await database;
+    final rows = await db.query(
+      'expenses',
+      where: 'id = ? AND profileId = ?',
+      whereArgs: [expenseId, profileId],
+    );
+    if (rows.isEmpty) return null;
+    return (await _mapMapsToExpenses(rows)).single;
+  }
+
+  Future<Map<String, double>> getSpendingBreakdown(
+    DateTime startDate,
+    DateTime endDate,
+    int profileId,
+    SpendingGroup group,
+  ) async {
+    final (label, joins) = switch (group) {
+      SpendingGroup.category => ('E.category', ''),
+      SpendingGroup.paymentMethod => (
+        "COALESCE(NULLIF(E.paymentMethod, ''), 'none')",
+        '',
+      ),
+      SpendingGroup.tag => (
+        'T.tagName',
+        '''
+        JOIN (
+          SELECT DISTINCT ET.expenseId, T.tagName
+          FROM expense_tags ET JOIN tags T ON T.tagId = ET.tagId
+        ) T ON E.id = T.expenseId
+        ''',
+      ),
+    };
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT $label AS label, SUM(E.amount) AS total
+      FROM expenses E $joins
+      WHERE date(E.expenseDate) BETWEEN ? AND ? AND E.profileId = ?
+      GROUP BY label
+      ORDER BY total DESC, label ASC
+      ''',
+      [
+        startDate.toIso8601String().substring(0, 10),
+        endDate.toIso8601String().substring(0, 10),
+        profileId,
+      ],
+    );
+    return {
+      for (final row in rows)
+        row['label'] as String: (row['total'] as num).toDouble(),
+    };
   }
 
   // Method to get all categories
@@ -235,12 +307,62 @@ class DatabaseHelper {
     });
   }
 
-  // Deletes an expense from the database by its ID.
-  Future<int> deleteExpense(int id) async {
-    final Database db = await database;
-    await db.delete('billed_items', where: 'expenseId = ?', whereArgs: [id]);
-    await db.delete('expense_tags', where: 'expenseId = ?', whereArgs: [id]);
-    return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+  /// Deletes the current expense and refunds the account of its owning profile.
+  Future<int> deleteExpense(int id, int profileId) {
+    return _withExpenseWallet((wallet) async {
+      final db = await database;
+      final deleted = await db.transaction((txn) async {
+        final rows = await txn.query(
+          'expenses',
+          columns: ['paymentMethod', 'amount', 'entryDate'],
+          where: 'id = ? AND profileId = ?',
+          whereArgs: [id, profileId],
+        );
+        if (rows.isEmpty) return 0;
+
+        final row = rows.single;
+        final account = ExpenseWalletChange.accountFor(
+          row['paymentMethod'] as String?,
+        );
+        if (account != null) {
+          await wallet.apply(
+            account: account,
+            profileId: profileId,
+            expenseId: id,
+            entryDate: row['entryDate'] as String,
+            amount: (row['amount'] as num).toDouble(),
+            refund: true,
+          );
+        }
+        await txn.delete(
+          'billed_items',
+          where: 'expenseId = ?',
+          whereArgs: [id],
+        );
+        await txn.delete(
+          'expense_tags',
+          where: 'expenseId = ?',
+          whereArgs: [id],
+        );
+        return txn.delete(
+          'expenses',
+          where: 'id = ? AND profileId = ?',
+          whereArgs: [id, profileId],
+        );
+      });
+      if (deleted != 0) {
+        try {
+          final attachments = ExpenseAttachments(
+            await getApplicationDocumentsDirectory(),
+          );
+          await attachments.deleteForExpense(id);
+        } on FileSystemException {
+          // SQLite has committed. Backup export excludes any files left behind.
+          debugPrint('Unable to remove attachments for a deleted expense.');
+        }
+      }
+      return deleted;
+    });
   }
 
   // Updates an existing expense in the database.
@@ -255,7 +377,9 @@ class DatabaseHelper {
   }
 
   // Helper function to map database results to Expense objects
-  Future<List<Expense>> _mapMapsToExpenses(List<Map<String, dynamic>> maps) async {
+  Future<List<Expense>> _mapMapsToExpenses(
+    List<Map<String, dynamic>> maps,
+  ) async {
     List<Expense> expenses = [];
     for (var map in maps) {
       List<String> tags = await _getTagsForExpense(map['id']);
@@ -275,9 +399,16 @@ class DatabaseHelper {
     return maps.map((map) => BilledItem.fromMap(map)).toList();
   }
 
-  Future<void> _saveBilledItemsForExpense(int expenseId, List<BilledItem> billedItems) async {
+  Future<void> _saveBilledItemsForExpense(
+    int expenseId,
+    List<BilledItem> billedItems,
+  ) async {
     final Database db = await database;
-    await db.delete('billed_items', where: 'expenseId = ?', whereArgs: [expenseId]);
+    await db.delete(
+      'billed_items',
+      where: 'expenseId = ?',
+      whereArgs: [expenseId],
+    );
     for (var item in billedItems) {
       var itemMap = item.toMap();
       itemMap['expenseId'] = expenseId;
@@ -288,12 +419,15 @@ class DatabaseHelper {
 
   Future<List<String>> _getTagsForExpense(int expenseId) async {
     final Database db = await database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      '''
       SELECT T.tagName
       FROM tags T
       JOIN expense_tags ET ON T.tagId = ET.tagId
       WHERE ET.expenseId = ?
-    ''', [expenseId]);
+    ''',
+      [expenseId],
+    );
     return List.generate(maps.length, (i) => maps[i]['tagName']);
   }
 
@@ -340,10 +474,13 @@ class DatabaseHelper {
   // Saves a new category to the database.
   Future<void> saveCategory(Category cat) async {
     Database db = await database;
-    if(cat.categoryId == 0) {
+    if (cat.categoryId == 0) {
       await db.insert('categories', {'category': cat.category});
     } else {
-      await db.insert('categories', {'categoryId': cat.categoryId, 'category': cat.category});
+      await db.insert('categories', {
+        'categoryId': cat.categoryId,
+        'category': cat.category,
+      });
     }
   }
 
@@ -383,7 +520,7 @@ class DatabaseHelper {
       where: "strftime('%Y-%m', expenseDate) = ? AND profileId = ?",
       whereArgs: [date.toIso8601String().substring(0, 7), profileId],
     );
-    final double sum = result.first['total'] ?? 0.0;
+    final sum = (result.first['total'] as num?)?.toDouble() ?? 0.0;
     return sum;
   }
 
@@ -401,27 +538,37 @@ class DatabaseHelper {
   }
 
   // Retrieves the total spending for each category for a given month.
-  Future<Map<String, double>> getCategorySpendingForMonth(DateTime date, int profileId) async {
+  Future<Map<String, double>> getCategorySpendingForMonth(
+    DateTime date,
+    int profileId,
+  ) async {
     final Database db = await database;
-    final List<Map<String, dynamic>> result = await db.rawQuery('''
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      '''
       SELECT category, SUM(amount) as total
       FROM expenses
       WHERE strftime('%Y-%m', expenseDate) = ? AND profileId = ?
       GROUP BY category
-    ''', [date.toIso8601String().substring(0, 7), profileId]);
+    ''',
+      [date.toIso8601String().substring(0, 7), profileId],
+    );
 
     final Map<String, double> categorySpending = {};
     for (var row in result) {
-      categorySpending[row['category']] = row['total'];
+      categorySpending[row['category']] = (row['total'] as num).toDouble();
     }
 
     return categorySpending;
   }
 
   // Retrieves the total spending for each tag for a given month.
-  Future<Map<String, double>> getTagSpendingForMonth(DateTime date, int profileId) async {
+  Future<Map<String, double>> getTagSpendingForMonth(
+    DateTime date,
+    int profileId,
+  ) async {
     final Database db = await database;
-    final List<Map<String, dynamic>> result = await db.rawQuery('''
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      '''
       SELECT
         T.tagName AS tagName,
         SUM(E.amount) AS total
@@ -435,7 +582,9 @@ class DatabaseHelper {
         strftime('%Y-%m', E.expenseDate) = ? AND E.profileId = ?
       GROUP BY
         tagName
-    ''', [date.toIso8601String().substring(0, 7), profileId]);
+    ''',
+      [date.toIso8601String().substring(0, 7), profileId],
+    );
 
     final Map<String, double> tagSpending = {};
     for (var row in result) {
@@ -446,7 +595,9 @@ class DatabaseHelper {
   }
 
   // Retrieves the total expenses for the last five months.
-  Future<Map<String, double>> getExpensesForLastFiveMonths(int profileId) async {
+  Future<Map<String, double>> getExpensesForLastFiveMonths(
+    int profileId,
+  ) async {
     final Database db = await database;
     final Map<String, double> monthlyTotals = {};
     final now = DateTime.now();
@@ -467,7 +618,11 @@ class DatabaseHelper {
     return monthlyTotals;
   }
 
-  Future<List<Expense>> getExpensesByTag(String tagName, int profileId, { DateTime? month }) async {
+  Future<List<Expense>> getExpensesByTag(
+    String tagName,
+    int profileId, {
+    DateTime? month,
+  }) async {
     final Database db = await database;
     // Find the tagId for the given tagName
     final List<Map<String, dynamic>> tagResult = await db.query(
@@ -526,7 +681,7 @@ class DatabaseHelper {
     final ninetyDaysAgo = DateTime.now().subtract(const Duration(days: 90));
     final ninetyDaysAgoStr = ninetyDaysAgo.toIso8601String().substring(0, 10);
 
-    final List<Map<String, dynamic>> maps =  await db.rawQuery(
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
       '''
         SELECT 
           T.tagName,
@@ -542,7 +697,9 @@ class DatabaseHelper {
           END as isRecent
         FROM tags T
         ORDER BY isRecent DESC, T.tagName ASC
-      ''', [ninetyDaysAgoStr, profileId]);
+      ''',
+      [ninetyDaysAgoStr, profileId],
+    );
 
     return maps;
   }
@@ -567,7 +724,9 @@ class DatabaseHelper {
       return [];
     }
 
-    final List<int> expenseIds = expenseResult.map((e) => e['id'] as int).toList();
+    final List<int> expenseIds = expenseResult
+        .map((e) => e['id'] as int)
+        .toList();
 
     // Get all tags for these expenses
     final List<Map<String, dynamic>> tagsResult = await db.rawQuery('''
@@ -577,7 +736,10 @@ class DatabaseHelper {
       WHERE ET.expenseId IN (${expenseIds.map((_) => '?').join(',')})
     ''', expenseIds);
 
-    return List.generate(tagsResult.length, (i) => tagsResult[i]['tagName'] as String);
+    return List.generate(
+      tagsResult.length,
+      (i) => tagsResult[i]['tagName'] as String,
+    );
   }
 
   Future<Category?> getCategoryForRemark(String remarks) async {
@@ -605,12 +767,16 @@ class DatabaseHelper {
     return Category(categoryId, category);
   }
 
-
-  Future<List<Expense>> getExpensesByCategoryForMonth(String category, DateTime date, int profileId) async {
+  Future<List<Expense>> getExpensesByCategoryForMonth(
+    String category,
+    DateTime date,
+    int profileId,
+  ) async {
     final Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'expenses',
-      where: "strftime('%Y-%m', expenseDate) = ? AND category = ? AND profileId = ?",
+      where:
+          "strftime('%Y-%m', expenseDate) = ? AND category = ? AND profileId = ?",
       whereArgs: [date.toIso8601String().substring(0, 7), category, profileId],
       orderBy: 'expenseDate desc',
     );
@@ -660,17 +826,28 @@ class DatabaseHelper {
 
   Future<void> saveBilledItem(BilledItem item) async {
     final Database db = await database;
-    await db.insert('billed_items', item.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'billed_items',
+      item.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<void> saveTag(Tag tag) async {
     Database db = await database;
-    await db.insert('tags', tag.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert(
+      'tags',
+      tag.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<void> saveExpenseTag(int expenseId, int tagId) async {
     Database db = await database;
-    await db.insert('expense_tags', {'expenseId': expenseId, 'tagId': tagId}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('expense_tags', {
+      'expenseId': expenseId,
+      'tagId': tagId,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<List<Expense>> searchExpenses(String query, {int? profileId}) async {
@@ -747,33 +924,137 @@ class DatabaseHelper {
     }
   }
 
-  /// Logs one payment and advances its renewal together. A stale attempt
-  /// leaves both records alone.
-  Future<bool> logSubscriptionPayment({
+  Future<void> recoverExpenseWallet() => withWalletWrite(() async {});
+
+  /// Serializes wallet and related database writes behind recovery.
+  Future<T> withWalletWrite<T>(Future<T> Function() update) =>
+      _withExpenseWallet((_) => update());
+
+  Future<void> _recoverExpenseWallet(ExpenseWalletChange wallet) {
+    final override = _recoveryOverride;
+    if (override != null) return override(wallet);
+    return wallet.recover((expenseId, profileId, entryDate) async {
+      final db = await database;
+      final rows = await db.query(
+        'expenses',
+        columns: ['id'],
+        where: 'id = ? AND profileId = ? AND entryDate = ?',
+        whereArgs: [expenseId, profileId, entryDate],
+      );
+      return rows.isNotEmpty;
+    });
+  }
+
+  /// Logs one payment, advances its renewal and debits its owner's account.
+  Future<SubscriptionPaymentResult> logSubscriptionPayment({
     required Subscription subscription,
     required Expense expense,
     required DateTime nextDue,
+    PaymentMethod? paymentOverride,
+  }) async {
+    if (expense.profileId != subscription.profileId ||
+        expense.paymentMethod != subscription.expensePaymentMethod ||
+        !expense.amount.isFinite ||
+        expense.amount <= 0 ||
+        !nextDue.isAfter(subscription.nextBillingDate)) {
+      return SubscriptionPaymentResult.stale;
+    }
+
+    try {
+      return await _withExpenseWallet((wallet) async {
+        final paymentMethod = paymentOverride?.name ?? expense.paymentMethod;
+        final account = ExpenseWalletChange.accountFor(paymentMethod);
+        final logged = await _recordSubscriptionPayment(
+          subscription: subscription,
+          expense: expense,
+          nextDue: nextDue,
+          paymentMethod: paymentMethod,
+          debit: account == null
+              ? null
+              : (expenseId) async {
+                  final applied = await wallet.apply(
+                    account: account,
+                    profileId: expense.profileId,
+                    expenseId: expenseId,
+                    entryDate: expense.entryDate.toIso8601String(),
+                    amount: expense.amount,
+                  );
+                  if (!applied) throw _InsufficientSubscriptionBalance();
+                },
+        );
+        return logged
+            ? SubscriptionPaymentResult.logged
+            : SubscriptionPaymentResult.stale;
+      });
+    } on _InsufficientSubscriptionBalance {
+      return SubscriptionPaymentResult.insufficientBalance;
+    }
+  }
+
+  Future<T> _withExpenseWallet<T>(
+    Future<T> Function(ExpenseWalletChange wallet) update,
+  ) async {
+    return _expenseWalletQueue.run(() async {
+      final wallet = ExpenseWalletChange(await SharedPreferences.getInstance());
+      await _recoverExpenseWallet(wallet);
+      T result;
+      try {
+        result = await update(wallet);
+      } catch (_) {
+        await _recoverExpenseWallet(wallet);
+        rethrow;
+      }
+      await wallet.finish();
+      return result;
+    });
+  }
+
+  Future<bool> _recordSubscriptionPayment({
+    required Subscription subscription,
+    required Expense expense,
+    required DateTime nextDue,
+    required String? paymentMethod,
+    required Future<void> Function(int expenseId)? debit,
   }) async {
     final db = await database;
     return db.transaction((txn) async {
-      final updated = await txn.update(
+      const owner = 'id = ? AND profileId = ?';
+      final ownerArgs = [subscription.id, subscription.profileId];
+      final rows = await txn.query(
+        'subscriptions',
+        where: owner,
+        whereArgs: ownerArgs,
+      );
+      if (rows.isEmpty) return false;
+      final current = Subscription.fromMap(rows.single);
+      // Older backups may store the same date without fractional seconds.
+      if (!current.isActive ||
+          !current.nextBillingDate.isAtSameMomentAs(
+            subscription.nextBillingDate,
+          ) ||
+          current.currency != subscription.currency ||
+          current.amount != subscription.amount ||
+          current.startDate.day != subscription.startDate.day ||
+          current.billingCycle != subscription.billingCycle ||
+          current.title != subscription.title ||
+          current.categoryId != subscription.categoryId ||
+          current.category != subscription.category ||
+          current.paymentMethod != subscription.paymentMethod) {
+        return false;
+      }
+      await txn.update(
         'subscriptions',
         {'nextBillingDate': nextDue.toIso8601String()},
-        where:
-            'id = ? AND profileId = ? AND nextBillingDate = ? '
-            'AND currency = ? AND amount = ?',
-        whereArgs: [
-          subscription.id,
-          subscription.profileId,
-          subscription.nextBillingDate.toIso8601String(),
-          subscription.currency,
-          subscription.amount,
-        ],
+        where: owner,
+        whereArgs: ownerArgs,
       );
-      if (updated == 0) return false;
 
-      final expenseId = await txn.insert('expenses', expense.toMap());
+      final expenseId = await txn.insert('expenses', {
+        ...expense.toMap(),
+        'paymentMethod': paymentMethod,
+      });
       await _saveTagsForExpense(txn, expenseId, expense.tags.toSet().toList());
+      await debit?.call(expenseId);
       return true;
     });
   }
@@ -787,20 +1068,13 @@ class DatabaseHelper {
             whereArgs: [profileId],
             orderBy: 'nextBillingDate asc',
           )
-        : await db.query(
-            'subscriptions',
-            orderBy: 'nextBillingDate asc',
-          );
+        : await db.query('subscriptions', orderBy: 'nextBillingDate asc');
     return maps.map((m) => Subscription.fromMap(m)).toList();
   }
 
   Future<void> deleteSubscription(int id) async {
     final Database db = await database;
-    await db.delete(
-      'subscriptions',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('subscriptions', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> toggleSubscriptionStatus(int id, bool isActive) async {

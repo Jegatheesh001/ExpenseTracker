@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/db/persistence_context.dart';
+import 'package:expense_tracker/services/expense_attachments.dart';
 import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,6 +64,7 @@ class DataBackup {
     if (key == PrefKeys.geminiApiKey ||
         key == PrefKeys.openaiApiKey ||
         key == PrefKeys.openaiBaseUrl ||
+        key == PrefKeys.pendingSubscriptionWalletDebit ||
         key == PrefKeys.isDeveloperMode) {
       return true;
     }
@@ -76,7 +78,10 @@ class DataBackup {
     return false;
   }
 
-  void _showLoadingDialog(BuildContext context, ValueNotifier<String> statusNotifier) {
+  void _showLoadingDialog(
+    BuildContext context,
+    ValueNotifier<String> statusNotifier,
+  ) {
     _isLoadingDialogShowing = true;
     showDialog(
       context: context,
@@ -86,7 +91,10 @@ class DataBackup {
           canPop: false,
           child: AlertDialog(
             content: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
+              padding: const EdgeInsets.symmetric(
+                vertical: 12.0,
+                horizontal: 4.0,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -102,9 +110,8 @@ class DataBackup {
                       builder: (context, status, _) {
                         return Text(
                           status,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         );
                       },
                     ),
@@ -127,7 +134,10 @@ class DataBackup {
     }
   }
 
-  Future<void> importData(BuildContext context, VoidCallback refreshMainPage) async {
+  Future<void> importData(
+    BuildContext context,
+    VoidCallback refreshMainPage,
+  ) async {
     // 1. Pick file before showing loader
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -154,7 +164,9 @@ class DataBackup {
       if (isZip) {
         statusNotifier.value = 'Extracting backup archive...';
         final tempDir = await getTemporaryDirectory();
-        tempExtractDir = Directory(join(tempDir.path, 'import_${DateTime.now().millisecondsSinceEpoch}'));
+        tempExtractDir = Directory(
+          join(tempDir.path, 'import_${DateTime.now().millisecondsSinceEpoch}'),
+        );
         await tempExtractDir.create(recursive: true);
 
         await extractFileToDisk(pickedFilePath, tempExtractDir.path);
@@ -162,7 +174,11 @@ class DataBackup {
         // Find data file
         File? dataFile = File(join(tempExtractDir.path, 'backup_data.txt'));
         if (!await dataFile.exists()) {
-          final txtFiles = tempExtractDir.listSync().whereType<File>().where((f) => f.path.endsWith('.txt')).toList();
+          final txtFiles = tempExtractDir
+              .listSync()
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.txt'))
+              .toList();
           if (txtFiles.isNotEmpty) {
             dataFile = txtFiles.first;
           } else {
@@ -171,26 +187,40 @@ class DataBackup {
         }
 
         if (dataFile == null || !await dataFile.exists()) {
-          throw Exception('No valid data file found inside the backup archive.');
+          throw Exception(
+            'No valid data file found inside the backup archive.',
+          );
         }
 
         statusNotifier.value = 'Restoring database records...';
-        final errors = await _parseAndInsertDataStream(dataFile, statusNotifier);
+        final backupFile = dataFile;
+        final errors = await DatabaseHelper().withWalletWrite(
+          () => _parseAndInsertDataStream(backupFile, statusNotifier),
+        );
 
         // Restore image attachments from zip
-        final attachmentsDir = Directory(join(tempExtractDir.path, 'attachments'));
+        final attachmentsDir = Directory(
+          join(tempExtractDir.path, 'attachments'),
+        );
         if (await attachmentsDir.exists()) {
           statusNotifier.value = 'Restoring image attachments...';
           final appDocDir = await getApplicationDocumentsDirectory();
-          final targetAttachmentsDir = Directory(join(appDocDir.path, 'attachments'));
+          final targetAttachmentsDir = Directory(
+            join(appDocDir.path, 'attachments'),
+          );
 
-          final expenseDirs = attachmentsDir.listSync().whereType<Directory>().toList();
+          final expenseDirs = attachmentsDir
+              .listSync()
+              .whereType<Directory>()
+              .toList();
           for (var expDir in expenseDirs) {
             final rawExpenseId = basename(expDir.path);
             final expenseId = int.tryParse(rawExpenseId);
             if (expenseId == null || expenseId <= 0) continue;
 
-            final destExpDir = Directory(join(targetAttachmentsDir.path, expenseId.toString()));
+            final destExpDir = Directory(
+              join(targetAttachmentsDir.path, expenseId.toString()),
+            );
             if (!await destExpDir.exists()) {
               await destExpDir.create(recursive: true);
             }
@@ -234,7 +264,9 @@ class DataBackup {
       } else {
         // Legacy .txt file (streamed line-by-line so it never exhausts memory)
         statusNotifier.value = 'Restoring database records...';
-        final errors = await _parseAndInsertDataStream(File(pickedFilePath), statusNotifier);
+        final errors = await DatabaseHelper().withWalletWrite(
+          () => _parseAndInsertDataStream(File(pickedFilePath), statusNotifier),
+        );
 
         try {
           await NotificationService().syncAllNotifications();
@@ -311,7 +343,8 @@ class DataBackup {
 
           if (!_isAllowedPreferenceImport(key)) continue;
 
-          if (valueStr.toLowerCase() == 'true' || valueStr.toLowerCase() == 'false') {
+          if (valueStr.toLowerCase() == 'true' ||
+              valueStr.toLowerCase() == 'false') {
             await prefs.setBool(key, valueStr.toLowerCase() == 'true');
           } else if (int.tryParse(valueStr) != null) {
             await prefs.setInt(key, int.parse(valueStr));
@@ -348,13 +381,17 @@ class DataBackup {
               safeImageName == '..' ||
               rawImageName.contains('/') ||
               rawImageName.contains('\\')) {
-            errors.add('Invalid or dangerous image file name rejected: $rawImageName');
+            errors.add(
+              'Invalid or dangerous image file name rejected: $rawImageName',
+            );
             continue;
           }
 
           final decodedBytes = base64Decode(base64String);
           final directory = await getApplicationDocumentsDirectory();
-          final imagesDirectory = Directory(join(directory.path, 'attachments', expenseId.toString()));
+          final imagesDirectory = Directory(
+            join(directory.path, 'attachments', expenseId.toString()),
+          );
           if (!await imagesDirectory.exists()) {
             await imagesDirectory.create(recursive: true);
           }
@@ -369,13 +406,15 @@ class DataBackup {
 
           await imageFile.writeAsBytes(decodedBytes);
         } else if (parts.length == 6 && parts[0] == 'BILLED_ITEM') {
-          billedItemsToInsert.add(BilledItem(
-            id: int.parse(parts[1]),
-            expenseId: int.parse(parts[2]),
-            itemName: parts[3],
-            quantity: double.parse(parts[4]),
-            price: double.parse(parts[5]),
-          ));
+          billedItemsToInsert.add(
+            BilledItem(
+              id: int.parse(parts[1]),
+              expenseId: int.parse(parts[2]),
+              itemName: parts[3],
+              quantity: double.parse(parts[4]),
+              price: double.parse(parts[5]),
+            ),
+          );
         } else if (parts[0] == 'SUBSCRIPTION' && parts.length >= 15) {
           final subId = int.tryParse(parts[1]);
           final profileId = int.tryParse(parts[2]) ?? 0;
@@ -386,28 +425,37 @@ class DataBackup {
           final billingCycle = parts[7];
           final startDate = DateTime.tryParse(parts[8]) ?? DateTime.now();
           final nextBillingDate = DateTime.tryParse(parts[9]) ?? DateTime.now();
-          final currency = parts[10].isNotEmpty && parts[10] != 'null' ? parts[10] : 'Rupee';
-          final paymentMethod = (parts[11] != 'null' && parts[11].trim().isNotEmpty) ? parts[11] : null;
-          final remarks = (parts[12] != 'null' && parts[12].trim().isNotEmpty) ? parts[12] : null;
+          final currency = parts[10].isNotEmpty && parts[10] != 'null'
+              ? parts[10]
+              : 'Rupee';
+          final paymentMethod =
+              (parts[11] != 'null' && parts[11].trim().isNotEmpty)
+              ? parts[11]
+              : null;
+          final remarks = (parts[12] != 'null' && parts[12].trim().isNotEmpty)
+              ? parts[12]
+              : null;
           final isActive = parts[13] == '1';
           final autoLogExpense = parts[14] == '1';
 
-          subscriptionsToInsert.add(Subscription(
-            id: subId,
-            profileId: profileId,
-            title: title,
-            amount: amount,
-            categoryId: categoryId,
-            category: category,
-            billingCycle: billingCycle,
-            startDate: startDate,
-            nextBillingDate: nextBillingDate,
-            currency: currency,
-            paymentMethod: paymentMethod,
-            remarks: remarks,
-            isActive: isActive,
-            autoLogExpense: autoLogExpense,
-          ));
+          subscriptionsToInsert.add(
+            Subscription(
+              id: subId,
+              profileId: profileId,
+              title: title,
+              amount: amount,
+              categoryId: categoryId,
+              category: category,
+              billingCycle: billingCycle,
+              startDate: startDate,
+              nextBillingDate: nextBillingDate,
+              currency: currency,
+              paymentMethod: paymentMethod,
+              remarks: remarks,
+              isActive: isActive,
+              autoLogExpense: autoLogExpense,
+            ),
+          );
         } else if (parts.length == 9) {
           bool isActive = parts[6].toUpperCase() == 'Y';
           if (isActive) {
@@ -460,7 +508,10 @@ class DataBackup {
     return errors;
   }
 
-  Future<void> exportData(BuildContext context, {bool includeImages = false}) async {
+  Future<void> exportData(
+    BuildContext context, {
+    bool includeImages = false,
+  }) async {
     final statusNotifier = ValueNotifier<String>('Preparing export...');
     final theme = Theme.of(context);
     _showLoadingDialog(context, statusNotifier);
@@ -481,7 +532,9 @@ class DataBackup {
 
       final dbInstance = await DatabaseHelper().database;
       final subMaps = await dbInstance.query('subscriptions');
-      final subscriptions = subMaps.map((m) => Subscription.fromMap(m)).toList();
+      final subscriptions = subMaps
+          .map((m) => Subscription.fromMap(m))
+          .toList();
 
       statusNotifier.value = 'Writing backup records...';
       final tempDir = await getTemporaryDirectory();
@@ -516,7 +569,9 @@ class DataBackup {
         }
 
         for (BilledItem item in billedItems) {
-          sink.writeln('BILLED_ITEM;;${item.id};;${item.expenseId};;${item.itemName};;${item.quantity};;${item.price}');
+          sink.writeln(
+            'BILLED_ITEM;;${item.id};;${item.expenseId};;${item.itemName};;${item.quantity};;${item.price}',
+          );
         }
 
         for (Subscription sub in subscriptions) {
@@ -531,16 +586,12 @@ class DataBackup {
 
       if (includeImages) {
         statusNotifier.value = 'Scanning attachments...';
-        final docDir = await getApplicationDocumentsDirectory();
-        final attachmentsRoot = Directory(join(docDir.path, 'attachments'));
-
-        List<File> imageFiles = [];
-        if (await attachmentsRoot.exists()) {
-          final expenseDirs = attachmentsRoot.listSync().whereType<Directory>().toList();
-          for (var dir in expenseDirs) {
-            imageFiles.addAll(dir.listSync().whereType<File>());
-          }
-        }
+        final attachments = ExpenseAttachments(
+          await getApplicationDocumentsDirectory(),
+        );
+        final imageFiles = await attachments.filesForBackup(
+          expenses.map((expense) => expense.id).whereType<int>(),
+        );
 
         statusNotifier.value = 'Creating zip archive...';
         final zipFileName = 'expense_backup_$timestamp.zip';
@@ -558,7 +609,8 @@ class DataBackup {
         // Add image files with progress
         for (int i = 0; i < imageFiles.length; i++) {
           final file = imageFiles[i];
-          statusNotifier.value = 'Archiving image ${i + 1} of ${imageFiles.length}...';
+          statusNotifier.value =
+              'Archiving image ${i + 1} of ${imageFiles.length}...';
           final expenseIdStr = basename(file.parent.path);
           final fileName = basename(file.path);
           await encoder.addFile(file, 'attachments/$expenseIdStr/$fileName');
@@ -585,8 +637,14 @@ class DataBackup {
             ),
           );
 
-          await prefs.setInt(PrefKeys.lastBackupTimestamp, DateTime.now().millisecondsSinceEpoch);
-          await prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+          await prefs.setInt(
+            PrefKeys.lastBackupTimestamp,
+            DateTime.now().millisecondsSinceEpoch,
+          );
+          await prefs.setInt(
+            PrefKeys.lastBackupReminderTimestamp,
+            DateTime.now().millisecondsSinceEpoch,
+          );
 
           if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -604,11 +662,19 @@ class DataBackup {
           if (!context.mounted) return;
           if (outputFile != null) {
             await tempZipFile.copy(outputFile);
-            await prefs.setInt(PrefKeys.lastBackupTimestamp, DateTime.now().millisecondsSinceEpoch);
-            await prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+            await prefs.setInt(
+              PrefKeys.lastBackupTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
+            await prefs.setInt(
+              PrefKeys.lastBackupReminderTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Data exported successfully to $outputFile')),
+                SnackBar(
+                  content: Text('Data exported successfully to $outputFile'),
+                ),
               );
             }
           } else {
@@ -641,11 +707,19 @@ class DataBackup {
 
           if (!context.mounted) return;
           if (outputFile != null) {
-            await prefs.setInt(PrefKeys.lastBackupTimestamp, DateTime.now().millisecondsSinceEpoch);
-            await prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+            await prefs.setInt(
+              PrefKeys.lastBackupTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
+            await prefs.setInt(
+              PrefKeys.lastBackupReminderTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Data exported successfully to $outputFile')),
+                SnackBar(
+                  content: Text('Data exported successfully to $outputFile'),
+                ),
               );
             }
           } else {
@@ -669,11 +743,19 @@ class DataBackup {
           if (!context.mounted) return;
           if (outputFile != null) {
             await tempTextFile.copy(outputFile);
-            await prefs.setInt(PrefKeys.lastBackupTimestamp, DateTime.now().millisecondsSinceEpoch);
-            await prefs.setInt(PrefKeys.lastBackupReminderTimestamp, DateTime.now().millisecondsSinceEpoch);
+            await prefs.setInt(
+              PrefKeys.lastBackupTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
+            await prefs.setInt(
+              PrefKeys.lastBackupReminderTimestamp,
+              DateTime.now().millisecondsSinceEpoch,
+            );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Data exported successfully to $outputFile')),
+                SnackBar(
+                  content: Text('Data exported successfully to $outputFile'),
+                ),
               );
             }
           } else {
@@ -704,7 +786,10 @@ class DataBackup {
         }
       } catch (_) {}
       try {
-        if (!Platform.isAndroid && !Platform.isIOS && tempZipFile != null && await tempZipFile.exists()) {
+        if (!Platform.isAndroid &&
+            !Platform.isIOS &&
+            tempZipFile != null &&
+            await tempZipFile.exists()) {
           await tempZipFile.delete();
         }
       } catch (_) {}

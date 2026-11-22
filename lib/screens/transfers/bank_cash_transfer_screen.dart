@@ -1,3 +1,4 @@
+import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
@@ -34,10 +35,14 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
 
   Future<void> _loadData() async {
     _prefs = await SharedPreferences.getInstance();
-    final currency = _prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
+    final currency =
+        _prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ??
+        'Rupee';
     setState(() {
-      _bankBalance = _prefs.getDouble('${PrefKeys.bankAmount}-${widget.profileId}') ?? 0.0;
-      _cashBalance = _prefs.getDouble('${PrefKeys.cashAmount}-${widget.profileId}') ?? 0.0;
+      _bankBalance =
+          _prefs.getDouble('${PrefKeys.bankAmount}-${widget.profileId}') ?? 0.0;
+      _cashBalance =
+          _prefs.getDouble('${PrefKeys.cashAmount}-${widget.profileId}') ?? 0.0;
       _currencySymbol = CurrencySymbol().getSymbol(currency);
       _isLoading = false;
     });
@@ -74,12 +79,32 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
       }
     }
 
-    // Process transaction
-    final newBankBalance = _isWithdrawal ? _bankBalance - amount : _bankBalance + amount;
-    final newCashBalance = _isWithdrawal ? _cashBalance + amount : _cashBalance - amount;
-
-    await _prefs.setDouble('${PrefKeys.bankAmount}-${widget.profileId}', newBankBalance);
-    await _prefs.setDouble('${PrefKeys.cashAmount}-${widget.profileId}', newCashBalance);
+    try {
+      await PersistenceContext().withWalletWrite(() async {
+        final bankKey = '${PrefKeys.bankAmount}-${widget.profileId}';
+        final cashKey = '${PrefKeys.cashAmount}-${widget.profileId}';
+        final bank = _prefs.getDouble(bankKey) ?? 0;
+        final cash = _prefs.getDouble(cashKey) ?? 0;
+        if (amount > (_isWithdrawal ? bank : cash)) {
+          throw StateError('Insufficient balance');
+        }
+        await _prefs.setDouble(
+          bankKey,
+          _isWithdrawal ? bank - amount : bank + amount,
+        );
+        await _prefs.setDouble(
+          cashKey,
+          _isWithdrawal ? cash + amount : cash - amount,
+        );
+      });
+    } catch (_) {
+      if (mounted) {
+        _showError(
+          'Unable to transfer funds. Check the balance and try again.',
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,14 +175,22 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              _isWithdrawal ? 'Enter Withdrawal Amount' : 'Enter Deposit Amount',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              _isWithdrawal
+                  ? 'Enter Withdrawal Amount'
+                  : 'Enter Deposit Amount',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
               decoration: InputDecoration(
                 prefixText: _currencySymbol,
@@ -180,8 +213,15 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: Icon(_isWithdrawal ? Icons.account_balance_wallet : Icons.account_balance),
-              label: Text(_isWithdrawal ? 'Withdraw Cash' : 'Deposit into Bank', style: const TextStyle(fontSize: 18)),
+              icon: Icon(
+                _isWithdrawal
+                    ? Icons.account_balance_wallet
+                    : Icons.account_balance,
+              ),
+              label: Text(
+                _isWithdrawal ? 'Withdraw Cash' : 'Deposit into Bank',
+                style: const TextStyle(fontSize: 18),
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -189,7 +229,9 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
                   ? 'This will deduct from your Bank Balance and add to your Cash Balance.'
                   : 'This will deduct from your Cash Balance and add to your Bank Balance.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -220,13 +262,23 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildBalanceInfo('Bank Balance', _bankBalance, Colors.white, theme),
+              _buildBalanceInfo(
+                'Bank Balance',
+                _bankBalance,
+                Colors.white,
+                theme,
+              ),
               Container(
                 width: 1,
                 height: 40,
                 color: Colors.white.withOpacity(0.3),
               ),
-              _buildBalanceInfo('Cash Balance', _cashBalance, Colors.white, theme),
+              _buildBalanceInfo(
+                'Cash Balance',
+                _cashBalance,
+                Colors.white,
+                theme,
+              ),
             ],
           ),
         ],
@@ -234,13 +286,20 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
     );
   }
 
-  Widget _buildBalanceInfo(String label, double amount, Color textColor, ThemeData theme) {
+  Widget _buildBalanceInfo(
+    String label,
+    double amount,
+    Color textColor,
+    ThemeData theme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: theme.textTheme.labelMedium?.copyWith(color: textColor.withOpacity(0.8)),
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: textColor.withOpacity(0.8),
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -269,7 +328,9 @@ class _BankCashTransferScreenState extends State<BankCashTransferScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: theme.colorScheme.outline.withOpacity(0.5)),
+              border: Border.all(
+                color: theme.colorScheme.outline.withOpacity(0.5),
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/services/ai_service.dart';
+import 'package:expense_tracker/services/chatbot_tools.dart';
+import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/screens/subscriptions/subscriptions_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:record/record.dart';
@@ -12,7 +15,15 @@ import 'package:expense_tracker/utils/currency_symbol.dart';
 
 class ChatbotScreen extends StatefulWidget {
   final int profileId;
-  const ChatbotScreen({super.key, required this.profileId});
+  final VoidCallback onDataChanged;
+  final bool isVisible;
+
+  const ChatbotScreen({
+    super.key,
+    required this.profileId,
+    required this.onDataChanged,
+    required this.isVisible,
+  });
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
@@ -31,12 +42,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isSpeaking = false;
   bool _isRecording = false;
   bool _isMuted = true;
-  String defaultModelName = 'gemini-1.5-flash-latest';
+  bool _providerApproved = false;
+  bool _reviewOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _initAIService();
     _audioPlayer.onPlayerComplete.listen((_) {
       debugPrint("Audio Player: Playback Complete");
       if (mounted) {
@@ -47,7 +58,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
     _audioPlayer.onPlayerStateChanged.listen((state) {
       debugPrint("Audio Player State: $state");
-      if (mounted && (state == PlayerState.completed || state == PlayerState.stopped || state == PlayerState.paused)) {
+      if (mounted &&
+          (state == PlayerState.completed ||
+              state == PlayerState.stopped ||
+              state == PlayerState.paused)) {
         setState(() {
           _isSpeaking = false;
         });
@@ -71,16 +85,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.dispose();
   }
 
-  Future<void> _initAIService() async {
-    final prefs = await SharedPreferences.getInstance();
-    final service = await AIService.fromPrefs(prefs);
-    if (mounted && service.isConfigured) {
-      setState(() {
-        _aiService = service;
-      });
-    }
-  }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -94,98 +98,217 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Future<void> _sendMessage({String? text, String? audioPath}) async {
-    final bool isVoice = audioPath != null;
-    final messageText = text ?? _controller.text.trim();
-    if (messageText.isEmpty && !isVoice) return;
+    final message = text ?? _controller.text.trim();
+    if (_isLoading || (message.isEmpty && audioPath == null)) return;
 
-    setState(() {
-      _chatMessages.add(<String, dynamic>{
-        "role": "user",
-        "content": audioPath != null ? "🎤 [Voice Message]" : messageText,
-      });
-      _isLoading = true;
-      if (text == null) _controller.clear();
-    });
-    _scrollToBottom();
-
+    setState(() => _isLoading = true);
+    final profileId = widget.profileId;
+    bool isCurrent() => mounted && widget.profileId == profileId;
+    var failure = 'Unable to complete the chat request. Please try again.';
     try {
-      debugPrint("Sending message to AI: $text");
-      
-      if (_aiService == null) {
-        await _initAIService();
-      }
-      
-      if (_aiService == null || !_aiService!.isConfigured) {
-        throw Exception("AI Service could not be initialized. Please check your AI Settings.");
-      }
-
       final prefs = await SharedPreferences.getInstance();
-      final currency = prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ?? 'Rupee';
-      final currencySymbol = CurrencySymbol().getSymbol(currency);
-      final userName = prefs.getString(PrefKeys.username) ?? 'User';
-      
-      final contextPrompt = "CONTEXT: User Profile ID: ${widget.profileId}, User Name: $userName, Currency Symbol: $currencySymbol. "
-          "INSTRUCTIONS: Always use the currency symbol $currencySymbol for all monetary values.";
-      final promptText = audioPath != null ? "$contextPrompt [Listen to this audio and respond]" : "$contextPrompt $messageText";
+      final service = _aiService ?? await AIService.fromPrefs(prefs);
+      if (!isCurrent()) return;
+      if (!service.isConfigured) {
+        failure = 'Configure your AI provider in AI Settings to use chat.';
+        throw StateError('AI provider is unconfigured');
+      }
+      _aiService = service;
+      if (!_providerApproved) {
+        final usesGemini = service.provider == 'gemini';
+        final provider = usesGemini
+            ? 'Gemini'
+            : 'your OpenAI-compatible provider';
+        final approved = await _confirm(
+          title: 'Share data with $provider?',
+          message: usesGemini
+              ? 'Gemini receives your messages, voice recordings, and financial data used to answer your requests. If you unmute chat, Google Cloud Text-to-Speech receives the replies for playback.'
+              : 'Your provider receives your messages and financial data used to answer your requests. If you unmute chat, the same provider receives the replies for playback.',
+          action: 'Continue',
+        );
+        if (!isCurrent() || !approved) return;
+        _providerApproved = true;
+      }
+      if ((prefs.getInt(PrefKeys.profileId) ?? 0) != profileId) return;
 
-      var response = await _aiService!.sendMessage(promptText, audioPath: audioPath).timeout(const Duration(seconds: 30));
-
-      while (response.hasFunctionCalls) {
-        final functionResponses = <AIFunctionResponse>[];
-        
-        // Group multiple function calls. If previous message was a tool, append to it.
-        final String newToolMessageContent = response.functionCalls.map((fc) => "Calling: ${fc.name}\nArgs: ${fc.args}").join("\n\n");
-        
-        setState(() {
-          if (_chatMessages.isNotEmpty && _chatMessages.last["role"] == "tool") {
-            _chatMessages.last["content"] = "${_chatMessages.last["content"]}\n\n$newToolMessageContent";
-          } else {
-            _chatMessages.add(<String, dynamic>{
-              "role": "tool",
-              "content": newToolMessageContent,
-            });
-          }
+      setState(() {
+        _chatMessages.add({
+          'role': 'user',
+          'content': audioPath == null ? message : 'Voice message',
         });
+        if (text == null && audioPath == null) _controller.clear();
+      });
+      _scrollToBottom();
+
+      final offeredReviews = <SubscriptionReview>{};
+      final tools = ChatbotTools(
+        profileId: profileId,
+        prefs: prefs,
+        isCurrent: isCurrent,
+        confirmExpense: _confirmExpense,
+        offerSubscriptionReview: (review) {
+          if (offeredReviews.add(review)) {
+            setState(
+              () => _chatMessages.add({
+                'role': 'subscriptionReview',
+                'review': review,
+              }),
+            );
+            _scrollToBottom();
+          }
+        },
+        onExpenseSaved: widget.onDataChanged,
+      );
+      final currency =
+          prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
+      final input = audioPath == null
+          ? message
+          : 'Listen to this recording and respond.';
+      final prompt =
+          'Profile currency: ${CurrencySymbol().getLabel(currency)}. $input';
+      const timeout = Duration(seconds: 30);
+      var response = await service
+          .sendMessage(prompt, audioPath: audioPath)
+          .timeout(timeout);
+
+      for (var round = 0; round < 8 && response.hasFunctionCalls; round++) {
+        if (!isCurrent()) return;
+        final calls = response.functionCalls;
+        if (calls.length > 12) throw StateError('Too many tool calls');
+        setState(
+          () => _chatMessages.add({
+            'role': 'tool',
+            'content': calls.map((call) => call.name).join('\n'),
+          }),
+        );
         _scrollToBottom();
 
-        for (final functionCall in response.functionCalls) {
-          final result = await _aiService!.executeFunctionCall(functionCall);
-          functionResponses.add(AIFunctionResponse(id: functionCall.id, name: functionCall.name, response: result));
+        final results = <AIFunctionResponse>[];
+        for (final call in calls) {
+          if (!isCurrent()) return;
+          final result = await tools.execute(call);
+          results.add(
+            AIFunctionResponse(id: call.id, name: call.name, response: result),
+          );
         }
-
-        response = await _aiService!.sendFunctionResponses(functionResponses).timeout(const Duration(seconds: 30));
-      }
-
-      final responseText = response.text ?? "No response from AI.";
-
-      setState(() {
-        _chatMessages.add(<String, dynamic>{"role": "bot", "content": responseText});
-        _isLoading = false;
-      });
-      _scrollToBottom();
-      
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !isVoice) {
-          _focusNode.requestFocus();
+        if (!isCurrent() ||
+            (prefs.getInt(PrefKeys.profileId) ?? 0) != profileId) {
+          return;
         }
-      });
-
-      // Optionally play as speech
-      if (!_isMuted) {
-        _speak(responseText);
+        response = await service
+            .sendFunctionResponses(results)
+            .timeout(timeout);
       }
+      if (!isCurrent() ||
+          (prefs.getInt(PrefKeys.profileId) ?? 0) != profileId) {
+        return;
+      }
+      if (response.hasFunctionCalls) throw StateError('Too many tool rounds');
 
-    } catch (e) {
-      setState(() {
-        _chatMessages.add(<String, dynamic>{"role": "bot", "content": "Error: $e"});
-        _isLoading = false;
-      });
+      final responseText = response.text ?? 'No response from AI.';
+      setState(
+        () => _chatMessages.add({'role': 'bot', 'content': responseText}),
+      );
       _scrollToBottom();
+      if (audioPath == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (isCurrent() && widget.isVisible && !_isLoading) {
+            _focusNode.requestFocus();
+          }
+        });
+      }
+      if (!_isMuted) unawaited(_speak(responseText));
+    } catch (_) {
+      if (!isCurrent()) return;
+      // Start a fresh provider session if an unfinished tool turn left it out of sync.
+      _aiService?.resetChat();
+      setState(() => _chatMessages.add({'role': 'bot', 'content': failure}));
+      _scrollToBottom();
+    } finally {
+      if (isCurrent()) setState(() => _isLoading = false);
+      if (audioPath != null) {
+        try {
+          await File(audioPath).delete();
+        } on FileSystemException {
+          // The temporary recording may already have been removed.
+        }
+      }
+    }
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    required String action,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(action),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
+  Future<bool> _confirmExpense(Expense expense, String currency) async {
+    if (!widget.isVisible) return false;
+    return _confirm(
+      title: 'Save expense?',
+      message:
+          '$currency ${expense.amount.toStringAsFixed(2)} · ${expense.category}\n'
+          '${expense.expenseDate.toIso8601String().substring(0, 10)}\n'
+          '${expense.remarks}',
+      action: 'Save',
+    );
+  }
+
+  Future<void> _openSubscriptionReview(
+    SubscriptionReview review,
+    Map<String, dynamic> message,
+  ) async {
+    if (_reviewOpen || _isLoading) return;
+    setState(() => _reviewOpen = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted ||
+          (prefs.getInt(PrefKeys.profileId) ?? 0) != widget.profileId) {
+        return;
+      }
+      final currency =
+          prefs.getString('${PrefKeys.selectedCurrency}-${widget.profileId}') ??
+          'Rupee';
+      final changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (context) => SubscriptionsScreen(
+            profileId: widget.profileId,
+            currencySymbol: CurrencySymbol().getSymbol(currency),
+            review: review,
+          ),
+        ),
+      );
+      if (changed == true && mounted) {
+        widget.onDataChanged();
+        setState(() => message['reviewed'] = true);
+      }
+    } finally {
+      if (mounted) setState(() => _reviewOpen = false);
     }
   }
 
   Future<void> _speak(String text) async {
-    if (_aiService != null) {
+    final service = _aiService;
+    if (service != null) {
       // Remove markdown characters before sending to TTS
       String cleanText = text
           // 1. Remove Links but keep the display text: [Click here](url) -> Click here
@@ -208,11 +331,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           .replaceAll(RegExp(r'\n{2,}'), '\n')
           .trim();
 
-      final audioBytes = await _aiService!.generateSpeech(cleanText);
-      if (audioBytes != null) {
+      final audioBytes = await service.generateSpeech(cleanText);
+      bool canPlay() => mounted && !_isMuted && identical(_aiService, service);
+      if (canPlay() && audioBytes != null) {
         if (_isSpeaking) {
           await _audioPlayer.stop();
         }
+        if (!canPlay()) return;
         setState(() {
           _isSpeaking = true;
         });
@@ -222,11 +347,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   void _startNewChat() {
+    if (_isLoading) return;
     _stopSpeaking();
     setState(() {
       _chatMessages.clear();
+      _expandedToolMessages.clear();
+      _providerApproved = false;
       _isMuted = true;
-      _aiService?.resetChat();
+      _aiService = null;
     });
   }
 
@@ -248,29 +376,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     }
   }
 
-  Future<bool?> _showSearchConfirmationDialog(String query) async {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Web Search Permission"),
-        content: Text("Anila wants to search the web for: \"$query\". Allow?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Search"),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _toggleRecording() async {
     if (_isRecording) {
       final path = await _audioRecorder.stop();
+      if (!mounted) return;
       setState(() {
         _isRecording = false;
       });
@@ -280,12 +389,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       }
     } else {
       if (await _audioRecorder.hasPermission()) {
+        if (!mounted) return;
         final directory = await getTemporaryDirectory();
-        final path = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        
+        if (!mounted) return;
+        final path =
+            '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
         const config = RecordConfig();
         await _audioRecorder.start(config, path: path);
-        
+        if (!mounted) return;
+
         setState(() {
           _isRecording = true;
         });
@@ -313,7 +426,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             ),
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _startNewChat,
+            onPressed: _isLoading ? null : _startNewChat,
             tooltip: "New Chat",
           ),
         ],
@@ -331,14 +444,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         Icon(
                           Icons.face_retouching_natural,
                           size: 100,
-                          color: Colors.teal.withOpacity(0.5),
+                          color: Colors.teal.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           "How can I help you today?",
                           style: TextStyle(
                             fontSize: 18,
-                            color: Theme.of(context).hintColor.withOpacity(0.3),
+                            color: Theme.of(
+                              context,
+                            ).hintColor.withValues(alpha: 0.3),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -354,6 +469,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     final role = msg["role"];
                     final isUser = role == "user";
                     final isTool = role == "tool";
+
+                    if (role == 'subscriptionReview') {
+                      final review = msg['review'] as SubscriptionReview;
+                      final reviewed = msg['reviewed'] == true;
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton(
+                          onPressed: reviewed || _reviewOpen || _isLoading
+                              ? null
+                              : () => _openSubscriptionReview(review, msg),
+                          child: Text(
+                            reviewed
+                                ? 'Action completed'
+                                : [
+                                    review.action.label,
+                                    if (review.title != null) review.title,
+                                  ].join(' · '),
+                          ),
+                        ),
+                      );
+                    }
 
                     if (isTool) {
                       final isExpanded = _expandedToolMessages.contains(index);
@@ -371,11 +507,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           },
                           child: Container(
                             margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.blueGrey[900]?.withOpacity(0.3),
+                              color: Colors.blueGrey[900]?.withValues(
+                                alpha: 0.3,
+                              ),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.blueGrey.withOpacity(0.5), width: 0.5),
+                              border: Border.all(
+                                color: Colors.blueGrey.withValues(alpha: 0.5),
+                                width: 0.5,
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,22 +528,36 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      isExpanded ? Icons.unfold_less : Icons.settings_suggest,
+                                      isExpanded
+                                          ? Icons.unfold_less
+                                          : Icons.settings_suggest,
                                       size: 16,
-                                      color: Colors.blueAccent.withOpacity(0.7),
+                                      color: Colors.blueAccent.withValues(
+                                        alpha: 0.7,
+                                      ),
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      isExpanded ? "Hide tool details" : "Tool used",
+                                      isExpanded
+                                          ? "Hide tool details"
+                                          : "Tool used",
                                       style: TextStyle(
-                                        color: Colors.blueAccent.withOpacity(0.7),
+                                        color: Colors.blueAccent.withValues(
+                                          alpha: 0.7,
+                                        ),
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     if (!isExpanded) ...[
                                       const SizedBox(width: 4),
-                                      Icon(Icons.arrow_drop_down, size: 16, color: Colors.blueAccent.withOpacity(0.7)),
+                                      Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 16,
+                                        color: Colors.blueAccent.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                      ),
                                     ],
                                   ],
                                 ),
@@ -422,7 +580,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     }
 
                     return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isUser
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.all(12),
@@ -439,16 +599,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                                 data: msg["content"]!,
                                 styleSheet: MarkdownStyleSheet(
                                   p: const TextStyle(color: Colors.white),
-                                  strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  strong: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                       ),
                     );
                   },
                 ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
           if (_isLoading) const LinearProgressIndicator(),
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -471,12 +634,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 ),
                 if (_controller.text.trim().isEmpty)
                   IconButton(
+                    tooltip: _isRecording ? "Stop recording" : "Record message",
                     icon: Icon(_isRecording ? Icons.stop : Icons.mic),
                     color: _isRecording ? Colors.red : Colors.teal,
-                    onPressed: _toggleRecording,
+                    onPressed: _isLoading ? null : _toggleRecording,
                   )
                 else
                   IconButton(
+                    tooltip: "Send message",
                     icon: const Icon(Icons.send),
                     onPressed: () => _sendMessage(),
                   ),

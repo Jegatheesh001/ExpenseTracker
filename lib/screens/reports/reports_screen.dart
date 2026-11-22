@@ -12,11 +12,21 @@ enum ReportType { category, tag }
 class ReportsScreen extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
+  final int dataRevision;
+  final VoidCallback? onDataChanged;
+  final PersistenceContext persistence;
 
-  const ReportsScreen({super.key, required this.profileId, required this.currencySymbol});
+  const ReportsScreen({
+    super.key,
+    required this.profileId,
+    required this.currencySymbol,
+    this.dataRevision = 0,
+    this.onDataChanged,
+    this.persistence = const PersistenceContext(),
+  });
 
   @override
-  _ReportsScreenState createState() => _ReportsScreenState();
+  State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
@@ -46,14 +56,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _updateFutures();
   }
 
-  void _updateFutures() {
-    if (_reportType == ReportType.category) {
-      _spendingFuture = PersistenceContext().getCategorySpendingForMonth(_selectedDate, widget.profileId);
-    } else {
-      _spendingFuture = PersistenceContext().getTagSpendingForMonth(_selectedDate, widget.profileId);
+  @override
+  void didUpdateWidget(covariant ReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.profileId != oldWidget.profileId ||
+        widget.dataRevision != oldWidget.dataRevision ||
+        widget.persistence != oldWidget.persistence) {
+      _touchedIndex = -1;
+      _updateFutures();
     }
-    _lastFiveMonthsSpendingFuture = PersistenceContext().getExpensesForLastFiveMonths(widget.profileId);
-    _last15DaysSpendingFuture = PersistenceContext().getExpensesForLast15Days(widget.profileId);
+  }
+
+  void _onDrilldownChanged() {
+    if (!mounted) return;
+    final notify = widget.onDataChanged;
+    if (notify != null) {
+      notify();
+    } else {
+      setState(_updateFutures);
+    }
+  }
+
+  void _updateFutures() {
+    final persistence = widget.persistence;
+    final profileId = widget.profileId;
+    _spendingFuture = _reportType == ReportType.category
+        ? persistence.getCategorySpendingForMonth(_selectedDate, profileId)
+        : persistence.getTagSpendingForMonth(_selectedDate, profileId);
+    _lastFiveMonthsSpendingFuture = persistence.getExpensesForLastFiveMonths(
+      profileId,
+    );
+    _last15DaysSpendingFuture = persistence.getExpensesForLast15Days(profileId);
   }
 
   void _changeMonth(int month) {
@@ -341,19 +374,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => TagExpensesScreen(tag: entry.key, selectedDate: _selectedDate),
+                                        builder: (context) => TagExpensesScreen(
+                                          tag: entry.key,
+                                          selectedDate: _selectedDate,
+                                          profileId: widget.profileId,
+                                          onDataChanged: _onDrilldownChanged,
+                                          persistence: widget.persistence,
+                                        ),
                                       ),
                                     );
                                   } else if (_reportType == ReportType.category) {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => CategoryMonthViewScreen(
-                                          category: entry.key,
-                                          selectedDate: _selectedDate,
-                                          profileId: widget.profileId,
-                                          currencySymbol: widget.currencySymbol,
-                                        ),
+                                        builder: (context) =>
+                                            CategoryMonthViewScreen(
+                                              category: entry.key,
+                                              selectedDate: _selectedDate,
+                                              profileId: widget.profileId,
+                                              currencySymbol:
+                                                  widget.currencySymbol,
+                                              onDataChanged:
+                                                  _onDrilldownChanged,
+                                              persistence: widget.persistence,
+                                            ),
                                       ),
                                     );
                                   }

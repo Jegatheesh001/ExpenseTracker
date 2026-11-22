@@ -7,6 +7,7 @@ import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:app_links/app_links.dart';
 
 import 'package:expense_tracker/db/entity.dart';
+import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/screens/expenses/add_expense_screen.dart'; // Import the new screen
 import 'package:expense_tracker/screens/settings/settings_screen.dart'; // Import the new settings screen
 import 'package:expense_tracker/utils/currency_symbol.dart';
@@ -115,19 +116,19 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   bool _showExpStatusBar = false;
   late SharedPreferences _prefs;
   int _profileId = 0;
+  int _reportsRevision = 0;
   final _appLinks = AppLinks();
   final _assistantActionService = const AssistantActionService();
   StreamSubscription<Uri>? _uriLinkSubscription;
-  late StreamSubscription _intentSub;
+  StreamSubscription? _intentSub;
   Uri? _pendingAppLink;
   bool _pageContentReady = false;
+  bool _walletRecoveryFailed = false;
   bool _isHandlingAssistantAction = false;
 
   @override
   void initState() {
     super.initState();
-    _initNotifications();
-    _handleCopiedTextFromSharing();
     _initAppLinks();
     _loadPageContent();
   }
@@ -155,7 +156,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
               builder: (context) => SubscriptionsScreen(
                 profileId: _profileId,
                 currencySymbol: _currencySymbol,
-                onWalletAmountChange: _loadWalletAmount,
+                onPaymentLogged: _refreshAfterExpenseChange,
                 initialFilter: 'Due',
               ),
             ),
@@ -241,14 +242,22 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   /// Initializes all the necessary data for the home page.
   Future<void> _loadPageContent() async {
+    try {
+      await DatabaseHelper().recoverExpenseWallet();
+    } catch (_) {
+      if (mounted) setState(() => _walletRecoveryFailed = true);
+      return;
+    }
+    if (!mounted) return;
     _prefs = await SharedPreferences.getInstance();
-    await _loadSelectedProfile();
-    await _loadCurrency();
+    _loadSelectedProfile();
     await _loadWalletAmount();
     await _loadExpStatusBar();
     if (!mounted) return;
 
-    _pageContentReady = true;
+    setState(() => _pageContentReady = true);
+    _initNotifications();
+    _handleCopiedTextFromSharing();
     final pendingAppLink = _pendingAppLink;
     _pendingAppLink = null;
     if (pendingAppLink != null) {
@@ -260,8 +269,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   /// Handles profile change event from settings.
   Future<void> _onProfileChange() async {
-    await _loadSelectedProfile();
-    await _loadCurrency();
+    _loadSelectedProfile();
     await _loadWalletAmount();
     // Reload today's expenses to reflect the new profile's data.
     _loadTodaysExpenses();
@@ -302,10 +310,14 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     });
   }
 
-  Future<void> _loadSelectedProfile() async {
+  void _loadSelectedProfile() {
     if (!mounted) return;
+    final profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
+    final currency =
+        _prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
     setState(() {
-      _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
+      _profileId = profileId;
+      _currencySymbol = CurrencySymbol().getSymbol(currency);
     });
   }
 
@@ -332,10 +344,17 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     _expensesKey.currentState?.refresh();
   }
 
-  // Loads expenses for the selected date from the database.
-  Future<void> _loadTodaysExpenses() async {
+  void _loadTodaysExpenses() {
+    if (!mounted) return;
+    setState(() => _reportsRevision++);
     _dashboardKey.currentState?.refresh();
     _expensesKey.currentState?.refresh();
+  }
+
+  void _refreshAfterExpenseChange() {
+    if (!mounted) return;
+    _loadWalletAmount();
+    _loadTodaysExpenses();
   }
 
   Future<void> _addExpense() async {
@@ -368,13 +387,34 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   @override
   void dispose() {
-    _intentSub.cancel();
+    _intentSub?.cancel();
     _uriLinkSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_pageContentReady) {
+      return Scaffold(
+        body: Center(
+          child: _walletRecoveryFailed
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Unable to recover the pending wallet update.'),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _walletRecoveryFailed = false);
+                        _loadPageContent();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                )
+              : const CircularProgressIndicator(),
+        ),
+      );
+    }
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
@@ -384,16 +424,28 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             profileId: _profileId,
             navigateToExpensesTab: _navigateToExpensesTab,
             onWalletAmountChange: _loadWalletAmount,
+            onSubscriptionPaymentLogged: _refreshAfterExpenseChange,
           ),
           ExpensesScreen(
             key: _expensesKey,
             profileId: _profileId,
             currencySymbol: _currencySymbol,
             onWalletAmountChange: _loadWalletAmount,
+            onExpenseChanged: _refreshAfterExpenseChange,
             onAddExpense: _addExpense,
           ),
-          ChatbotScreen(profileId: _profileId),
-          ReportsScreen(profileId: _profileId, currencySymbol: _currencySymbol),
+          ChatbotScreen(
+            key: ValueKey(_profileId),
+            profileId: _profileId,
+            onDataChanged: _refreshAfterExpenseChange,
+            isVisible: _selectedIndex == 2,
+          ),
+          ReportsScreen(
+            profileId: _profileId,
+            currencySymbol: _currencySymbol,
+            dataRevision: _reportsRevision,
+            onDataChanged: _refreshAfterExpenseChange,
+          ),
           SettingsScreen(
             key: _settingsKey,
             onThemeToggle:
@@ -404,6 +456,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
             onMonthlyLimitSaved: _handleMonthlyLimitUpdate,
             onDeleteAllData: _handleDataDeletion,
             onWalletAmountUpdated: _loadWalletAmount,
+            onSubscriptionPaymentLogged: _refreshAfterExpenseChange,
             onProfileChange: _onProfileChange,
             onUsernameChange: _onUsernameChange,
           ),
@@ -477,8 +530,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     if (value.isEmpty) return;
     String content = value.first.path;
     final sharedUri = Uri.tryParse(content);
-    if (sharedUri != null &&
-        _assistantActionService.parse(sharedUri) != null) {
+    if (sharedUri != null && _assistantActionService.parse(sharedUri) != null) {
       return;
     }
     ScaffoldMessenger.of(

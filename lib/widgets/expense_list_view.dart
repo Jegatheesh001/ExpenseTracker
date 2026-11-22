@@ -11,6 +11,7 @@ class ExpenseListView extends StatelessWidget {
   final String currencySymbol;
   final Future<void> Function(Expense) onDelete;
   final Future<void> Function(Expense) onEdit;
+  final VoidCallback? onDataChanged;
   final String emptyMessage;
 
   const ExpenseListView({
@@ -19,6 +20,7 @@ class ExpenseListView extends StatelessWidget {
     required this.currencySymbol,
     required this.onDelete,
     required this.onEdit,
+    this.onDataChanged,
     this.emptyMessage = 'No expenses yet',
   });
 
@@ -68,7 +70,10 @@ class ExpenseListView extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => TagExpensesScreen(tag: tag),
+                            builder: (context) => TagExpensesScreen(
+                              tag: tag,
+                              onDataChanged: onDataChanged,
+                            ),
                           ),
                         );
                       },

@@ -22,8 +22,11 @@ class SettingsScreen extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final VoidCallback onCurrencyToggle; // Callback for currency change
   final VoidCallback onStatusBarToggle;
-  final Function(String) onMonthlyLimitSaved; // Callback for when monthly limit is saved
-  final VoidCallback onWalletAmountUpdated; // Callback for when wallet amount is updated
+  final Function(String)
+  onMonthlyLimitSaved; // Callback for when monthly limit is saved
+  final VoidCallback
+  onWalletAmountUpdated; // Callback for when wallet amount is updated
+  final VoidCallback? onSubscriptionPaymentLogged;
   final VoidCallback onDeleteAllData; // New callback for data deletion
   final VoidCallback onProfileChange;
   final VoidCallback onUsernameChange;
@@ -34,10 +37,11 @@ class SettingsScreen extends StatefulWidget {
     required this.onThemeToggle,
     required this.onCurrencyToggle,
     required this.onWalletAmountUpdated,
+    this.onSubscriptionPaymentLogged,
     required this.onStatusBarToggle,
-    required this.onMonthlyLimitSaved, 
+    required this.onMonthlyLimitSaved,
     required this.onProfileChange,
-    required this.onUsernameChange
+    required this.onUsernameChange,
   });
 
   @override
@@ -71,7 +75,8 @@ class SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _walletAmountController = TextEditingController();
   final TextEditingController _cashAmountController = TextEditingController();
   final TextEditingController _bankAmountController = TextEditingController();
-  final TextEditingController _deleteConfirmationController = TextEditingController(); // Controller for the delete confirmation text field
+  final TextEditingController _deleteConfirmationController =
+      TextEditingController(); // Controller for the delete confirmation text field
 
   @override
   void initState() {
@@ -86,28 +91,38 @@ class SettingsScreenState extends State<SettingsScreen> {
   // Loads saved settings (theme mode and currency) from shared preferences.
   Future<void> _loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
-    await _prefs.reload();
+    if (!mounted) return;
     setState(() {
       _profileId = _prefs.getInt(PrefKeys.profileId) ?? 0;
       _username = _prefs.getString(PrefKeys.username) ?? '';
-      _isDarkMode = _prefs.getBool(PrefKeys.isDarkMode) ?? (ThemeMode.system == ThemeMode.dark);
+      _isDarkMode =
+          _prefs.getBool(PrefKeys.isDarkMode) ??
+          (ThemeMode.system == ThemeMode.dark);
       _isDeveloperMode = _prefs.getBool(PrefKeys.isDeveloperMode) ?? false;
-      _isBackupReminderEnabled = _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
-      _currentCurrency = _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
-      _cashAmount = _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-      _bankAmount = _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
+      _isBackupReminderEnabled =
+          _prefs.getBool(PrefKeys.dailyBackupReminderEnabled) ?? false;
+      _currentCurrency =
+          _prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ??
+          'Rupee';
+      _cashAmount =
+          _prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
+      _bankAmount =
+          _prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
       _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
-      _isDailyReminderEnabled = _prefs.getBool(PrefKeys.dailyReminderEnabled) ?? false;
+      _isDailyReminderEnabled =
+          _prefs.getBool(PrefKeys.dailyReminderEnabled) ?? false;
       _dailyReminderHour = _prefs.getInt(PrefKeys.dailyReminderHour) ?? 21;
       _dailyReminderMinute = _prefs.getInt(PrefKeys.dailyReminderMinute) ?? 0;
-      _isSubscriptionRemindersEnabled = _prefs.getBool(PrefKeys.subscriptionRemindersEnabled) ?? true;
-      _subscriptionReminderAdvanceDays = _prefs.getInt(PrefKeys.subscriptionReminderAdvanceDays) ?? 1;
+      _isSubscriptionRemindersEnabled =
+          _prefs.getBool(PrefKeys.subscriptionRemindersEnabled) ?? true;
+      _subscriptionReminderAdvanceDays =
+          _prefs.getInt(PrefKeys.subscriptionReminderAdvanceDays) ?? 1;
 
-      double walletAmount = _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
+      double walletAmount =
+          _prefs.getDouble('${PrefKeys.walletAmount}-$_profileId') ?? 0.0;
 
       if (_cashAmount == 0.0 && _bankAmount == 0.0 && walletAmount > 0.0) {
         _cashAmount = walletAmount;
-        _saveAmounts();
       }
 
       _currentWalletAmount = _cashAmount + _bankAmount;
@@ -130,9 +145,18 @@ class SettingsScreenState extends State<SettingsScreen> {
 
   // Saves the wallet amount to shared preferences.
   Future<void> _saveAmounts() async {
-    await _prefs.setDouble('${PrefKeys.cashAmount}-$_profileId', _cashAmount);
-    await _prefs.setDouble('${PrefKeys.bankAmount}-$_profileId', _bankAmount);
-    await _prefs.setDouble('${PrefKeys.walletAmount}-$_profileId', _cashAmount + _bankAmount);
+    final profileId = _profileId;
+    final cash = _cashAmount;
+    final bank = _bankAmount;
+    await PersistenceContext().withWalletWrite(() async {
+      await _prefs.setDouble('${PrefKeys.cashAmount}-$profileId', cash);
+      await _prefs.setDouble('${PrefKeys.bankAmount}-$profileId', bank);
+      await _prefs.setDouble(
+        '${PrefKeys.walletAmount}-$profileId',
+        cash + bank,
+      );
+    });
+    if (!mounted) return;
     setState(() {
       _currentWalletAmount = _cashAmount + _bankAmount;
     });
@@ -270,7 +294,8 @@ class SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           side: BorderSide(
-                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withOpacity(0.5),
                           ),
                         ),
                         child: const Text('Cancel'),
@@ -286,7 +311,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         child: const Text('Update'),
-                        onPressed: () {
+                        onPressed: () async {
                           final double? newCashAmount = double.tryParse(
                             _cashAmountController.text,
                           );
@@ -300,8 +325,22 @@ class SettingsScreenState extends State<SettingsScreen> {
                               newBankAmount >= 0) {
                             _cashAmount = newCashAmount;
                             _bankAmount = newBankAmount;
-                            _saveAmounts();
-                            Navigator.of(dialogContext).pop();
+                            try {
+                              await _saveAmounts();
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Unable to update wallet. Try again.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -317,7 +356,7 @@ class SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             );
           },
@@ -365,15 +404,24 @@ class SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _switchProfileId() async {
-    if(_profileId == 0) {
-      _profileId = 1;
-    } else {
-      _profileId = 0;
+    final nextProfileId = _profileId == 0 ? 1 : 0;
+    try {
+      if (!await _prefs.setInt(PrefKeys.profileId, nextProfileId)) {
+        throw StateError('Unable to save the active profile');
+      }
+    } catch (_) {
+      await _loadSettings();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to switch profiles. Try again.')),
+      );
+      return;
     }
-    _prefs.setInt(PrefKeys.profileId, _profileId);
+    if (!mounted) return;
     widget.onProfileChange();
+    await _loadSettings();
   }
-  
+
   Future<void> _showProfileSwitchConfirmationDialog() async {
     return showDialog<void>(
       context: context,
@@ -448,25 +496,49 @@ class SettingsScreenState extends State<SettingsScreen> {
                   onPressed: _deleteConfirmationController.text == 'delete'
                       ? () async {
                           // Removing all data from the database
-                          await PersistenceContext().deleteAllExpenseData();
-                          // Removing SharedPreferences data
-                          final prefs = await SharedPreferences.getInstance();
-                          prefs.clear();
+                          try {
+                            await PersistenceContext().withWalletWrite(
+                              () async {
+                                await PersistenceContext()
+                                    .deleteAllExpenseData();
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                await prefs.clear();
+                              },
+                            );
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Unable to delete data. Try again.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
                           // Removing all attachments from folders
-                          final directory = await getApplicationDocumentsDirectory();
-                          final attachmentsDir = Directory(path.join(directory.path, 'attachments'));
+                          final directory =
+                              await getApplicationDocumentsDirectory();
+                          final attachmentsDir = Directory(
+                            path.join(directory.path, 'attachments'),
+                          );
                           if (await attachmentsDir.exists()) {
                             await attachmentsDir.delete(recursive: true);
                           }
                           await NotificationService().cancelAllNotifications();
-                          
+
                           widget.onDeleteAllData();
                           if (context.mounted) {
                             Navigator.of(context).pop();
                           }
                         }
                       : null,
-                  child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
               ],
             );
@@ -486,7 +558,9 @@ class SettingsScreenState extends State<SettingsScreen> {
       builder: (BuildContext dialogContext) {
         String lastBackup = 'Never';
         if (_lastBackupTimestamp != null) {
-          final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(_lastBackupTimestamp!);
+          final lastBackupDate = DateTime.fromMillisecondsSinceEpoch(
+            _lastBackupTimestamp!,
+          );
           lastBackup = DateFormat('dd-MM-yyyy hh:mm aa').format(lastBackupDate);
         }
         return AlertDialog(
@@ -504,9 +578,10 @@ class SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 await DataBackup().exportData(context, includeImages: false);
-                await _prefs.reload();
                 setState(() {
-                  _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+                  _lastBackupTimestamp = _prefs.getInt(
+                    PrefKeys.lastBackupTimestamp,
+                  );
                 });
               },
             ),
@@ -515,17 +590,22 @@ class SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 await DataBackup().exportData(context, includeImages: true);
-                await _prefs.reload();
                 setState(() {
-                  _lastBackupTimestamp = _prefs.getInt(PrefKeys.lastBackupTimestamp);
+                  _lastBackupTimestamp = _prefs.getInt(
+                    PrefKeys.lastBackupTimestamp,
+                  );
                 });
               },
             ),
             Padding(
-              padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+              padding: const EdgeInsets.only(
+                right: 16.0,
+                top: 8.0,
+                bottom: 8.0,
+              ),
               child: Text(
                 'Last backup: $lastBackup',
-                style: Theme.of(context).textTheme.bodySmall, 
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
           ],
@@ -562,9 +642,11 @@ class SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(value
-              ? 'Daily reminder scheduled for ${_formatReminderTime(_dailyReminderHour, _dailyReminderMinute)}'
-              : 'Daily reminder turned off'),
+          content: Text(
+            value
+                ? 'Daily reminder scheduled for ${_formatReminderTime(_dailyReminderHour, _dailyReminderMinute)}'
+                : 'Daily reminder turned off',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -619,9 +701,11 @@ class SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(value
-              ? 'Subscription renewal alerts enabled'
-              : 'Subscription renewal alerts turned off'),
+          content: Text(
+            value
+                ? 'Subscription renewal alerts enabled'
+                : 'Subscription renewal alerts turned off',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -686,10 +770,7 @@ class SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _subscriptionReminderAdvanceDays = tempDays;
       });
-      await _prefs.setInt(
-        PrefKeys.subscriptionReminderAdvanceDays,
-        tempDays,
-      );
+      await _prefs.setInt(PrefKeys.subscriptionReminderAdvanceDays, tempDays);
       await NotificationService().rescheduleAllSubscriptionReminders();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -728,8 +809,8 @@ class SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title.toUpperCase(),
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -737,9 +818,7 @@ class SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
           _buildSectionTitle(context, 'Appearance'),
@@ -765,10 +844,12 @@ class SettingsScreenState extends State<SettingsScreen> {
             trailing: DropdownButton<String>(
               value: _currentCurrency,
               items: _currencies
-                  .map((String currency) => DropdownMenuItem<String>(
-                        value: currency,
-                        child: Text(currency),
-                      ))
+                  .map(
+                    (String currency) => DropdownMenuItem<String>(
+                      value: currency,
+                      child: Text(currency),
+                    ),
+                  )
                   .toList(),
               onChanged: (String? newValue) {
                 if (newValue != null) _saveCurrency(newValue);
@@ -777,10 +858,15 @@ class SettingsScreenState extends State<SettingsScreen> {
           ),
           ListTile(
             title: const Text('Switch Profile'),
-            trailing: Text(
-              CurrencySymbol().getLabel(_currentCurrency),
-              style: Theme.of(context).textTheme.bodyMedium,
+            subtitle: Text(
+              'Active profile #$_profileId · '
+              '${CurrencySymbol().getLabel(_currentCurrency)}',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            trailing: const Icon(Icons.chevron_right),
             onTap: _showProfileSwitchConfirmationDialog,
           ),
           _buildSectionTitle(context, 'Management'),
@@ -793,8 +879,12 @@ class SettingsScreenState extends State<SettingsScreen> {
                 MaterialPageRoute(
                   builder: (context) => SubscriptionsScreen(
                     profileId: _profileId,
-                    currencySymbol: CurrencySymbol().getSymbol(_currentCurrency),
-                    onWalletAmountChange: widget.onWalletAmountUpdated,
+                    currencySymbol: CurrencySymbol().getSymbol(
+                      _currentCurrency,
+                    ),
+                    onPaymentLogged:
+                        widget.onSubscriptionPaymentLogged ??
+                        widget.onWalletAmountUpdated,
                   ),
                 ),
               );
@@ -806,7 +896,9 @@ class SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CategoriesScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const CategoriesScreen(),
+                ),
               );
             },
           ),
@@ -827,10 +919,11 @@ class SettingsScreenState extends State<SettingsScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ExpenseLimitScreen(
-                          onStatusBarToggle: widget.onStatusBarToggle,
-                          onMonthlyLimitSaved: widget.onMonthlyLimitSaved,
-                        )),
+                  builder: (context) => ExpenseLimitScreen(
+                    onStatusBarToggle: widget.onStatusBarToggle,
+                    onMonthlyLimitSaved: widget.onMonthlyLimitSaved,
+                  ),
+                ),
               );
             },
           ),
@@ -853,7 +946,8 @@ class SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             title: const Text('Restore Data'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => DataBackup().importData(context, widget.onDeleteAllData),
+            onTap: () =>
+                DataBackup().importData(context, widget.onDeleteAllData),
           ),
           SwitchListTile(
             title: const Text('Daily Backup Reminder'),
@@ -923,7 +1017,9 @@ class SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const AISettingsScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const AISettingsScreen(),
+                ),
               );
             },
           ),
@@ -931,21 +1027,33 @@ class SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             title: const Text('Developer Mode'),
             // if on show ON in green else OFF in default theme color
-            trailing: Text(_isDeveloperMode ? 'ON' : 'OFF', style: _isDeveloperMode ? TextStyle(color: Colors.green) : TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+            trailing: Text(
+              _isDeveloperMode ? 'ON' : 'OFF',
+              style: _isDeveloperMode
+                  ? TextStyle(color: Colors.green)
+                  : TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+            ),
             onTap: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const DeveloperModeScreen()),
+                  builder: (context) => const DeveloperModeScreen(),
+                ),
               );
               final prefs = await SharedPreferences.getInstance();
               setState(() {
-                _isDeveloperMode = prefs.getBool(PrefKeys.isDeveloperMode) ?? false;
+                _isDeveloperMode =
+                    prefs.getBool(PrefKeys.isDeveloperMode) ?? false;
               });
             },
           ),
           ListTile(
-            title: const Text('Delete All Data', style: TextStyle(color: Colors.red)),
+            title: const Text(
+              'Delete All Data',
+              style: TextStyle(color: Colors.red),
+            ),
             trailing: const Icon(Icons.warning, color: Colors.red),
             onTap: _showDeleteConfirmationDialog,
           ),

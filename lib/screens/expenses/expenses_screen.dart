@@ -16,6 +16,9 @@ class ExpensesScreen extends StatefulWidget {
   final String currencySymbol;
   final VoidCallback onWalletAmountChange;
   final VoidCallback onAddExpense;
+  final VoidCallback onExpenseChanged;
+  final PersistenceContext persistence;
+  final Widget Function(Expense expense)? expenseEditorBuilder;
   final int initialTabIndex;
 
   const ExpensesScreen({
@@ -24,6 +27,9 @@ class ExpensesScreen extends StatefulWidget {
     required this.currencySymbol,
     required this.onWalletAmountChange,
     required this.onAddExpense,
+    required this.onExpenseChanged,
+    this.persistence = const PersistenceContext(),
+    this.expenseEditorBuilder,
     this.initialTabIndex = 0,
   });
 
@@ -87,7 +93,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   Future<void> _loadCategories() async {
-    final categories = await PersistenceContext().getCategories();
+    final categories = await widget.persistence.getCategories();
     if (!mounted) return;
 
     final selectedCategoryWasRemoved =
@@ -142,7 +148,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
       _selectedDate.month,
       _selectedDate.day,
     );
-    final loadedExpenses = await PersistenceContext().getExpensesByDate(
+    final loadedExpenses = await widget.persistence.getExpensesByDate(
       startOfDay,
       startOfDay,
       widget.profileId,
@@ -177,12 +183,12 @@ class ExpensesScreenState extends State<ExpensesScreen> {
     final previousDay = selectedDay.subtract(const Duration(days: 1));
     final double previousDayTotal;
     if (categoryId == null) {
-      previousDayTotal = await PersistenceContext().getExpenseSumByDate(
+      previousDayTotal = await widget.persistence.getExpenseSumByDate(
         previousDay,
         widget.profileId,
       );
     } else {
-      final previousDayExpenses = await PersistenceContext().getExpensesByDate(
+      final previousDayExpenses = await widget.persistence.getExpensesByDate(
         previousDay,
         previousDay,
         widget.profileId,
@@ -283,7 +289,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
   Future<void> _calculateSelectedMonthSpending() async {
     String monthlyLimitStr = _prefs.getString(PrefKeys.monthlyLimit) ?? '';
     if (monthlyLimitStr != '') {
-      double monthlyExp = await PersistenceContext().getExpenseSumByMonth(
+      double monthlyExp = await widget.persistence.getExpenseSumByMonth(
         _selectedDate,
         widget.profileId,
       );
@@ -303,46 +309,40 @@ class ExpensesScreenState extends State<ExpensesScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddExpenseScreen(
-          expenseToEdit: expense,
-          onWalletAmountChange: () {
-            widget.onWalletAmountChange();
-          },
-        ),
+        builder: (context) =>
+            widget.expenseEditorBuilder?.call(expense) ??
+            AddExpenseScreen(
+              expenseToEdit: expense,
+              onWalletAmountChange: () {
+                widget.onWalletAmountChange();
+              },
+            ),
       ),
     );
-    if (result == true) {
-      refresh();
+    if (mounted && result == true) {
+      widget.onExpenseChanged();
     }
   }
 
   Future<void> _deleteExpense(Expense expense) async {
-    await PersistenceContext().deleteExpense(expense.id!);
-    await _updateWalletOnExpenseDeletion(expense);
-    refresh();
-  }
-
-  Future<void> _updateWalletOnExpenseDeletion(Expense expense) async {
-    if (expense.paymentMethod != null &&
-        expense.paymentMethod != PaymentMethod.none.name) {
-      String prefKey = expense.paymentMethod == PaymentMethod.cash.name
-          ? PrefKeys.cashAmount
-          : PrefKeys.bankAmount;
-      double currentAmount =
-          _prefs.getDouble('$prefKey-${widget.profileId}') ?? 0.0;
-      double newAmount = currentAmount + expense.amount;
-      await _prefs.setDouble('$prefKey-${widget.profileId}', newAmount);
-
-      double totalWalletAmount =
-          _prefs.getDouble('${PrefKeys.walletAmount}-${widget.profileId}') ??
-          0.0;
-      double newTotalWalletAmount = totalWalletAmount + expense.amount;
-      await _prefs.setDouble(
-        '${PrefKeys.walletAmount}-${widget.profileId}',
-        newTotalWalletAmount,
+    try {
+      final deleted = await widget.persistence.deleteExpense(
+        expense.id!,
+        expense.profileId,
       );
-
-      widget.onWalletAmountChange();
+      if (!mounted) return;
+      if (deleted != 0) {
+        widget.onExpenseChanged();
+      } else {
+        refresh();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete the expense. Try again.'),
+        ),
+      );
     }
   }
 
@@ -601,8 +601,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
                     categoryName: _selectedCategoryName,
                     onEdit: _editExpense,
                     onTotalChanged: _updateMonthlyTotal,
-                    updateWalletOnExpenseDeletion:
-                        _updateWalletOnExpenseDeletion,
+                    onDelete: _deleteExpense,
                   ),
                 )
               else
@@ -611,6 +610,7 @@ class ExpensesScreenState extends State<ExpensesScreen> {
                   currencySymbol: widget.currencySymbol,
                   onDelete: _deleteExpense,
                   onEdit: _editExpense,
+                  onDataChanged: widget.onExpenseChanged,
                   emptyMessage: _selectedCategoryName == null
                       ? 'No expenses yet'
                       : 'No $_selectedCategoryName expenses for this day.',

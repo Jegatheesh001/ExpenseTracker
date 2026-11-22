@@ -4,6 +4,11 @@ import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
 
 class PersistenceContext {
+  const PersistenceContext();
+
+  Future<T> withWalletWrite<T>(Future<T> Function() update) =>
+      DatabaseHelper().withWalletWrite(update);
+
   // Retrieves all categories from the database.
   Future<List<Category>> getCategories() async {
     return DatabaseHelper().getCategories();
@@ -20,18 +25,37 @@ class PersistenceContext {
   }
 
   // Deletes an expense by its ID.
-  Future<int> deleteExpense(int id) async {
-    return await DatabaseHelper().deleteExpense(id);
+  Future<int> deleteExpense(int id, int profileId) async {
+    return await DatabaseHelper().deleteExpense(id, profileId);
   }
 
   // Retrieves expenses within a specific date range.
   Future<List<Expense>> getExpensesByDate(
     DateTime startDate,
     DateTime endDate,
-    int profileId
+    int profileId,
   ) async {
-    return await DatabaseHelper().getExpensesByDate(startDate, endDate, profileId);
+    return await DatabaseHelper().getExpensesByDate(
+      startDate,
+      endDate,
+      profileId,
+    );
   }
+
+  Future<Expense?> getExpenseById(int expenseId, int profileId) =>
+      DatabaseHelper().getExpenseById(expenseId, profileId);
+
+  Future<Map<String, double>> getSpendingBreakdown(
+    DateTime startDate,
+    DateTime endDate,
+    int profileId,
+    SpendingGroup group,
+  ) => DatabaseHelper().getSpendingBreakdown(
+    startDate,
+    endDate,
+    profileId,
+    group,
+  );
 
   // Saves a new category to the database.
   Future<void> saveCategory(Category newCategory) async {
@@ -60,24 +84,52 @@ class PersistenceContext {
     await DatabaseHelper().deleteAllExpenseData();
   }
 
-  Future<Map<String, double>> getCategorySpendingForMonth(DateTime date, int profileId) async {
+  Future<Map<String, double>> getCategorySpendingForMonth(
+    DateTime date,
+    int profileId,
+  ) async {
     return await DatabaseHelper().getCategorySpendingForMonth(date, profileId);
   }
 
-  Future<Map<String, double>> getTagSpendingForMonth(DateTime date, int profileId) async {
+  Future<Map<String, double>> getTagSpendingForMonth(
+    DateTime date,
+    int profileId,
+  ) async {
     return await DatabaseHelper().getTagSpendingForMonth(date, profileId);
   }
 
-  Future<Map<String, double>> getExpensesForLastFiveMonths(int profileId) async {
+  Future<Map<String, double>> getExpensesForLastFiveMonths(
+    int profileId,
+  ) async {
     return await DatabaseHelper().getExpensesForLastFiveMonths(profileId);
+  }
+
+  Future<List<Expense>> getExpensesByCategoryForMonth(
+    String category,
+    DateTime month,
+    int profileId,
+  ) {
+    return DatabaseHelper().getExpensesByCategoryForMonth(
+      category,
+      month,
+      profileId,
+    );
   }
 
   Future<List<Expense>> getExpensesByTag(String tag, int profileId) async {
     return await DatabaseHelper().getExpensesByTag(tag, profileId);
   }
 
-  Future<List<Expense>> getExpensesByTagAndMonth(String tag, DateTime month, int profileId) async {
-    return await DatabaseHelper().getExpensesByTag(tag, profileId, month : month);
+  Future<List<Expense>> getExpensesByTagAndMonth(
+    String tag,
+    DateTime month,
+    int profileId,
+  ) async {
+    return await DatabaseHelper().getExpensesByTag(
+      tag,
+      profileId,
+      month: month,
+    );
   }
 
   Future<List<String>> getAllTags() async {
@@ -132,7 +184,10 @@ class PersistenceContext {
     return await DatabaseHelper().searchExpenses(query);
   }
 
-  Future<List<Expense>> searchExpensesByProfileId(String query, int profileId) async {
+  Future<List<Expense>> searchExpensesByProfileId(
+    String query,
+    int profileId,
+  ) async {
     return await DatabaseHelper().searchExpenses(query, profileId: profileId);
   }
 

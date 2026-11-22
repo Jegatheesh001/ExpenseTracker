@@ -13,8 +13,6 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
-enum PaymentMethod { cash, bank, none }
-
 String _normalizeCategoryName(String value) {
   return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
 }
@@ -645,10 +643,41 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
 
       if (confirmUpdate) {
-        final int id = await PersistenceContext().saveOrUpdateExpense(
-          newExpense,
-        );
-        await _updateBalances(amount);
+        final int id;
+        try {
+          id = await PersistenceContext().withWalletWrite(() async {
+            final prefs = await SharedPreferences.getInstance();
+            final account = _selectedPaymentMethod == PaymentMethod.cash
+                ? PrefKeys.cashAmount
+                : _selectedPaymentMethod == PaymentMethod.bank
+                ? PrefKeys.bankAmount
+                : null;
+            if (account != null) {
+              var available = prefs.getDouble('$account-$_profileId') ?? 0.0;
+              if (expenseToEdit?.paymentMethod ==
+                  _selectedPaymentMethod?.name) {
+                available += expenseToEdit!.amount;
+              }
+              if (amount > available) throw StateError('Insufficient balance');
+            }
+            final id = await PersistenceContext().saveOrUpdateExpense(
+              newExpense,
+            );
+            await _updateBalances(amount);
+            return id;
+          });
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Unable to save expense. Check wallet storage and try again.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
 
         // Auto attach image if scanned (only if it's a new image, not a rescan of an existing one)
         if (_tempImagePath != null) {
@@ -684,9 +713,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   // Deletes the current expense being edited.
-  Future<void> _deleteCurrentExpense(BuildContext context) async {
-    if (widget.expenseToEdit == null || widget.expenseToEdit!.id == null)
-      return;
+  Future<void> _deleteCurrentExpense() async {
+    final expense = widget.expenseToEdit;
+    final expenseId = expense?.id;
+    if (expense == null || expenseId == null) return;
 
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
@@ -714,38 +744,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       },
     );
 
-    if (confirmDelete == true) {
-      final prefs = await SharedPreferences.getInstance();
-      final amountToRefund = widget.expenseToEdit!.amount;
-      final paymentMethod = widget.expenseToEdit!.paymentMethod;
-
-      if (paymentMethod != null) {
-        String? amountKey;
-        if (paymentMethod == PaymentMethod.cash.name) {
-          amountKey = '${PrefKeys.cashAmount}-$_profileId';
-        } else if (paymentMethod == PaymentMethod.bank.name) {
-          amountKey = '${PrefKeys.bankAmount}-$_profileId';
-        }
-        if (amountKey != null) {
-          double currentAmount = prefs.getDouble(amountKey) ?? 0.0;
-          await prefs.setDouble(amountKey, currentAmount + amountToRefund);
-
-          // also update the combined wallet amount
-          double cashAmount =
-              prefs.getDouble('${PrefKeys.cashAmount}-$_profileId') ?? 0.0;
-          double bankAmount =
-              prefs.getDouble('${PrefKeys.bankAmount}-$_profileId') ?? 0.0;
-          await prefs.setDouble(
-            '${PrefKeys.walletAmount}-$_profileId',
-            cashAmount + bankAmount,
-          );
-
-          widget.onWalletAmountChange(); // Update wallet display on home screen
-        }
-      }
-
-      await PersistenceContext().deleteExpense(widget.expenseToEdit!.id!);
-      Navigator.pop(context, true); // Signal deletion
+    if (confirmDelete != true || !mounted) return;
+    try {
+      final deleted = await PersistenceContext().deleteExpense(
+        expenseId,
+        expense.profileId,
+      );
+      if (!mounted) return;
+      if (deleted != 0) widget.onWalletAmountChange();
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete the expense. Try again.'),
+        ),
+      );
     }
   }
 
@@ -1268,7 +1282,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               if (expenseToEdit != null && expenseToEdit!.categoryId != 0) ...[
                 const SizedBox(height: 16),
                 OutlinedButton(
-                  onPressed: () => _deleteCurrentExpense(context),
+                  onPressed: _deleteCurrentExpense,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side: const BorderSide(color: Colors.red),

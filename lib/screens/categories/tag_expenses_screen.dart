@@ -13,18 +13,27 @@ import 'package:expense_tracker/utils/currency_symbol.dart';
 class TagExpensesScreen extends StatefulWidget {
   final String tag;
   final DateTime? selectedDate;
+  final int? profileId;
+  final VoidCallback? onDataChanged;
+  final PersistenceContext persistence;
 
-  const TagExpensesScreen({Key? key, required this.tag, this.selectedDate}) : super(key: key);
+  const TagExpensesScreen({
+    super.key,
+    required this.tag,
+    this.selectedDate,
+    this.profileId,
+    this.onDataChanged,
+    this.persistence = const PersistenceContext(),
+  });
 
   @override
-  _TagExpensesScreenState createState() => _TagExpensesScreenState();
+  State<TagExpensesScreen> createState() => _TagExpensesScreenState();
 }
 
 class _TagExpensesScreenState extends State<TagExpensesScreen> {
   Map<String, List<Expense>> _groupedExpenses = {};
   Map<String, double> _monthlyTotals = {};
   String _currencySymbol = '₹';
-  int _profileId = 0;
 
   @override
   void initState() {
@@ -34,14 +43,22 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
 
   Future<void> _loadExpenses() async {
     final prefs = await SharedPreferences.getInstance();
-    _profileId = prefs.getInt(PrefKeys.profileId) ?? 0;
-    final currency = prefs.getString('${PrefKeys.selectedCurrency}-$_profileId') ?? 'Rupee';
+    final profileId = widget.profileId ?? prefs.getInt(PrefKeys.profileId) ?? 0;
+    final currency =
+        prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
     _currencySymbol = CurrencySymbol().getSymbol(currency);
     List<Expense> loadedExpenses = [];
     if (widget.selectedDate != null) {
-      loadedExpenses = await PersistenceContext().getExpensesByTagAndMonth(widget.tag, widget.selectedDate!, _profileId);
+      loadedExpenses = await widget.persistence.getExpensesByTagAndMonth(
+        widget.tag,
+        widget.selectedDate!,
+        profileId,
+      );
     } else {
-      loadedExpenses = await PersistenceContext().getExpensesByTag(widget.tag, _profileId);
+      loadedExpenses = await widget.persistence.getExpensesByTag(
+        widget.tag,
+        profileId,
+      );
     }
 
     Map<String, List<Expense>> grouped = {};
@@ -56,6 +73,7 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
       totals[month] = totals[month]! + expense.amount;
     }
 
+    if (!mounted) return;
     setState(() {
       _groupedExpenses = grouped;
       _monthlyTotals = totals;
@@ -69,14 +87,30 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
         builder: (context) => AddExpenseScreen(expenseToEdit: expense, onWalletAmountChange: () {}),
       ),
     );
-    if (result == true) {
+    if (result == true && mounted) {
+      widget.onDataChanged?.call();
       _loadExpenses();
     }
   }
 
-  Future<void> _deleteExpense(int id) async {
-    await PersistenceContext().deleteExpense(id);
-    _loadExpenses();
+  Future<void> _deleteExpense(Expense expense) async {
+    final onDataChanged = widget.onDataChanged;
+    try {
+      final deleted = await widget.persistence.deleteExpense(
+        expense.id!,
+        expense.profileId,
+      );
+      if (deleted != 0) onDataChanged?.call();
+      if (!mounted) return;
+      await _loadExpenses();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete the expense. Try again.'),
+        ),
+      );
+    }
   }
 
   void _showDeleteConfirmation(BuildContext context, Expense expense) {
@@ -93,8 +127,8 @@ class _TagExpensesScreenState extends State<TagExpensesScreen> {
             ),
             TextButton(
               onPressed: () {
-                _deleteExpense(expense.id!);
                 Navigator.of(context).pop();
+                _deleteExpense(expense);
               },
               child: const Text('Delete'),
             ),

@@ -12,7 +12,7 @@ class MonthView extends StatefulWidget {
   final String? categoryName;
   final Future<void> Function(Expense) onEdit;
   final void Function(double) onTotalChanged;
-  final Future<void> Function(Expense) updateWalletOnExpenseDeletion;
+  final Future<void> Function(Expense) onDelete;
 
   const MonthView({
     super.key,
@@ -23,7 +23,7 @@ class MonthView extends StatefulWidget {
     this.categoryName,
     required this.onEdit,
     required this.onTotalChanged,
-    required this.updateWalletOnExpenseDeletion,
+    required this.onDelete,
   });
 
   @override
@@ -92,13 +92,6 @@ class _MonthViewState extends State<MonthView> {
       widget.onTotalChanged(total);
     }
     return groupedExpenses;
-  }
-
-  Future<void> _deleteExpense(int id) async {
-    await DatabaseHelper().deleteExpense(id);
-    setState(() {
-      _groupedExpenses = _fetchAndGroupExpenses();
-    });
   }
 
   @override
@@ -227,9 +220,8 @@ class _MonthViewState extends State<MonthView> {
             ),
             TextButton(
               onPressed: () {
-                _deleteExpense(expense.id!);
-                widget.updateWalletOnExpenseDeletion(expense);
                 Navigator.of(context).pop();
+                widget.onDelete(expense);
               },
               child: const Text('Delete'),
             ),

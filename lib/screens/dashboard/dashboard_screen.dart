@@ -1,5 +1,6 @@
 import 'package:expense_tracker/screens/transfers/bank_cash_transfer_screen.dart';
 import 'package:expense_tracker/widgets/common_widgets.dart';
+import 'package:expense_tracker/widgets/subscription_payment_options_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/db/database_helper.dart';
@@ -16,12 +17,14 @@ class DashboardScreen extends StatefulWidget {
   final int profileId;
   final Function(int) navigateToExpensesTab;
   final VoidCallback onWalletAmountChange;
+  final VoidCallback? onSubscriptionPaymentLogged;
 
   const DashboardScreen({
     super.key,
     required this.profileId,
     required this.navigateToExpensesTab,
     required this.onWalletAmountChange,
+    this.onSubscriptionPaymentLogged,
   });
 
   @override
@@ -46,11 +49,17 @@ class DashboardScreenState extends State<DashboardScreen> {
   String _username = '';
   String _tipOfTheDay = '';
   bool _isBalanceVisible = true;
+  void _notifySubscriptionPaymentLogged() {
+    (widget.onSubscriptionPaymentLogged ?? widget.onWalletAmountChange)();
+  }
+
   int _refreshGeneration = 0;
 
   // New text editing controllers for balance management dialog
-  late final TextEditingController _cashAmountController = TextEditingController();
-  late final TextEditingController _bankAmountController = TextEditingController();
+  late final TextEditingController _cashAmountController =
+      TextEditingController();
+  late final TextEditingController _bankAmountController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -164,8 +173,10 @@ class DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadBalances(int profileId, int generation) async {
     if (!mounted || generation != _refreshGeneration) return;
     setState(() {
-      _cashBalance = _prefs.getDouble('${PrefKeys.cashAmount}-$profileId') ?? 0.0;
-      _bankBalance = _prefs.getDouble('${PrefKeys.bankAmount}-$profileId') ?? 0.0;
+      _cashBalance =
+          _prefs.getDouble('${PrefKeys.cashAmount}-$profileId') ?? 0.0;
+      _bankBalance =
+          _prefs.getDouble('${PrefKeys.bankAmount}-$profileId') ?? 0.0;
     });
   }
 
@@ -304,16 +315,12 @@ class DashboardScreenState extends State<DashboardScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _getGreeting(),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(_getGreeting(), style: Theme.of(context).textTheme.bodySmall),
             Text(
               _username,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -332,7 +339,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   builder: (context) => SubscriptionsScreen(
                     profileId: widget.profileId,
                     currencySymbol: _currencySymbol,
-                    onWalletAmountChange: widget.onWalletAmountChange,
+                    onPaymentLogged: _notifySubscriptionPaymentLogged,
                     initialFilter: 'Due',
                   ),
                 ),
@@ -380,7 +387,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 30),
                 _buildFinTipCard(),
                 const SizedBox(
-                    height: 100), // Extra space for FAB and Bottom Nav
+                  height: 100,
+                ), // Extra space for FAB and Bottom Nav
               ],
             ),
           ),
@@ -431,6 +439,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoggingSubscriptions = true);
     try {
       int count = 0;
+      int insufficient = 0;
       final now = DateTime.now();
 
       for (final sub in subscriptions) {
@@ -446,7 +455,7 @@ class DashboardScreenState extends State<DashboardScreen> {
           remarks: 'Auto-Logged Subscription: ${sub.title}',
           expenseDate: sub.nextBillingDate,
           entryDate: now,
-          paymentMethod: sub.paymentMethod,
+          paymentMethod: sub.expensePaymentMethod,
           tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
         );
 
@@ -456,31 +465,42 @@ class DashboardScreenState extends State<DashboardScreen> {
           anchorDay: sub.startDate.day,
         );
 
-        final logged = await DatabaseHelper().logSubscriptionPayment(
+        if (!mounted) break;
+        final result = await logSubscriptionPaymentWithOptions(
+          context,
           subscription: sub,
           expense: newExpense,
           nextDue: nextDue,
+          ownerCurrency: ownerCurrency,
         );
-        if (logged) count++;
+        if (result == SubscriptionPaymentResult.logged) {
+          count++;
+        } else if (result == SubscriptionPaymentResult.insufficientBalance) {
+          insufficient++;
+        }
       }
 
-      if (count > 0) widget.onWalletAmountChange();
+      if (count > 0) {
+        _notifySubscriptionPaymentLogged();
+      }
       NotificationService().rescheduleAllSubscriptionReminders();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              count == 0
+              insufficient > 0
+                  ? 'Logged $count payment(s). $insufficient had insufficient funds and remain due.'
+                  : count == 0
                   ? 'No matching payments were logged. Review what is still due.'
                   : 'Logged $count subscription payment(s).',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: insufficient == 0 ? Colors.green : null,
           ),
         );
         refresh();
       }
     } catch (_) {
-      widget.onWalletAmountChange();
+      _notifySubscriptionPaymentLogged();
       NotificationService().rescheduleAllSubscriptionReminders();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -519,7 +539,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               builder: (context) => SubscriptionsScreen(
                 profileId: widget.profileId,
                 currencySymbol: _currencySymbol,
-                onWalletAmountChange: widget.onWalletAmountChange,
+                onPaymentLogged: _notifySubscriptionPaymentLogged,
               ),
             ),
           );
@@ -535,7 +555,11 @@ class DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.repeat, color: theme.colorScheme.primary, size: 20),
+                      Icon(
+                        Icons.repeat,
+                        color: theme.colorScheme.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Recurring Subscriptions',
@@ -564,7 +588,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                         style: theme.textTheme.bodySmall,
                       ),
                       if (_unpricedSubscriptions > 0)
-                        Text('Partial estimate', style: theme.textTheme.bodySmall),
+                        Text(
+                          'Partial estimate',
+                          style: theme.textTheme.bodySmall,
+                        ),
                       const SizedBox(height: 4),
                       Text(
                         '$_currencySymbol ${_monthlySubscriptionTotal.toStringAsFixed(1)}',
@@ -577,14 +604,21 @@ class DashboardScreenState extends State<DashboardScreen> {
                   ),
                   if (_upcomingSubscriptionsCount > 0)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade100,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.notifications_active, size: 14, color: Colors.amber.shade900),
+                          Icon(
+                            Icons.notifications_active,
+                            size: 14,
+                            color: Colors.amber.shade900,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '$_upcomingSubscriptionsCount due',
@@ -669,9 +703,13 @@ class DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1F2B36) // A slightly darker, appealing blue-grey shade for card surface
+              ? const Color(
+                  0xFF1F2B36,
+                ) // A slightly darker, appealing blue-grey shade for card surface
               : Theme.of(context).colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(16), // Softer, more modern corners
+          borderRadius: BorderRadius.circular(
+            16,
+          ), // Softer, more modern corners
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,12 +717,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Today',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Text('Today', style: Theme.of(context).textTheme.bodySmall),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 16,
                 ),
-                Icon(Icons.calendar_today_outlined,
-                    color: Theme.of(context).colorScheme.onSurface, size: 16),
               ],
             ),
             const SizedBox(height: 10),
@@ -692,40 +730,41 @@ class DashboardScreenState extends State<DashboardScreen> {
               fit: BoxFit.scaleDown,
               child: Text(
                 '$_currencySymbol ${_todayExpense.toStringAsFixed(1)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             FittedBox(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _todayChange >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 12,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_todayChange.abs().toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _todayChange >= 0
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${_todayChange.abs().toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -750,12 +789,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Monthly',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Text('Monthly', style: Theme.of(context).textTheme.bodySmall),
+                Icon(
+                  Icons.bar_chart_rounded,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 16,
                 ),
-                Icon(Icons.bar_chart_rounded,
-                    color: Theme.of(context).colorScheme.onSurface, size: 16),
               ],
             ),
             const SizedBox(height: 10),
@@ -763,10 +802,9 @@ class DashboardScreenState extends State<DashboardScreen> {
               fit: BoxFit.scaleDown,
               child: Text(
                 '$_currencySymbol ${_monthlyExpense.toStringAsFixed(1)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -774,8 +812,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: _monthlyChange <= 0
                           ? Colors.green.withOpacity(0.2)
@@ -789,15 +829,18 @@ class DashboardScreenState extends State<DashboardScreen> {
                           _monthlyChange <= 0
                               ? Icons.arrow_downward
                               : Icons.arrow_upward,
-                          color: _monthlyChange <= 0 ? Colors.green : Colors.red,
+                          color: _monthlyChange <= 0
+                              ? Colors.green
+                              : Colors.red,
                           size: 12,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${_monthlyChange.abs().toStringAsFixed(0)}%',
                           style: TextStyle(
-                            color:
-                                _monthlyChange <= 0 ? Colors.green : Colors.red,
+                            color: _monthlyChange <= 0
+                                ? Colors.green
+                                : Colors.red,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -827,10 +870,9 @@ class DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               'Your Balance',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             IconButton(
               icon: Icon(
@@ -909,25 +951,22 @@ class DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (subtitle.isNotEmpty)
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
           ),
           Text(
-            _isBalanceVisible ? '$_currencySymbol${amount.toStringAsFixed(2)}' : '****',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+            _isBalanceVisible
+                ? '$_currencySymbol${amount.toStringAsFixed(2)}'
+                : '****',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -957,29 +996,25 @@ class DashboardScreenState extends State<DashboardScreen> {
                       : Theme.of(context).colorScheme.primary.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.lightbulb_outline,
-                    color: Theme.of(context).colorScheme.primary, size: 20),
+                child: Icon(
+                  Icons.lightbulb_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Text(
                 'Tip of the Day',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _loadTip,
-              )
+              IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTip),
             ],
           ),
           const SizedBox(height: 15),
-          Text(
-            _tipOfTheDay,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text(_tipOfTheDay, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
@@ -1105,7 +1140,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           side: BorderSide(
-                            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withOpacity(0.5),
                           ),
                         ),
                         child: const Text('Cancel'),
@@ -1133,8 +1169,25 @@ class DashboardScreenState extends State<DashboardScreen> {
                               newCashAmount >= 0 &&
                               newBankAmount != null &&
                               newBankAmount >= 0) {
-                            await _saveNewAmounts(newCashAmount, newBankAmount);
-                            Navigator.of(dialogContext).pop();
+                            try {
+                              await _saveNewAmounts(
+                                newCashAmount,
+                                newBankAmount,
+                              );
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Unable to update wallet. Try again.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -1150,7 +1203,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             );
           },
@@ -1163,11 +1216,26 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Helper function to save amounts and refresh state
-  Future<void> _saveNewAmounts(double newCashAmount, double newBankAmount) async {
-    await _prefs.setDouble('${PrefKeys.cashAmount}-${widget.profileId}', newCashAmount);
-    await _prefs.setDouble('${PrefKeys.bankAmount}-${widget.profileId}', newBankAmount);
-    await _prefs.setDouble('${PrefKeys.walletAmount}-${widget.profileId}', newCashAmount + newBankAmount);
-    
+  Future<void> _saveNewAmounts(
+    double newCashAmount,
+    double newBankAmount,
+  ) async {
+    final profileId = widget.profileId;
+    await PersistenceContext().withWalletWrite(() async {
+      await _prefs.setDouble(
+        '${PrefKeys.cashAmount}-$profileId',
+        newCashAmount,
+      );
+      await _prefs.setDouble(
+        '${PrefKeys.bankAmount}-$profileId',
+        newBankAmount,
+      );
+      await _prefs.setDouble(
+        '${PrefKeys.walletAmount}-$profileId',
+        newCashAmount + newBankAmount,
+      );
+    });
+
     // Update local state and refresh dashboard data
     await _loadBalances(widget.profileId, ++_refreshGeneration);
     widget.onWalletAmountChange();

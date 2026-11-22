@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:expense_tracker/db/database_helper.dart';
+import 'package:expense_tracker/db/persistence_context.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/widgets/common_widgets.dart';
 import 'package:expense_tracker/screens/expenses/add_expense_screen.dart';
@@ -10,17 +10,22 @@ class CategoryMonthViewScreen extends StatefulWidget {
   final DateTime selectedDate;
   final int profileId;
   final String currencySymbol;
+  final VoidCallback? onDataChanged;
+  final PersistenceContext persistence;
 
   const CategoryMonthViewScreen({
-    Key? key,
+    super.key,
     required this.category,
     required this.selectedDate,
     required this.profileId,
     required this.currencySymbol,
-  }) : super(key: key);
+    this.onDataChanged,
+    this.persistence = const PersistenceContext(),
+  });
 
   @override
-  _CategoryMonthViewScreenState createState() => _CategoryMonthViewScreenState();
+  State<CategoryMonthViewScreen> createState() =>
+      _CategoryMonthViewScreenState();
 }
 
 class _CategoryMonthViewScreenState extends State<CategoryMonthViewScreen> {
@@ -33,7 +38,7 @@ class _CategoryMonthViewScreenState extends State<CategoryMonthViewScreen> {
   }
 
   void _loadExpenses() {
-    _expensesFuture = DatabaseHelper().getExpensesByCategoryForMonth(
+    _expensesFuture = widget.persistence.getExpensesByCategoryForMonth(
       widget.category,
       widget.selectedDate,
       widget.profileId,
@@ -47,18 +52,32 @@ class _CategoryMonthViewScreenState extends State<CategoryMonthViewScreen> {
         builder: (context) => AddExpenseScreen(expenseToEdit: expense, onWalletAmountChange: () {}),
       ),
     );
-    if (result == true) {
+    if (result == true && mounted) {
+      widget.onDataChanged?.call();
       setState(() {
         _loadExpenses();
       });
     }
   }
 
-  Future<void> _deleteExpense(int id) async {
-    await DatabaseHelper().deleteExpense(id);
-    setState(() {
-      _loadExpenses();
-    });
+  Future<void> _deleteExpense(Expense expense) async {
+    final onDataChanged = widget.onDataChanged;
+    try {
+      final deleted = await widget.persistence.deleteExpense(
+        expense.id!,
+        expense.profileId,
+      );
+      if (deleted != 0) onDataChanged?.call();
+      if (!mounted) return;
+      setState(_loadExpenses);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to delete the expense. Try again.'),
+        ),
+      );
+    }
   }
 
   void _showDeleteConfirmation(BuildContext context, Expense expense) {
@@ -75,8 +94,8 @@ class _CategoryMonthViewScreenState extends State<CategoryMonthViewScreen> {
             ),
             TextButton(
               onPressed: () {
-                _deleteExpense(expense.id!);
                 Navigator.of(context).pop();
+                _deleteExpense(expense);
               },
               child: const Text('Delete'),
             ),

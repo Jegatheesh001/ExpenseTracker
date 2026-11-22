@@ -34,6 +34,10 @@ class BilledItem {
   }
 }
 
+enum SpendingGroup { category, tag, paymentMethod }
+
+enum PaymentMethod { cash, bank, none }
+
 class Expense {
   final int? id;
   final int profileId;
@@ -54,7 +58,7 @@ class Expense {
       profileId: map['profileId'],
       categoryId: map['categoryId'],
       category: map['category'],
-      amount: map['amount'],
+      amount: (map['amount'] as num).toDouble(),
       remarks: map['remarks'],
       expenseDate: DateTime.parse(
         map['expenseDate'],
@@ -137,6 +141,14 @@ class Subscription {
   final String? remarks;
   final bool isActive;
   final bool autoLogExpense;
+
+  /// The wallet account affected by logging a payment for this subscription.
+  String? get expensePaymentMethod =>
+      switch (paymentMethod?.trim().toLowerCase()) {
+        'cash' => 'cash',
+        'bank' || 'bank transfer' || 'debit card' || 'upi' => 'bank',
+        _ => null,
+      };
 
   Subscription({
     this.id,

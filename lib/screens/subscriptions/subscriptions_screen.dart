@@ -6,22 +6,26 @@ import 'package:expense_tracker/utils/pref_keys.dart';
 import 'package:expense_tracker/db/database_helper.dart';
 import 'package:expense_tracker/db/entity.dart';
 import 'package:expense_tracker/widgets/add_subscription_dialog.dart';
+import 'package:expense_tracker/widgets/subscription_payment_options_dialog.dart';
 import 'package:expense_tracker/utils/subscription_date_utils.dart';
 import 'package:expense_tracker/services/notification_service.dart';
 import 'package:expense_tracker/services/currency_conversion_service.dart';
+import 'package:expense_tracker/services/chatbot_tools.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   final int profileId;
   final String currencySymbol;
-  final VoidCallback? onWalletAmountChange;
+  final VoidCallback? onPaymentLogged;
   final String initialFilter;
+  final SubscriptionReview? review;
 
   const SubscriptionsScreen({
     super.key,
     required this.profileId,
     required this.currencySymbol,
-    this.onWalletAmountChange,
+    this.onPaymentLogged,
     this.initialFilter = 'All',
+    this.review,
   });
 
   @override
@@ -37,6 +41,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   Map<String, double> _conversionRates = {};
   bool _isLoadingRates = false;
   int _loadGeneration = 0;
+  bool _reviewInProgress = false;
+  String? _reviewError;
 
   @override
   void initState() {
@@ -66,7 +72,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       final prefs = await SharedPreferences.getInstance();
       final currency =
           prefs.getString('${PrefKeys.selectedCurrency}-$profileId') ?? 'Rupee';
-      final subs = await DatabaseHelper().getSubscriptions();
+      final subs = await DatabaseHelper().getSubscriptions(
+        widget.review == null ? null : profileId,
+      );
       if (!mounted || generation != _loadGeneration) return;
 
       final currencies = CurrencySymbol();
@@ -92,7 +100,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         _isLoading = false;
         _isLoadingRates = foreignCodes.isNotEmpty;
       });
-      NotificationService().rescheduleAllSubscriptionReminders();
+      if (widget.review == null) {
+        NotificationService().rescheduleAllSubscriptionReminders();
+      }
       if (foreignCodes.isEmpty) return;
 
       final rates = await CurrencyConversionService.instance.getRatesForProfile(
@@ -110,6 +120,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       setState(() {
         _isLoading = false;
         _isLoadingRates = false;
+        if (widget.review != null) {
+          _reviewError = 'Unable to load subscriptions.';
+        }
       });
     }
   }
@@ -183,15 +196,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ),
     );
 
-    if (result == true) {
-      _loadSubscriptions();
-    }
+    if (result == true) await _finishMutation();
   }
 
   Future<void> _toggleActive(Subscription sub) async {
     final newStatus = !sub.isActive;
     await DatabaseHelper().toggleSubscriptionStatus(sub.id!, newStatus);
-    _loadSubscriptions();
+    await _finishMutation();
   }
 
   Future<void> _deleteSubscription(Subscription sub) async {
@@ -214,10 +225,10 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ),
     );
 
-    if (confirm == true && sub.id != null) {
+    if (mounted && confirm == true && sub.id != null) {
       await DatabaseHelper().deleteSubscription(sub.id!);
       await NotificationService().cancelSubscriptionReminder(sub.id!);
-      _loadSubscriptions();
+      await _finishMutation();
     }
   }
 
@@ -637,7 +648,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         remarks: 'Recurring Subscription: ${sub.title}',
         expenseDate: selectedDate,
         entryDate: now,
-        paymentMethod: sub.paymentMethod,
+        paymentMethod: sub.expensePaymentMethod,
         tags: ['subscription', sub.title.toLowerCase().replaceAll(' ', '_')],
       );
 
@@ -660,12 +671,14 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         anchorDay: sub.startDate.day,
       );
 
-      bool logged;
+      SubscriptionPaymentResult result;
       try {
-        logged = await DatabaseHelper().logSubscriptionPayment(
+        result = await logSubscriptionPaymentWithOptions(
+          context,
           subscription: sub,
           expense: newExpense,
           nextDue: nextDue,
+          ownerCurrency: ownerCurrency,
         );
       } catch (_) {
         if (mounted) {
@@ -676,7 +689,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         return;
       }
       if (!mounted) return;
-      if (!logged) {
+      if (result == SubscriptionPaymentResult.insufficientBalance) return;
+      if (result == SubscriptionPaymentResult.stale) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Subscription changed. Review its next due date.'),
@@ -685,7 +699,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         _loadSubscriptions();
         return;
       }
-      widget.onWalletAmountChange?.call();
+      widget.onPaymentLogged?.call();
 
       if (mounted) {
         final formattedDate = DateFormat('MMM dd, yyyy').format(selectedDate);
@@ -697,7 +711,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        _loadSubscriptions();
+        await _finishMutation();
       }
     }
   }
@@ -740,7 +754,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ),
     );
 
-    if (confirm == true && sub.id != null) {
+    if (mounted && confirm == true && sub.id != null) {
       final updatedSub = sub.copyWith(nextBillingDate: nextDue);
       await DatabaseHelper().saveOrUpdateSubscription(updatedSub);
 
@@ -754,9 +768,155 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             backgroundColor: Colors.blue,
           ),
         );
-        _loadSubscriptions();
+        await _finishMutation();
       }
     }
+  }
+
+  Future<void> _finishMutation() async {
+    if (!mounted) return;
+    if (widget.review == null) {
+      await _loadSubscriptions();
+      return;
+    }
+    await NotificationService().rescheduleAllSubscriptionReminders();
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  String? _reviewBlockReason(SubscriptionAction action, Subscription? sub) {
+    if (action == SubscriptionAction.add) return null;
+    if (sub == null) {
+      return 'This subscription is no longer available in this profile.';
+    }
+    return switch (action) {
+      SubscriptionAction.pause ||
+      SubscriptionAction.skip ||
+      SubscriptionAction.logPayment when !sub.isActive =>
+        'This subscription is paused.',
+      SubscriptionAction.resume when sub.isActive =>
+        'This subscription is already active.',
+      _ => null,
+    };
+  }
+
+  Future<void> _runReview(SubscriptionReview review) async {
+    if (_reviewInProgress) return;
+    setState(() {
+      _reviewInProgress = true;
+      _reviewError = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      if ((prefs.getInt(PrefKeys.profileId) ?? 0) != widget.profileId) {
+        setState(
+          () => _reviewError =
+              'Switch back to the original profile to review this action.',
+        );
+        return;
+      }
+      final subscriptions = await DatabaseHelper().getSubscriptions(
+        widget.profileId,
+      );
+      if (!mounted) return;
+      final sub = subscriptions
+          .where((sub) => sub.id == review.subscriptionId)
+          .firstOrNull;
+      final action = review.action;
+      final blocked = _reviewBlockReason(action, sub);
+      setState(() {
+        _subscriptions = subscriptions;
+        _reviewError = blocked;
+      });
+      if (blocked != null) return;
+      switch (action) {
+        case SubscriptionAction.add:
+          await _openAddEditSheet();
+        case SubscriptionAction.edit:
+          await _openAddEditSheet(sub!);
+        case SubscriptionAction.pause:
+        case SubscriptionAction.resume:
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(action.label),
+              content: Text(sub!.title),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    action == SubscriptionAction.pause ? 'Pause' : 'Resume',
+                  ),
+                ),
+              ],
+            ),
+          );
+          if (mounted && confirm == true) await _toggleActive(sub!);
+        case SubscriptionAction.skip:
+          await _skipSubscription(sub!);
+        case SubscriptionAction.delete:
+          await _deleteSubscription(sub!);
+        case SubscriptionAction.logPayment:
+          await _logSubscriptionAsExpense(sub!);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _reviewError = 'Unable to complete this action. Try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reviewInProgress = false);
+    }
+  }
+
+  Widget _buildReview(SubscriptionReview review) {
+    final sub = _subscriptions
+        .where((sub) => sub.id == review.subscriptionId)
+        .firstOrNull;
+    final blocked = _reviewBlockReason(review.action, sub);
+    return PopScope(
+      canPop: !_reviewInProgress,
+      child: Scaffold(
+        appBar: AppBar(title: Text(review.action.label)),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  if (sub != null) ...[
+                    Text(
+                      sub.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${CurrencySymbol().getCode(sub.currency) ?? sub.currency} '
+                      '${sub.amount.toStringAsFixed(2)} · ${sub.billingCycle}',
+                    ),
+                    Text(
+                      'Renewal date: ${DateFormat.yMMMd().format(sub.nextBillingDate)}',
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                  if (_reviewError != null || blocked != null) ...[
+                    Text(_reviewError ?? blocked!),
+                    const SizedBox(height: 16),
+                  ],
+                  FilledButton(
+                    onPressed: _reviewInProgress || blocked != null
+                        ? null
+                        : () => _runReview(review),
+                    child: const Text('Continue'),
+                  ),
+                ],
+              ),
+      ),
+    );
   }
 
   Widget _buildSummaryCard(ThemeData theme) {
@@ -1129,6 +1289,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final review = widget.review;
+    if (review != null) return _buildReview(review);
     final theme = Theme.of(context);
     final displayedList = _filteredSubscriptions;
 
