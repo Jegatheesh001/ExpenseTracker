@@ -208,6 +208,9 @@ class ChatbotTools {
       case 'prepareSubscriptionAction':
         return _prepareSubscriptionAction(args);
 
+      case 'convertCurrency':
+        return _convertCurrency(args);
+
       default:
         return _error('Unknown tool.');
     }
@@ -388,6 +391,58 @@ class ChatbotTools {
       'status': 'prepared',
       'action': action.name,
       'title': _text(sub.title),
+    };
+  }
+
+  Future<Map<String, dynamic>> _convertCurrency(
+    Map<String, dynamic> args,
+  ) async {
+    final rawAmount = args['amount'];
+    final double amount;
+    if (rawAmount == null) {
+      amount = 1.0;
+    } else if (rawAmount is! num || !rawAmount.isFinite || rawAmount <= 0) {
+      throw const FormatException('Use a positive, finite amount.');
+    } else {
+      amount = rawAmount.toDouble();
+    }
+
+    final currencies = CurrencySymbol();
+    final fromInput = _string(args, 'fromCurrency');
+    final fromCode = currencies.getCode(fromInput);
+    if (fromCode == null) {
+      return _error(
+        'Unsupported source currency. Use a 3-letter ISO code or known currency name.',
+      );
+    }
+
+    final toInput = args['toCurrency'] == null
+        ? _profileCurrency
+        : _string(args, 'toCurrency');
+    final toCode = currencies.getCode(toInput);
+    if (toCode == null) {
+      return _error(
+        'Unsupported target currency. Use a 3-letter ISO code or known currency name.',
+      );
+    }
+
+    final rate = await CurrencyConversionService.instance.getRate(
+      fromCode,
+      toCode,
+    );
+    if (rate == null || !rate.isFinite || rate <= 0) {
+      return _error('Exchange rate unavailable for $fromCode to $toCode.');
+    }
+    final convertedAmount = amount * rate;
+    if (!convertedAmount.isFinite) {
+      return _error('Converted amount is out of range.');
+    }
+    return {
+      'fromCurrency': fromCode,
+      'toCurrency': toCode,
+      'amount': amount,
+      'rate': rate,
+      'convertedAmount': convertedAmount,
     };
   }
 

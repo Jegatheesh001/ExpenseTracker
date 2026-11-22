@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:expense_tracker/db/entity.dart';
@@ -56,13 +57,13 @@ void main() {
   ]) => tools.execute(AIFunctionCall(name: name, args: args));
 
   test(
-    'both providers expose the same 14 tools without a model profile ID',
+    'both providers expose the same 15 tools without a model profile ID',
     () {
       final openAI = {
         for (final item in chatbotOpenAITools)
           (item['function'] as Map)['name']: item['function'] as Map,
       };
-      expect(openAI, hasLength(14));
+      expect(openAI, hasLength(15));
       expect(
         openAI.keys,
         unorderedEquals(chatbotGeminiTools.map((tool) => tool.name)),
@@ -305,6 +306,199 @@ void main() {
       await call('createExpense', args);
       expect(db.saved, hasLength(1));
       expect(refreshes, 1);
+    },
+  );
+
+  test(
+    'currency converter defaults to active profile currency and reuses cache',
+    () async {
+      var requests = 0;
+      CurrencyConversionService.setMockInstance(
+        CurrencyConversionService(
+          client: MockClient((request) async {
+            requests++;
+            if (request.url.path.endsWith('/AED/INR')) {
+              return http.Response(
+                jsonEncode({'base': 'AED', 'quote': 'INR', 'rate': 25.0}),
+                200,
+              );
+            }
+            if (request.url.path.endsWith('/USD/EUR')) {
+              return http.Response(
+                jsonEncode({'base': 'USD', 'quote': 'EUR', 'rate': 0.9}),
+                200,
+              );
+            }
+            return http.Response('{}', 503);
+          }),
+        ),
+      );
+
+      // Defaults to active profile currency (INR for profile 1) and ignores model profileId.
+      final toProfile = await call('convertCurrency', {
+        'amount': 10,
+        'fromCurrency': 'Dirham',
+        'profileId': 0,
+      });
+      expect(toProfile, {
+        'fromCurrency': 'AED',
+        'toCurrency': 'INR',
+        'amount': 10.0,
+        'rate': 25.0,
+        'convertedAmount': 250.0,
+      });
+      expect(requests, 1);
+
+      // Repeat lookup uses 12h memory cache without another HTTP request.
+      final cached = await call('convertCurrency', {
+        'fromCurrency': 'AED',
+        'toCurrency': 'Rupee',
+      });
+      expect(cached, {
+        'fromCurrency': 'AED',
+        'toCurrency': 'INR',
+        'amount': 1.0,
+        'rate': 25.0,
+        'convertedAmount': 25.0,
+      });
+      expect(requests, 1);
+
+      // Same-currency lookup returns 1.0 with zero network calls.
+      final same = await call('convertCurrency', {
+        'amount': 12.5,
+        'fromCurrency': 'Dirham',
+        'toCurrency': 'AED',
+      });
+      expect(same, {
+        'fromCurrency': 'AED',
+        'toCurrency': 'AED',
+        'amount': 12.5,
+        'rate': 1.0,
+        'convertedAmount': 12.5,
+      });
+      expect(requests, 1);
+
+      // Explicit target currency fetches and caches USD/EUR.
+      final explicit = await call('convertCurrency', {
+        'amount': 20,
+        'fromCurrency': 'USD',
+        'toCurrency': 'EUR',
+      });
+      expect(explicit, {
+        'fromCurrency': 'USD',
+        'toCurrency': 'EUR',
+        'amount': 20.0,
+        'rate': 0.9,
+        'convertedAmount': 18.0,
+      });
+      expect(requests, 2);
+
+      // Fresh service with failing client loads persisted SharedPreferences cache.
+      CurrencyConversionService.setMockInstance(
+        CurrencyConversionService(
+          client: MockClient((_) async => http.Response('offline', 503)),
+        ),
+      );
+      final persisted = await call('convertCurrency', {
+        'amount': 4,
+        'fromCurrency': 'AED',
+        'toCurrency': 'INR',
+      });
+      expect(persisted, {
+        'fromCurrency': 'AED',
+        'toCurrency': 'INR',
+        'amount': 4.0,
+        'rate': 25.0,
+        'convertedAmount': 100.0,
+      });
+
+      // Stale persisted cache (older than 12h) still serves fallback when network fails.
+      final staleFetchedAt = DateTime.now()
+          .subtract(const Duration(hours: 24))
+          .toIso8601String();
+      await prefs.setString(
+        PrefKeys.cachedCurrencyRates,
+        jsonEncode({
+          'GBP/INR': {
+            'base': 'GBP',
+            'quote': 'INR',
+            'rate': 110.0,
+            'date': '2026-11-20',
+            'fetchedAt': staleFetchedAt,
+          },
+        }),
+      );
+      CurrencyConversionService.setMockInstance(
+        CurrencyConversionService(
+          client: MockClient((_) async => http.Response('offline', 503)),
+        ),
+      );
+      final staleFallback = await call('convertCurrency', {
+        'amount': 2,
+        'fromCurrency': 'GBP',
+      });
+      expect(staleFallback, {
+        'fromCurrency': 'GBP',
+        'toCurrency': 'INR',
+        'amount': 2.0,
+        'rate': 110.0,
+        'convertedAmount': 220.0,
+      });
+    },
+  );
+
+  test(
+    'currency converter validates arguments and rejects profile switches',
+    () async {
+      final started = Completer<void>();
+      final finish = Completer<void>();
+      CurrencyConversionService.setMockInstance(
+        CurrencyConversionService(
+          client: MockClient((request) async {
+            started.complete();
+            await finish.future;
+            return http.Response(
+              jsonEncode({'base': 'EUR', 'quote': 'INR', 'rate': 95.0}),
+              200,
+            );
+          }),
+        ),
+      );
+
+      expect(
+        (await call('convertCurrency', {
+          'amount': 0,
+          'fromCurrency': 'USD',
+        }))['status'],
+        'error',
+      );
+      expect(
+        (await call('convertCurrency', {
+          'amount': -5,
+          'fromCurrency': 'USD',
+        }))['status'],
+        'error',
+      );
+      expect(
+        (await call('convertCurrency', {'fromCurrency': 'INVALID'}))['status'],
+        'error',
+      );
+      expect(
+        (await call('convertCurrency', {
+          'fromCurrency': 'USD',
+          'toCurrency': '??',
+        }))['status'],
+        'error',
+      );
+
+      final pending = call('convertCurrency', {
+        'amount': 10,
+        'fromCurrency': 'EUR',
+      });
+      await started.future;
+      await prefs.setInt(PrefKeys.profileId, 0);
+      finish.complete();
+      expect((await pending)['status'], 'error');
     },
   );
 }

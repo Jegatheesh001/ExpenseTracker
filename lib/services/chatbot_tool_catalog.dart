@@ -177,6 +177,29 @@ const _catalog = <String, ({String description, Map<String, _Parameter> paramete
       ),
     },
   ),
+  'convertCurrency': (
+    description:
+        'Convert an amount between two currencies using cached or live reference exchange rates.',
+    parameters: {
+      'amount': (
+        type: 'number',
+        description: 'Positive amount to convert. Defaults to 1.',
+        required: false,
+      ),
+      'fromCurrency': (
+        type: 'string',
+        description:
+            'Source 3-letter ISO currency code or name (e.g. USD, EUR, AED, INR).',
+        required: true,
+      ),
+      'toCurrency': (
+        type: 'string',
+        description:
+            'Target 3-letter ISO currency code or name. Defaults to the active profile currency.',
+        required: false,
+      ),
+    },
+  ),
 };
 
 final chatbotOpenAITools = [
