@@ -4,6 +4,7 @@
     <string name="wallet_balance_long_label">Show wallet balance</string>
     <string name="wallet_balance_widget_description">Current wallet, cash, and bank balances</string>
     <string name="wallet_balance_locked">Unlock your phone to hear your wallet balance.</string>
+    <string name="app_functions_display_description">Check wallet balances, budgets, spending summaries, subscriptions, and prepare expenses.</string>
 
     <string-array name="wallet_balance_queries">
         <item>what is my wallet balance</item>

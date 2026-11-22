@@ -3,11 +3,11 @@ import java.io.FileInputStream
 
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
     id 'dev.flutter.flutter-gradle-plugin'
 }
 
-def compileSdkVersion = 36
+def compileSdkVersion = 37
 def targetSdkVersion = 36
 
 // Load keystore properties
@@ -20,7 +20,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace "com.jegatheesh.expenseTracker"
     compileSdk compileSdkVersion
-    ndkVersion "27.0.12077973"
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -74,7 +74,11 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     implementation 'com.google.assistant.appactions:widgets:0.0.1'
+    implementation 'androidx.appfunctions:appfunctions:1.0.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+    ksp 'androidx.appfunctions:appfunctions-compiler:1.0.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0'
 }
 
 flutter {

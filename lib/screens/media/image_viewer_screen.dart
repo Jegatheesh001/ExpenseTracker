@@ -30,7 +30,9 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex ?? (widget.imageList?.indexOf(widget.imageFile) ?? 0);
+    _currentIndex =
+        widget.initialIndex ??
+        (widget.imageList?.indexOf(widget.imageFile) ?? 0);
     _pageController = PageController(initialPage: _currentIndex);
   }
 
@@ -52,7 +54,8 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
             ),
         ],
       ),
-      backgroundColor: Colors.black, // Set background color for the body as well
+      backgroundColor:
+          Colors.black, // Set background color for the body as well
       body: Stack(
         children: [
           widget.imageList != null && widget.imageList!.isNotEmpty
@@ -62,10 +65,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                     return PhotoViewGalleryPageOptions(
                       imageProvider: FileImage(widget.imageList![index]),
                       initialScale: PhotoViewComputedScale.contained,
-                      heroAttributes:
-                          PhotoViewHeroAttributes(tag: widget.imageList![index].path),
+                      heroAttributes: PhotoViewHeroAttributes(
+                        tag: widget.imageList![index].path,
+                      ),
                       minScale: PhotoViewComputedScale.contained * 0.8,
-                      maxScale: PhotoViewComputedScale.covered *
+                      maxScale:
+                          PhotoViewComputedScale.covered *
                           2.5, // Increased max zoom slightly
                     );
                   },
@@ -85,9 +90,12 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
               : PhotoView(
                   imageProvider: FileImage(widget.imageFile),
                   initialScale: PhotoViewComputedScale.contained,
-                  heroAttributes: PhotoViewHeroAttributes(tag: widget.imageFile.path),
+                  heroAttributes: PhotoViewHeroAttributes(
+                    tag: widget.imageFile.path,
+                  ),
                   minScale: PhotoViewComputedScale.contained * 0.8,
-                  maxScale: PhotoViewComputedScale.covered *
+                  maxScale:
+                      PhotoViewComputedScale.covered *
                       2.5, // Increased max zoom slightly
                   backgroundDecoration: const BoxDecoration(
                     color: Colors.black,
@@ -120,22 +128,26 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
 
   Future<void> _saveImage() async {
     try {
-      final fileToSave = widget.imageList != null && widget.imageList!.isNotEmpty
+      final fileToSave =
+          widget.imageList != null && widget.imageList!.isNotEmpty
           ? widget.imageList![_currentIndex]
           : widget.imageFile;
       final bytes = await fileToSave.readAsBytes();
       final fileName = fileToSave.path.split(Platform.pathSeparator).last;
-      await FilePicker.platform.saveFile(
+      final savedUri = await FilePicker.saveFile(
         fileName: fileName,
         bytes: bytes,
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image saved successfully')),
-      );
+      if (!mounted) return;
+      if (savedUri == null) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Image saved successfully')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving image: $e')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error saving image: $e')));
     }
   }
 }

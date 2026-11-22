@@ -139,20 +139,19 @@ class DataBackup {
     VoidCallback refreshMainPage,
   ) async {
     // 1. Pick file before showing loader
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final pickedFile = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: ['zip', 'txt'],
     );
 
-    if (result == null || result.files.single.path == null) {
+    final pickedFilePath = pickedFile?.path;
+    if (pickedFilePath == null) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('File selection cancelled.')),
       );
       return;
     }
-
-    final pickedFilePath = result.files.single.path!;
     final isZip = pickedFilePath.toLowerCase().endsWith('.zip');
     final statusNotifier = ValueNotifier<String>('Reading backup file...');
     if (!context.mounted) return;
@@ -652,16 +651,18 @@ class DataBackup {
           );
         } else {
           // Desktop (Windows/macOS/Linux)
-          String? outputFile = await FilePicker.platform.saveFile(
+          final bytes = await tempZipFile.readAsBytes();
+          final outputUri = await FilePicker.saveFile(
             dialogTitle: 'Export Expense Data',
             fileName: zipFileName,
-            type: FileType.custom,
-            allowedExtensions: ['zip'],
+            bytes: bytes,
           );
 
           if (!context.mounted) return;
-          if (outputFile != null) {
-            await tempZipFile.copy(outputFile);
+          if (outputUri != null) {
+            final outputLocation = outputUri.scheme == 'file'
+                ? outputUri.toFilePath()
+                : outputUri.toString();
             await prefs.setInt(
               PrefKeys.lastBackupTimestamp,
               DateTime.now().millisecondsSinceEpoch,
@@ -673,7 +674,9 @@ class DataBackup {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Data exported successfully to $outputFile'),
+                  content: Text(
+                    'Data exported successfully to $outputLocation',
+                  ),
                 ),
               );
             }
@@ -695,18 +698,19 @@ class DataBackup {
         _hideLoadingDialog(context);
 
         final fileName = 'expense_data_export_$timestamp.txt';
+        final bytes = await tempTextFile.readAsBytes();
         if (Platform.isAndroid || Platform.isIOS) {
-          final bytes = await tempTextFile.readAsBytes();
-          String? outputFile = await FilePicker.platform.saveFile(
+          final outputUri = await FilePicker.saveFile(
             dialogTitle: 'Export Expense Data',
             fileName: fileName,
-            type: FileType.custom,
-            allowedExtensions: ['txt'],
             bytes: bytes,
           );
 
           if (!context.mounted) return;
-          if (outputFile != null) {
+          if (outputUri != null) {
+            final outputLocation = outputUri.scheme == 'file'
+                ? outputUri.toFilePath()
+                : outputUri.toString();
             await prefs.setInt(
               PrefKeys.lastBackupTimestamp,
               DateTime.now().millisecondsSinceEpoch,
@@ -718,7 +722,9 @@ class DataBackup {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Data exported successfully to $outputFile'),
+                  content: Text(
+                    'Data exported successfully to $outputLocation',
+                  ),
                 ),
               );
             }
@@ -733,16 +739,17 @@ class DataBackup {
           }
         } else {
           // Desktop
-          String? outputFile = await FilePicker.platform.saveFile(
+          final outputUri = await FilePicker.saveFile(
             dialogTitle: 'Export Expense Data',
             fileName: fileName,
-            type: FileType.custom,
-            allowedExtensions: ['txt'],
+            bytes: bytes,
           );
 
           if (!context.mounted) return;
-          if (outputFile != null) {
-            await tempTextFile.copy(outputFile);
+          if (outputUri != null) {
+            final outputLocation = outputUri.scheme == 'file'
+                ? outputUri.toFilePath()
+                : outputUri.toString();
             await prefs.setInt(
               PrefKeys.lastBackupTimestamp,
               DateTime.now().millisecondsSinceEpoch,
@@ -754,7 +761,9 @@ class DataBackup {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Data exported successfully to $outputFile'),
+                  content: Text(
+                    'Data exported successfully to $outputLocation',
+                  ),
                 ),
               );
             }

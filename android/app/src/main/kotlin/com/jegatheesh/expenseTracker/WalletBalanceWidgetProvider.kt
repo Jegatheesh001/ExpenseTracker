@@ -80,16 +80,33 @@ internal object WalletBalanceReader {
         val bank = decodeDouble(preferences, bankKey) ?: 0.0
         val storedWallet = decodeDouble(preferences, walletKey) ?: 0.0
         val hasAccountBreakdown = preferences.contains(cashKey) || preferences.contains(bankKey)
-        val total = if (hasAccountBreakdown) cash + bank else storedWallet
         val currency = preferences.getString(
             "${flutterPrefix}selectedCurrency-$profileId",
             "Rupee",
         )
-
-        return WalletBalance(
-            total = total,
+        return resolveBalance(
             cash = cash,
             bank = bank,
+            storedWallet = storedWallet,
+            hasAccountBreakdown = hasAccountBreakdown,
+            currency = currency,
+        )
+    }
+
+    internal fun resolveBalance(
+        cash: Double,
+        bank: Double,
+        storedWallet: Double,
+        hasAccountBreakdown: Boolean,
+        currency: String?,
+    ): WalletBalance {
+        val effectiveCash = if (hasAccountBreakdown) cash else storedWallet
+        val effectiveBank = if (hasAccountBreakdown) bank else 0.0
+        val total = if (hasAccountBreakdown) cash + bank else storedWallet
+        return WalletBalance(
+            total = total,
+            cash = effectiveCash,
+            bank = effectiveBank,
             currencyCode = WalletBalanceFormatter.currencyCode(currency),
         )
     }
@@ -125,13 +142,17 @@ internal object WalletBalanceFormatter {
     @Synchronized
     fun formatAmount(amount: Double): String = amountFormat.format(amount)
 
+    private val isoCurrencyRegex = Regex("^[A-Z]{3}$")
+
     fun currencyCode(currency: String?): String {
-        return when (currency) {
-            "Dirham" -> "AED"
-            "Dollar" -> "USD"
-            "Euro" -> "EUR"
-            "Pound" -> "GBP"
-            else -> "INR"
+        val normalized = currency?.trim()?.uppercase(Locale.US) ?: return "INR"
+        return when (normalized) {
+            "DIRHAM" -> "AED"
+            "DOLLAR" -> "USD"
+            "EURO" -> "EUR"
+            "POUND" -> "GBP"
+            "RUPEE" -> "INR"
+            else -> if (isoCurrencyRegex.matches(normalized)) normalized else "INR"
         }
     }
 

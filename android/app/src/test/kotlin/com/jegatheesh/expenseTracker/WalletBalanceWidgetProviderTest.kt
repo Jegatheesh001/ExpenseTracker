@@ -32,9 +32,41 @@ class WalletBalanceWidgetProviderTest {
     @Test
     fun mapsConfiguredCurrenciesToIsoCodes() {
         assertEquals("AED", WalletBalanceFormatter.currencyCode("Dirham"))
+        assertEquals("AED", WalletBalanceFormatter.currencyCode("AED"))
+        assertEquals("AED", WalletBalanceFormatter.currencyCode(" aed "))
         assertEquals("USD", WalletBalanceFormatter.currencyCode("Dollar"))
         assertEquals("EUR", WalletBalanceFormatter.currencyCode("Euro"))
+        assertEquals("EUR", WalletBalanceFormatter.currencyCode("EUR"))
         assertEquals("GBP", WalletBalanceFormatter.currencyCode("Pound"))
         assertEquals("INR", WalletBalanceFormatter.currencyCode("Rupee"))
+        assertEquals("JPY", WalletBalanceFormatter.currencyCode("jpy"))
+        assertEquals("INR", WalletBalanceFormatter.currencyCode(null))
+    }
+
+    @Test
+    fun treatsLegacyTotalOnlyWalletAsCash() {
+        val legacy = WalletBalanceReader.resolveBalance(
+            cash = 0.0,
+            bank = 0.0,
+            storedWallet = 100.0,
+            hasAccountBreakdown = false,
+            currency = "Dirham",
+        )
+        assertEquals(100.0, legacy.total, 0.0)
+        assertEquals(100.0, legacy.cash, 0.0)
+        assertEquals(0.0, legacy.bank, 0.0)
+        assertEquals("AED", legacy.currencyCode)
+
+        val split = WalletBalanceReader.resolveBalance(
+            cash = 25.0,
+            bank = 75.0,
+            storedWallet = 999.0,
+            hasAccountBreakdown = true,
+            currency = "AED",
+        )
+        assertEquals(100.0, split.total, 0.0)
+        assertEquals(25.0, split.cash, 0.0)
+        assertEquals(75.0, split.bank, 0.0)
+        assertEquals("AED", split.currencyCode)
     }
 }
